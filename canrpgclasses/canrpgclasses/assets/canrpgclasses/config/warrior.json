@@ -1,0 +1,76 @@
+{
+	"_comment": "Balance numbers for the Warrior class. Single source of truth: spells/talents read these at load, and the templated lang descriptions are filled from the same values. Editable without recompiling. Keys map to fields in the matching spell/talent C# class; a missing key falls back to the code default. Spell keys are global by local id; talent/affinity keys are namespaced by this filename (warrior:*).",
+
+	"spells": {
+		"offensive_stance": { "resource": 0, "cooldown": 1.5, "rageGen": 0.25 },
+		"guarded_stance": { "resource": 0, "cooldown": 1.5, "damageReduction": 0.10, "damagePenalty": 0.10 },
+		"reckless_stance": { "resource": 0, "cooldown": 1.5, "damageBonus": 0.15, "takenBonus": 0.10 },
+		"brutal_strike": { "resource": 10, "cooldown": 3, "empowerCoeff": 2.5, "empowerWindow": 6, "knockback": 0.2 },
+		"leg_slash": { "resource": 10, "cooldown": 6, "coeff": 0.8, "slowDuration": 4, "slowAmp": 2, "slowCap": 3 },
+		"charge": { "resource": 0, "cooldown": 12, "range": 20, "speedDuration": 3, "speedCap": 3, "rageGain": 15, "stunSeconds": 2 },
+		"rend": { "resource": 15, "cooldown": 8, "coeff": 0.7, "bleedDuration": 8, "bleedAmp": 2, "bleedCap": 3 },
+		"maiming_strike": { "resource": 30, "cooldown": 12, "coeff": 3.5, "healCut": 0.5, "healCutSecs": 6 },
+		"death_blow": { "resource": 25, "cooldown": 10, "coeff": 1.0, "missingCoeff": 2.0, "empowerWindow": 6 },
+		"war_cry": { "resource": 15, "cooldown": 40, "duration": 20, "amp": 2, "cap": 3, "radius": 10 },
+		"fearsome_shout": { "resource": 20, "cooldown": 20, "duration": 8, "amp": 1, "cap": 5, "coeff": 0.05 },
+		"sweeping_blades": { "resource": 25, "cooldown": 10, "coeff": 1.8, "range": 4.5, "knockback": 0.4 },
+		"wild_rage": { "resource": 0, "cooldown": 45, "rageGain": 25 },
+		"all_out_attack": { "resource": 0, "cooldown": 120, "duration": 12, "amp": 3, "rageGain": 20 },
+		"gore": { "resource": 20, "cooldown": 6, "coeff": 2.0, "healCoeff": 1.2 },
+		"shield_guard": { "resource": 15, "cooldown": 10, "damageReduction": 0.30, "duration": 4 },
+		"skull_rattle": { "resource": 15, "cooldown": 15, "coeff": 1.0, "stun": 2 },
+		"shield_strike": { "resource": 15, "cooldown": 6, "coeff": 2.5, "knockback": 0.3 },
+		"armor_break": { "resource": 10, "cooldown": 4, "coeff": 0.5, "duration": 15, "cap": 5, "perStack": 0.05 },
+		"leaping_charge": { "resource": 10, "cooldown": 20, "forward": 0.8, "upward": 0.35 },
+		"taunt": { "resource": 0, "cooldown": 10, "aggroRange": 10 },
+		"ground_tremor": { "resource": 20, "cooldown": 12, "coeff": 1.0, "range": 5, "slowDuration": 5, "slowAmp": 2, "slowCap": 3 },
+		"full_guard": { "resource": 20, "cooldown": 60, "damageReduction": 0.40, "duration": 8 },
+		"final_stand": { "resource": 25, "cooldown": 90, "shieldCoeff": 6, "shieldDuration": 10 }
+	},
+
+	"talents": {
+		"weapon_expertise": { "perRank": 0.03 },
+		"battle_sense": { "chancePerRank": 0.07 },
+		"improved_charge": { "perRank": 0.10 },
+		"crippling_strikes": { "perRank": 0.04 },
+		"lasting_wounds": { "perRank": 0.04 },
+		"precise_strikes": { "perRank": 0.05 },
+		"killing_instinct": { "perRank": 0.05, "threshold": 0.35 },
+		"headsman": { "value": 0.5 },
+		"boiling_wrath": { "perRank": 1 },
+		"fleet_of_foot": { "perRank": 0.03 },
+		"blood_rush": { "perRank": 0.04, "threshold": 0.5 },
+		"rage_reservoir": { "perRank": 10 },
+		"bloodied_vigor": { "perRank": 0.02 },
+		"frenzy": { "chancePerRank": 0.10, "duration": 6, "enrageIcd": 10, "enrageDamage": 0.15, "enrageHaste": 0.15 },
+		"reckless_fury": { "value": 0.25 },
+		"toughness": { "perRank": 3 },
+		"ironhide": { "perRank": 0.02 },
+		"watchful_guard": { "perRank": 0.15 },
+		"shield_handling": { "perRank": 0.15 },
+		"payback": { "perRank": 0.05 },
+		"retort": { "chancePerRank": 0.10, "icd": 4 },
+		"shield_rhythm": { "perRank": 0.03 },
+		"unbreakable": { "value": 0.5 }
+	},
+
+	"affinities": {
+		"blade_mastery": { "value": 0.15 },
+		"armored_bulwark": { "value": 0.04 },
+		"clumsy_archer": { "value": 0.25 }
+	},
+
+	"globals": {
+		"warriorArmsMeleePerPoint": 0.01,
+		"warriorFuryRagePerPoint": 0.01,
+		"warriorProtDrPerPoint": 0.003,
+		"warriorBaseHealth": 8,
+		"warriorHpPerLevel": 0.9,
+		"ragePerMeleeHit": 5,
+		"ragePerDamageTaken": 1.5,
+		"rageTakenCapPerHit": 10,
+		"rageDecayPerSec": 3,
+		"rageHitMinIntervalMs": 400,
+		"stanceSwitchRage": 5
+	}
+}

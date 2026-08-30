@@ -1,0 +1,37 @@
+{
+	"_comment": "Cross-class global balance numbers (not tied to one class). Read via BalanceConfig.Global(key, default). Pace knobs: resourceRegenMultiplier scales every class's passive mana/energy/focus regen (0.5 = half speed), spellCooldownMultiplier scales every per-spell cooldown (2.0 = twice as long); the per-class base rates themselves live in that class's config file as <class>ManaRegenPerSec / rogueEnergyRegenPerSec / hunterFocusRegenPerSec. Class-change re-pick policy: classChangeReselectMode 0=unrestricted (always free), 1=cooldown (once per classChangeCooldownDays), 2=admin_only (only via /canrpgclass), 3=fee (charge classChangeFee via caneconomy; needs that mod, else falls back to admin_only). The first class pick is always free.",
+
+	"globals": {
+		"spellPowerPerLevel": 0.05,
+
+		"maxLevel": 25,
+		"talentPointsPerLevel": 1,
+		"xpPerHealth": 2,
+		"xpCurveBase": 20,
+		"xpCurveExponent": 1.6,
+
+		"comboDecaySeconds": 12,
+		"combatTagSeconds": 6,
+
+		"globalCooldownSeconds": 1.0,
+
+		"resourceRegenMultiplier": 1.0,
+		"spellCooldownMultiplier": 1.0,
+
+		"magicResistCap": 0.6,
+		"armorMagicResist": 0.08,
+		"baseMagicResistMin": 0.01,
+		"baseMagicResistMax": 0.15,
+
+		"damageReductionCap": 0.5,
+		"cooldownReductionCap": 0.8,
+		"castReductionCap": 0.8,
+		"auraUpkeepReductionCap": 0.9,
+
+		"modelReapplyOnJoinDelayMs": 2500,
+
+		"classChangeReselectMode": 0,
+		"classChangeCooldownDays": 7,
+		"classChangeFee": 1000
+	}
+}

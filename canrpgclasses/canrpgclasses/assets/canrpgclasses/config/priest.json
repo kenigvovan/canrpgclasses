@@ -1,0 +1,68 @@
+{
+	"_comment": "Balance numbers for the Priest class. Single source of truth: spells/talents read these at load, and the templated lang descriptions are filled from the same values. Editable without recompiling. Keys map to fields in the matching spell/talent C# class; a missing key falls back to the code default. Spell keys are global by local id; talent/affinity keys are namespaced by this filename (priest:*). Ticking DoT/HoT effects tick once per second (effectshud TICK_EVERY_SECONDS=1), so coeffPerTick is per-second and duration is the number of ticks.",
+
+	"spells": {
+		"piercing_light": { "resource": 20, "cooldown": 0, "cast": 1.5, "coeff": 2.0 },
+		"warding_word": { "resource": 30, "cooldown": 12, "shieldCoeff": 8, "shieldDuration": 15 },
+		"soothing_prayer": { "resource": 25, "cooldown": 3, "duration": 12, "coeffPerTick": 0.5 },
+		"inner_flame": { "resource": 15, "cooldown": 10, "damageReduction": 0.08, "duration": 60 },
+		"purify": { "resource": 20, "cooldown": 8 },
+		"suppress_pain": { "resource": 30, "cooldown": 60, "damageReduction": 0.40, "duration": 8 },
+		"warding_barrier": { "resource": 60, "cooldown": 120, "shieldCoeff": 6, "shieldDuration": 10, "range": 8 },
+		"swift_heal": { "resource": 40, "cooldown": 4, "cast": 1.0, "healCoeff": 5 },
+		"deep_heal": { "resource": 45, "cooldown": 0, "cast": 2.5, "healCoeff": 10 },
+		"sacred_flame": { "resource": 30, "cooldown": 10, "cast": 2.0, "coeff": 1.5, "duration": 8, "coeffPerTick": 0.3 },
+		"communal_prayer": { "resource": 50, "cooldown": 20, "cast": 2.5, "healCoeff": 6, "range": 10 },
+		"sheltering_spirit": { "resource": 30, "cooldown": 90, "healBoost": 0.40, "duration": 10 },
+		"sacred_hymn": { "resource": 60, "cooldown": 120, "cast": 2.0, "healCoeff": 12, "range": 10 },
+		"shadow_brand": { "resource": 25, "cooldown": 4, "duration": 12, "coeffPerTick": 0.4 },
+		"mind_shock": { "resource": 35, "cooldown": 8, "cast": 1.5, "coeff": 3.0, "knockback": 0.3, "slowDuration": 3, "slowAmp": 2, "slowCap": 3 },
+		"mind_rend": { "resource": 25, "cooldown": 0, "channel": 3.0, "ticks": 4, "coeff": 0.8, "slowDuration": 2, "slowAmp": 2, "slowCap": 3 },
+		"silence": { "resource": 25, "cooldown": 20, "duration": 4 },
+		"consuming_plague": { "resource": 40, "cooldown": 15, "duration": 9, "coeffPerTick": 0.6, "selfHealFraction": 0.5 },
+		"blend": { "resource": 20, "cooldown": 45, "duration": 5, "slowAmp": 2, "slowCap": 3 },
+		"dissipate": { "resource": 0, "cooldown": 90, "damageReduction": 0.40, "duration": 6, "manaGain": 40 },
+		"shadow_guise": { "resource": 0, "cooldown": 1.5, "shadowBonus": 0.15, "healPenalty": 0.20 },
+		"terrifying_scream": { "resource": 30, "cooldown": 45, "duration": 5, "range": 4 },
+		"shadow_orbs": { "cap": 3, "duration": 20, "shadowPowerPerOrb": 0.12, "dotOrbChance": 0.15 }
+	},
+
+	"talents": {
+		"dual_discipline": { "perRank": 0.03 },
+		"nimble_mind": { "perRank": 15 },
+		"soul_shelter": { "perRank": 0.10 },
+		"steady_will": { "perRank": 0.03, "duration": 8 },
+		"kindled_hope": { "perRank": 0.05 },
+		"mirror_shield": { "perRank": 0.05 },
+		"penitence": { "fraction": 0.5 },
+		"bulwark": { "perRank": 3 },
+		"meditation": { "perRank": 0.15 },
+		"devout_healing": { "perRank": 0.03 },
+		"light_specialization": { "perRank": 0.03 },
+		"lasting_renew": { "perRank": 0.10 },
+		"quiet_grace": { "perRank": 0.10 },
+		"reach_of_light": { "perRank": 0.04 },
+		"deeper_shadow": { "perRank": 0.03 },
+		"improved_brand": { "perRank": 0.04 },
+		"siphoning_embrace": { "perRank": 0.05 },
+		"mind_erosion": { "perRank": 0.05 },
+		"shadow_piercing": { "perRank": 0.05 }
+	},
+
+	"affinities": {
+		"sacred_vestments": { "value": 0.10 },
+		"burdened_faith": { "value": 0.15 },
+		"staff_focus": { "value": 0.08 }
+	},
+
+	"globals": {
+		"priestBaseHealth": 4,
+		"priestHpPerLevel": 0.75,
+		"priestManaRegenPerSec": 5,
+		"priestDiscHolyPerPoint": 0.01,
+		"priestHolyHealPerPoint": 0.02,
+		"priestShadowDmgPerPoint": 0.015,
+		"fearWanderRadius": 6,
+		"fearWanderStrength": 0.13
+	}
+}

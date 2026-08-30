@@ -1,0 +1,80 @@
+{
+	"_comment": "Balance numbers for the Hunter class. Single source of truth: spells/talents read these at load, and the templated lang descriptions are filled from the same values. Editable without recompiling. Keys map to fields in the matching spell/talent C# class; a missing key falls back to the code default. Spells added per milestone (M1: base shots + summon; M2: shots/traps; M3: pet).",
+
+	"spells": {
+		"measured_shot": { "resource": 12, "cooldown": 1.5, "coeff": 1.5, "knockback": 0.2, "window": 6 },
+		"finishing_shot": { "resource": 30, "cooldown": 8, "coeff": 1.5, "perCombo": 1.2, "knockback": 0.5, "window": 6 },
+		"summon_pet": { "resource": 0, "cooldown": 5, "cast": 2.5 },
+
+		"careful_shot": { "resource": 30, "cooldown": 8, "coeff": 4, "knockback": 0.5, "window": 6, "drawFraction": 1.2 },
+		"split_shot": { "resource": 35, "cooldown": 10, "coeff": 0.6, "extraArrows": 4, "window": 6 },
+		"jarring_shot": { "resource": 20, "cooldown": 9, "coeff": 0.5, "slowDuration": 5, "slowAmp": 2, "window": 6 },
+		"venom_sting": { "resource": 20, "cooldown": 6, "coeff": 0.6, "poisonDuration": 8, "poisonAmp": 2, "window": 6 },
+		"wounding_shot": { "resource": 25, "cooldown": 12, "coeff": 0.5, "healCut": 0.5, "healCutSecs": 8, "window": 6 },
+		"draining_shot": { "resource": 20, "cooldown": 10, "coeff": 0.5, "drain": 25, "window": 6 },
+		"incendiary_shot": { "resource": 25, "cooldown": 10, "coeff": 0.6, "window": 6 },
+		"signal_flare": { "resource": 20, "cooldown": 20, "radius": 12 },
+		"chill_trap": { "resource": 25, "cooldown": 15, "radius": 4, "triggerRadius": 1.5, "armDuration": 30, "slowAmp": 2, "slowDuration": 4 },
+		"blast_trap": { "resource": 30, "cooldown": 14, "radius": 4, "triggerRadius": 1.5, "armDuration": 30, "coeff": 3, "knockback": 0.4 },
+		"second_breath": { "resource": 30, "cooldown": 30, "healCoeff": 2, "missingFraction": 0.4 },
+		"concealment": { "resource": 0, "cooldown": 25, "duration": 20, "seekReduction": 0.8 },
+		"hunter_disengage": { "resource": 25, "cooldown": 14, "slowRadius": 4, "slowAmp": 2, "slowDuration": 3 },
+		"fresh_quiver": { "resource": 0, "cooldown": 180 },
+
+		"tend_beast": { "resource": 25, "cooldown": 10, "healCoeff": 8 },
+		"beast_fury": { "resource": 25, "cooldown": 45, "damageBonus": 0.4, "duration": 12 },
+
+		"pet_aggressive": { "resource": 0, "cooldown": 1 },
+		"pet_defensive": { "resource": 0, "cooldown": 1 },
+		"pet_passive": { "resource": 0, "cooldown": 1 },
+		"pet_attack": { "resource": 0, "cooldown": 1 },
+		"pet_come": { "resource": 0, "cooldown": 1 },
+		"pet_stay": { "resource": 0, "cooldown": 1 },
+		"pet_dismiss": { "resource": 0, "cooldown": 1 }
+	},
+
+	"talents": {
+		"bow_expertise": { "perRank": 0.03 },
+		"deadeye": { "perRank": 0.04, "minDistance": 20 },
+		"precise_aim": { "chancePerRank": 0.08, "critMult": 1.5 },
+		"bank_shot": { "extraArrows": 2 },
+
+		"hunters_hide": { "perRank": 3 },
+		"light_footed": { "perRank": 0.03 },
+		"natural_recovery": { "perRank": 0.08 },
+		"trap_mastery": { "perRank": 0.08 },
+		"tough_hide": { "perRank": 0.03 },
+		"napalm": { },
+
+		"alpha": { "perRank": 0.10 },
+		"sharp_fangs": { "perRank": 0.05 },
+		"beast_kinship": { "perRank": 0.12 },
+		"venom": { "duration": 6 },
+		"bloodletting": { "perRank": 0.06 },
+		"pack_tactics": { "perRank": 0.04 },
+		"cowing_roar": { "duration": 3 },
+		"beast_call": { "perRank": 0.15 },
+		"kindred_spirit": { "perRank": 3 },
+		"beast_adept": { "perRank": 0.5 },
+		"wild_chase": { "durationBonus": 0.5, "damageBonus": 0.2 }
+	},
+
+	"affinities": {
+		"bow_mastery": { "value": 0.20 },
+		"heavy_weapon": { "value": 0.25 },
+		"light_armor": { "value": 0.06 },
+		"heavy_armor": { "value": 0.12 }
+	},
+
+	"globals": {
+		"hunterMarksRangedPerPoint": 0.015,
+		"hunterSurvivalSpeedPerPoint": 0.003,
+		"hunterBaseHealth": 5,
+		"hunterHpPerLevel": 0.8,
+		"hunterFocusRegenPerSec": 6,
+
+		"hunterPetBaseHp": 20,
+		"hunterPetHpPerLevel": 2.5,
+		"petDeathLockoutSeconds": 30
+	}
+}

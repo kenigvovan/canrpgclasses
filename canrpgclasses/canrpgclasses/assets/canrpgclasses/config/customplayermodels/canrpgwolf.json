@@ -1,0 +1,22 @@
+{
+	"canrpgwolf": {
+		"Enabled": false,
+		"Name": "Wolf (Ghost Wolf)",
+		"Domain": "canrpgclasses",
+		"ShapePath": "canrpgclasses:entity/canrpgwolf",
+		"MainTextureCode": "wolf5",
+		"ModelSizeFactor": 1.0,
+		"ExtraTraits": [],
+		"AvailableClasses": [],
+		"SkipClasses": [],
+		"SkinnableParts": [],
+
+		"_comment_AnimationsMetaData": "Remaps the player's seraph locomotion codes onto the wolf shape's OWN animations. Needed because the wolf shape carries two roots - invisible seraph pivots (root/UpperTorso, required or the vanilla player renderer crashes) and 'Origin' (the wolf mesh). The player plays seraph animations, which only move the invisible seraph branch, so the wolf body just slides. PlayerModelLib (StartAnimation_ByMeta) swaps the metadata by code, so triggering 'walk'/'sprint' now plays the wolf's own gait (keyed to the Origin branch). Animation speed still scales with movement speed via the client animator. CRITICAL: the target 'animation' name MUST equal the seraph code, because EntityAgent.HandleAnimations checks wasActive via IsAnimationActive(anim.Animation) and stops via StopAnimation(anim.Animation) using the SERAPH name - if the target were renamed (e.g. 'run'), the active anim is stored under that name, the was-active check misses it, and the stop branch never fires (the gait never ends). That's why the wolf's 'run' clip was renamed to 'sprint' in the shape to match the seraph code.",
+		"AnimationsMetaData": [
+			{ "code": "idle", "animation": "idle", "weight": 1, "blendMode": "Average", "animationSpeed": 1 },
+			{ "code": "walk", "animation": "walk", "weight": 10, "blendMode": "Average", "animationSpeed": 1 },
+			{ "code": "sprint", "animation": "sprint", "weight": 10, "blendMode": "Average", "animationSpeed": 1 },
+			{ "code": "swim", "animation": "swim", "weight": 10, "blendMode": "Average", "animationSpeed": 1 }
+		]
+	}
+}

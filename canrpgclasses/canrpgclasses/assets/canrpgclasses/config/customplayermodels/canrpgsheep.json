@@ -1,0 +1,14 @@
+{
+	"canrpgsheep": {
+		"Enabled": false,
+		"Name": "Sheep (Polymorph)",
+		"Domain": "canrpgclasses",
+		"ShapePath": "canrpgclasses:entity/canrpgsheep",
+		"MainTextureCode": "bighorn-female",
+		"ModelSizeFactor": 0.9,
+		"ExtraTraits": [],
+		"AvailableClasses": [],
+		"SkipClasses": [],
+		"SkinnableParts": []
+	}
+}

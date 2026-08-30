@@ -1,0 +1,22 @@
+{
+	"canrpgbear": {
+		"Enabled": false,
+		"Name": "Bear (Druid Bear Form)",
+		"Domain": "canrpgclasses",
+		"ShapePath": "canrpgclasses:entity/canrpgbear",
+		"MainTextureCode": "skin",
+		"ModelSizeFactor": 0.8,
+		"ExtraTraits": [],
+		"AvailableClasses": [],
+		"SkipClasses": [],
+		"SkinnableParts": [],
+
+		"_comment_AnimationsMetaData": "Remaps the player's seraph locomotion codes onto the bear shape's OWN animations. The shape carries two roots - invisible seraph pivots (root/LowerTorso/UpperTorso + UpperArm/UpperFoot, required or the vanilla player renderer crashes) and 'Cube1' (the bear mesh, with its own neck/head the head-controller tracks). Seraph animations only move the invisible seraph branch, so without this remap the bear body would slide. CRITICAL: the target 'animation' MUST equal the seraph code, so the vanilla bear 'Run' clip was renamed to 'sprint' in the shape to match (see the wolf recipe).",
+		"AnimationsMetaData": [
+			{ "code": "idle", "animation": "idle", "weight": 1, "blendMode": "Average", "animationSpeed": 1 },
+			{ "code": "walk", "animation": "walk", "weight": 10, "blendMode": "Average", "animationSpeed": 1 },
+			{ "code": "sprint", "animation": "sprint", "weight": 10, "blendMode": "Average", "animationSpeed": 1 },
+			{ "code": "swim", "animation": "swim", "weight": 10, "blendMode": "Average", "animationSpeed": 1 }
+		]
+	}
+}

@@ -1,0 +1,102 @@
+{
+	code: "hunterpet",
+	class: "EntityAgent",
+	hitboxSize: { x: 1.2, y: 1 },
+	deadHitboxSize: { x: 1, y: 0.75 },
+	eyeHeight: 0.9,
+	drops: [],
+	client: {
+		renderer: "Shape",
+		shape: { base: "canrpgclasses:entity/hunterpet" },
+		size: 1.0,
+		texture: { base: "canrpgclasses:entity/hunterpet" },
+		behaviors: [
+			{ code: "repulseagents" },
+			{ code: "controlledphysics", stepHeight: 1.1251 },
+			{ code: "floatupwhenstuck", onlyWhenDead: true },
+			{ code: "interpolateposition" },
+			{ code: "nametag", renderRange: 999, showtagonlywhentargeted: false }
+		],
+		animations: [
+			{ code: "hurt", animation: "hurt", animationSpeed: 2.2, weight: 10, blendMode: "AddAverage" },
+			{ code: "die", animation: "death", animationSpeed: 1.25, weight: 10, blendMode: "Average", triggeredBy: { onControls: ["dead"] } },
+			{ code: "idle", animation: "idle", blendMode: "AddAverage", easeOutSpeed: 4, triggeredBy: { defaultAnim: true } },
+			{ code: "Walk", animation: "Walk" },
+			{ code: "Run", animation: "Run" },
+			{ code: "Canter", animation: "Canter" },
+			{ code: "attack-withwindup", animation: "attack-withwindup", animationSpeed: 1, blendMode: "Average", weight: 100 }
+		]
+	},
+	server: {
+		behaviors: [
+			{ code: "repulseagents" },
+			{ code: "controlledphysics", stepHeight: 1.1251 },
+			{ code: "health", currenthealth: 20, maxhealth: 20 },
+			{ code: "breathe" },
+			{ code: "floatupwhenstuck", onlyWhenDead: true },
+			{ code: "deaddecay", hoursToDecay: 2 },
+			{ code: "nametag", renderRange: 999, showtagonlywhentargeted: false },
+			{ code: "canrpghunterpet" },
+			{
+				code: "taskai",
+				aiCreatureType: "LandCreature",
+				aitasks: [
+					{
+						code: "petmelee",
+						entityCodes: ["drifter-*", "locust-*", "bell-*", "bowtorn-*", "shiver-*", "wolf-*", "bear-*", "hyena-*", "fox-*"],
+						priority: 2,
+						damage: 6,
+						damageTier: 2,
+						damageType: "SlashingAttack",
+						slot: 1,
+						mincooldown: 1000,
+						maxcooldown: 1500,
+						attackDurationMs: 800,
+						damagePlayerAtMs: 500,
+						animation: "attack-withwindup",
+						animationSpeed: 1.5,
+						sound: "game:creature/wolf/attack*"
+					},
+					{
+						code: "petseek",
+						entityCodes: ["drifter-*", "locust-*", "bell-*", "bowtorn-*", "shiver-*", "wolf-*", "bear-*", "hyena-*", "fox-*"],
+						priority: 1.5,
+						movespeed: 0.045,
+						seekingRange: 12,
+						animation: "Run",
+						animationSpeed: 2,
+						sound: "game:creature/wolf/growl*"
+					},
+					{
+						code: "stayclosetoguardedentity",
+						priority: 1.4,
+						movespeed: 0.045,
+						maxDistance: 3,
+						allowTeleport: true,
+						teleportAfterRange: 15,
+						animation: "Canter",
+						animationSpeed: 2
+					},
+					{
+						code: "lookaround",
+						priority: 0.5
+					},
+					{
+						code: "idle",
+						priority: 0.3,
+						animation: "idle",
+						mincooldown: 5000,
+						maxcooldown: 10000,
+						minduration: 2000,
+						maxduration: 6000
+					}
+				]
+			}
+		]
+	},
+	sounds: {
+		hurt: "game:creature/wolf/hurt*",
+		death: "game:creature/wolf/death*",
+		idle: "game:creature/wolf/growl*"
+	}
+}

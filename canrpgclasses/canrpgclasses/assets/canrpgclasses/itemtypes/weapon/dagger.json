@@ -1,0 +1,69 @@
+{
+	code: "dagger",
+	damagedby: ["attacking", "blockbreaking"],
+	tags: ["weapon", "weapon-melee"],
+	attributes: {
+		heldItemPitchFollow: 1
+	},
+	behaviors: [
+		{ name: "AnimationAuthoritative" },
+		{
+			name: "canrpgspellcontainer",
+			properties: {
+				access: "MELEE",
+				pool: "canrpgclasses:rogue",
+				spellIds: [
+					"canrpgclasses:slice_and_dice",
+					"canrpgclasses:shadow_step",
+					"canrpgclasses:vanish",
+					"canrpgclasses:envenom"
+				]
+			}
+		}
+	],
+	variantgroups: [
+		{ code: "material", states: ["flint", "copper", "iron", "steel", "meteoriciron"] }
+	],
+	// Provisional art: reuse our copied knife shape (canrpgclasses:entity/spellbolt) until dedicated dagger art exists.
+	shapeByType: {
+		"*": { base: "canrpgclasses:entity/spellbolt" }
+	},
+	texturesByType: {
+		"dagger-flint": { "material": { base: "game:block/stone/flint" }, "handle": { base: "game:block/wood/debarked/oak" } },
+		"*": { "material": { base: "game:block/metal/ingot/{material}" }, "handle": { base: "game:block/wood/debarked/oak" } }
+	},
+	durabilitybytype: {
+		"dagger-flint": 130,
+		"dagger-copper": 300,
+		"dagger-iron": 900,
+		"dagger-steel": 2250,
+		"dagger-meteoriciron": 1200
+	},
+	attackpowerbytype: {
+		"dagger-flint": 1.5,
+		"dagger-copper": 2,
+		"dagger-iron": 4,
+		"dagger-steel": 4.5,
+		"dagger-meteoriciron": 4.25
+	},
+	creativeinventory: { "general": ["*"], "items": ["*"], "tools": ["*"] },
+	heldTpHitAnimation: "knifestab",
+	guiTransform: {
+		rotate: false,
+		translation: { x: 0, y: 0, z: 0 },
+		rotation: { x: -158, y: 0, z: 48 },
+		origin: { x: 0.48, y: 0.1, z: 0.5 },
+		scale: 2.41
+	},
+	groundTransform: {
+		translation: { x: 0, y: 0, z: 0 },
+		rotation: { x: -90, y: 0, z: 0 },
+		origin: { x: 0.5, y: 0.5, z: 0.45 },
+		scale: 3.6
+	},
+	tpHandTransform: {
+		translation: { x: -0.84, y: -0.11, z: -0.48 },
+		rotation: { x: 0, y: 0, z: -15 },
+		scale: 1
+	}
+}

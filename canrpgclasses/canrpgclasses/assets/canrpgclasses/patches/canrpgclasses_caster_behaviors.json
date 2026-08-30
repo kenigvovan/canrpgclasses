@@ -1,0 +1,25 @@
+[
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/server/behaviors/-", "value": { "code": "canrpgspellcaster" } },
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/client/behaviors/-", "value": { "code": "canrpgspellcaster" } },
+
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/server/behaviors/-", "value": { "code": "canrpgspellcooldowns" } },
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/client/behaviors/-", "value": { "code": "canrpgspellcooldowns" } },
+
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/server/behaviors/-", "value": { "code": "canrpgrpgstats" } },
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/client/behaviors/-", "value": { "code": "canrpgrpgstats" } },
+
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/server/behaviors/-", "value": { "code": "canrpgstun" } },
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/server/behaviors/-", "value": { "code": "canrpgcombatstate" } },
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/server/behaviors/-", "value": { "code": "canrpgauras" } },
+
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/server/behaviors/-", "value": { "code": "canrpgprogression" } },
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/client/behaviors/-", "value": { "code": "canrpgprogression" } },
+
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/server/behaviors/-", "value": { "code": "canrpgtalents" } },
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/client/behaviors/-", "value": { "code": "canrpgtalents" } },
+
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/server/behaviors/-", "value": { "code": "canrpgresources" } },
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/client/behaviors/-", "value": { "code": "canrpgresources" } },
+
+    { "file": "game:entities/humanoid/player.json", "op": "add", "path": "/server/behaviors/-", "value": { "code": "canrpggearaffinity" } }
+]

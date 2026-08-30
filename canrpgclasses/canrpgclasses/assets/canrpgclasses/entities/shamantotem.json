@@ -1,0 +1,38 @@
+{
+	"code": "shamantotem",
+	"class": "EntityAgent",
+	"hitboxSize": { "x": 0.4, "y": 1.0 },
+	"deadHitboxSize": { "x": 0.4, "y": 0.4 },
+	"eyeHeight": 0.8,
+	"canClimb": false,
+	"drops": [],
+	"client": {
+		"renderer": "Shape",
+		// Default/fallback shape; the actual model is swapped per totem kind on the client by canrpgshamantotemvisual
+		// (reads the canrpgTotemKind watched-attribute). All three kind shapes reference one of the texture keys below.
+		"shape": { "base": "canrpgclasses:entity/shamantotem_searing" },
+		"size": 1.0,
+		"textures": {
+			"searingwood":  { "base": "game:block/wood/planks/burned/blackened/normal1" },
+			"searingcrate": { "base": "game:block/wood/crate/acacia-inside" },
+			"stream_crate": { "base": "game:block/wood/crate/oak-inside" },
+			"streamlog":    { "base": "game:block/wood/planks/oak1" },
+			"earthrock1":   { "base": "game:block/stone/rock/scoria4" },
+			"earthrock2":   { "base": "game:block/stone/rock/bauxite4" },
+			"earthrock3":   { "base": "game:block/stone/rock/andesite3" }
+		},
+		"behaviors": [
+			{ "code": "interpolateposition" },
+			{ "code": "canrpgshamantotemvisual" }
+		]
+	},
+	"server": {
+		// A totem stands where it was planted: no taskai (it has no AI at all) and no physics behavior, so nothing
+		// - knockback included - can push it around. Killable (5 HP) but it never moves, never breathes, never
+		// decays into a corpse that lingers: EBShamanTotem removes it on expiry / owner logout.
+		"behaviors": [
+			{ "code": "health", "currenthealth": 5, "maxhealth": 5 },
+			{ "code": "canrpgshamantotem" }
+		]
+	}
+}

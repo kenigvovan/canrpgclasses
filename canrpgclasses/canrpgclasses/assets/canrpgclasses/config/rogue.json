@@ -1,0 +1,64 @@
+{
+	"_comment": "Balance numbers for the Rogue class. Single source of truth: spells/talents read these at load, and the templated lang descriptions are filled from the same values. Editable without recompiling. Keys map to fields in the matching spell/talent C# class; a missing key falls back to the code default.",
+
+	"spells": {
+		"vicious_strike": { "resource": 25, "cooldown": 2, "empowerCoeff": 3, "empowerWindow": 6, "knockback": 0.2 },
+		"gut_strike": { "resource": 35, "cooldown": 10, "coeff": 2, "perCombo": 1.5, "knockback": 0.4, "empowerWindow": 6 },
+		"quickblades": { "resource": 25, "cooldown": 2, "exhaust": 0.2, "duration": 10, "amp": 1, "cap": 9, "perStack": 0.06 },
+		"shadow_stride": { "resource": 25, "cooldown": 12, "invisDuration": 2 },
+		"slip_away": { "resource": 30, "cooldown": 40, "invisDuration": 4, "speedDuration": 4 },
+		"second_wind": { "resource": 35, "cooldown": 30, "healCoeff": 7, "regenDuration": 8, "regenAmp": 2 },
+		"venom_coat": { "resource": 25, "cooldown": 18, "tier": 2, "charges": 6 },
+		"crippling_oil": { "resource": 25, "cooldown": 18, "tier": 2, "charges": 6 },
+		"counterstrike": { "resource": 25, "cooldown": 22, "duration": 8, "amp": 2 },
+		"bloodletting": { "resource": 35, "cooldown": 25, "duration": 10, "amp": 2 },
+		"disengage": { "resource": 25, "cooldown": 14, "invisDuration": 1.5 },
+		"shock_powder": { "resource": 35, "cooldown": 24, "stun": 2 },
+		"nerve_strike": { "resource": 30, "cooldown": 20, "stun": 1, "stunPerCombo": 0.6 },
+		"eye_jab": { "resource": 25, "cooldown": 12, "stun": 2 },
+		"blind": { "resource": 25, "cooldown": 25, "duration": 8, "range": 8 },
+		"sprint": { "resource": 20, "cooldown": 20, "speedDuration": 6, "speedAmp": 3 },
+		"whirling_knives": { "resource": 35, "cooldown": 12, "coeff": 1.2, "knockback": 0.3, "count": 12, "spread": 360, "velocity": 1.2, "range": 8 },
+		"battle_rush": { "resource": 30, "cooldown": 45, "speedDuration": 8, "speedAmp": 2, "strDuration": 8, "strAmp": 3 },
+		"open_wound": { "resource": 30, "cooldown": 8, "coeff": 1.5, "bleedDuration": 4, "bleedPerCombo": 2, "bleedAmp": 2 },
+		"disarm": { "resource": 35, "cooldown": 14, "duration": 6 },
+		"regroup": { "resource": 0, "cooldown": 180 },
+		"evasion": { "resource": 25, "cooldown": 45, "chance": 0.5, "duration": 6 },
+		"stealth": { "resource": 0, "cooldown": 30, "duration": 40 }
+	},
+
+	"talents": {
+		"nimble": { "perRank": 0.04 },
+		"quiet_steps": { "perRank": 0.12 },
+		"soft_landing": { "perRank": 0.20 },
+		"exposed_flesh": { "perRank": 0.04 },
+		"blade_master": { "perRank": 0.03 },
+		"deadly_precision": { "perRank": 0.04 },
+		"blindside": { "perRank": 0.10 },
+		"jagged_blades": { "baseSeconds": 4, "perRank": 2 },
+		"hardy": { "perRank": 0.05 },
+		"vitality": { "perRank": 10 },
+		"fast_mending": { "perRank": 0.08 },
+		"toughness": { "perRank": 3 },
+		"nimble_fingers": { "perRank": 0.03 },
+		"shadow_adept": { "perRank": 0.03 },
+		"practiced_regroup": { "perRank": 0.05 }
+	},
+
+	"affinities": {
+		"light_blade": { "value": 0.20 },
+		"heavy_weapon": { "value": 0.25 },
+		"light_armor": { "value": 0.08 },
+		"heavy_armor": { "value": 0.12 }
+	},
+
+	"globals": {
+		"rogueCombatDmgPerPoint": 0.01,
+		"rogueStealthSpeedPerPoint": 0.003,
+		"rogueUtilityHpPerPoint": 0.4,
+		"rogueBaseHealth": 3,
+		"rogueHpPerLevel": 0.7,
+
+		"rogueEnergyRegenPerSec": 12
+	}
+}

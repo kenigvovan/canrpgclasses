@@ -1,0 +1,28 @@
+{
+	"code": "spellorb",
+	"class": "EntitySpellProjectile",
+	"hitboxSize": { "x": 0.2, "y": 0.2 },
+	"deadHitboxSize": { "x": 0.2, "y": 0.2 },
+	"canClimb": false,
+	"glowLevel": 200,
+	"server": {
+		"behaviors": [
+			{ "code": "passivephysics", "airDragFactor": 0, "groundDragFactor": 0, "gravityFactor": 0 }
+		]
+	},
+	"client": {
+		"behaviors": [
+			{ "code": "passivephysics", "airDragFactor": 0, "groundDragFactor": 0, "gravityFactor": 0 },
+			{ "code": "interpolateposition" }
+		],
+		"renderer": "Shape",
+		// A small round core (the vanilla snowball ball), gravity-free so it flies dead straight like a bolt.
+		// Its fire/frost/arcane identity comes from the per-school particle trail EntitySpellProjectile.EmitTrail
+		// spawns each client tick, coloured from the "trailColor" attribute set at launch.
+		"shape": { "base": "game:item/snowball" },
+		"textures": {
+			"normal1": { "base": "game:block/liquid/snow/normal1" },
+			"normal2": { "base": "game:block/liquid/snow/normal2" }
+		}
+	}
+}

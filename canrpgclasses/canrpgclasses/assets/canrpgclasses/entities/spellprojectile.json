@@ -1,0 +1,26 @@
+{
+	"code": "spellprojectile",
+	"class": "EntitySpellProjectile",
+	"hitboxSize": { "x": 0.2, "y": 0.2 },
+	"deadHitboxSize": { "x": 0.2, "y": 0.2 },
+	"canClimb": false,
+	"glowLevel": 128,
+	"server": {
+		"behaviors": [
+			{ "code": "passivephysics", "airDragFactor": 0, "groundDragFactor": 0, "gravityFactor": 0.4 }
+		]
+	},
+	"client": {
+		"behaviors": [
+			{ "code": "passivephysics", "airDragFactor": 0, "groundDragFactor": 0, "gravityFactor": 0.4 },
+			{ "code": "interpolateposition" }
+		],
+		"renderer": "Shape",
+		// Our own copy of the knife shape so it can be re-centered for a clean spin.
+		"shape": { "base": "canrpgclasses:entity/spellbolt" },
+		"textures": {
+			"material": { "base": "game:block/metal/ingot/iron" },
+			"handle": { "base": "game:block/wood/debarked/oak" }
+		}
+	}
+}

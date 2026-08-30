@@ -1,0 +1,16 @@
+{
+    "$schema": "https://moddbcdn.vintagestory.at/schema/modinfo.latest.json",
+    "type": "Code",
+    "modid": "canrpgclasses",
+    "name": "canrpgclasses",
+    "authors": [
+        "KenigVovan"
+    ],
+    "description": "RPG classes for Vintage Story",
+    "version": "1.0.8",
+  "dependencies": {
+    "game": "",
+    "canparty": "",
+    "playermodellib": ""
+  }
+}

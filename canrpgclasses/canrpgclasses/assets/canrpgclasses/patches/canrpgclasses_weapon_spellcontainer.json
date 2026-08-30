@@ -1,0 +1,15 @@
+[
+    {
+        "file": "game:itemtypes/tool/knife.json",
+        "op": "add",
+        "path": "/behaviors/-",
+        "value": {
+            "name": "canrpgspellcontainer",
+            "properties": {
+                "access": "MELEE",
+                "pool": "canrpgclasses:rogue",
+                "spellIds": ["canrpgclasses:slice_and_dice"]
+            }
+        }
+    }
+]

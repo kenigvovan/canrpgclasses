@@ -1,0 +1,66 @@
+{
+	"_comment": "Balance numbers for the Paladin class. Single source of truth: spells/talents read these at load, and the templated lang descriptions are filled from the same values. Editable without recompiling. A missing key falls back to the code default.",
+
+	"spells": {
+		"zealots_strike": { "resource": 5, "cooldown": 4, "empowerCoeff": 2, "knockback": 0.2, "empowerWindow": 6 },
+		"sentence": { "resource": 5, "cooldown": 8, "coeff": 2.0, "knockback": 0.5 },
+		"righteous_verdict": { "resource": 0, "cooldown": 6, "coeff": 2, "perCombo": 1.5, "knockback": 0.4, "empowerWindow": 6 },
+		"hammer_of_order": { "resource": 10, "cooldown": 18, "stun": 2.5 },
+		"hallowed_ground": { "resource": 40, "cooldown": 12, "coeff": 0.5, "knockback": 0, "zoneDuration": 6, "zoneTick": 1, "zoneParticleTick": 0.4 },
+		"blessed_light": { "resource": 30, "cooldown": 0, "healCoeff": 9, "cast": 2.5 },
+		"sudden_light": { "resource": 45, "cooldown": 16, "healCoeff": 8, "cast": 1 },
+		"radiant_word": { "resource": 5, "cooldown": 0, "healCoeff": 1, "healPerHolyPower": 3 },
+		"vengeful_aura": { "resource": 0, "cooldown": 0, "radius": 10, "value": 0.15, "upkeep": 6 },
+		"zealots_aura": { "resource": 0, "cooldown": 0, "radius": 10, "value": 0.12, "upkeep": 6 },
+		"aura_of_faith": { "resource": 0, "cooldown": 0, "radius": 10, "hpPerTick": 0.5, "upkeep": 6 },
+		"healing_hands": { "resource": 60, "cooldown": 60, "healCoeff": 20, "cast": 2.5 },
+		"avenging_light": { "resource": 20, "cooldown": 60, "speedDuration": 12, "speedAmp": 2, "strDuration": 12, "strAmp": 3 },
+		"radiant_seal": { "resource": 10, "cooldown": 20, "tier": 2, "charges": 8 },
+		"sacred_barrier": { "resource": 30, "cooldown": 120, "shieldCoeff": 15, "shieldDuration": 10 },
+		"shield_of_faith": { "resource": 25, "cooldown": 20, "shieldCoeff": 8, "shieldDuration": 12 },
+		"cleanse": { "resource": 20, "cooldown": 8 },
+		"reckoning": { "resource": 5, "cooldown": 12, "aggroRange": 10 },
+		"light_cascade": { "resource": 40, "cooldown": 90, "healCoeff": 6, "range": 6 }
+	},
+
+	"talents": {
+		"devout_light": { "perRank": 0.04 },
+		"zealous_faith": { "perRank": 0.20 },
+		"aura_of_refuge": { "perRank": 0.03 },
+		"retribution_vengeance": { "perRank": 0.10 },
+		"radiant_return": { "perRank": 15 },
+		"light_infusion": { "perRank": 0.05 },
+		"toughness": { "perRank": 3 },
+		"faithful_ward": { "perRank": 0.04 },
+		"guardian": { "perRank": 5 },
+		"stalwart": { "perRank": 0.03 },
+		"zealot": { "perRank": 0.03 },
+		"zeal": { "perRank": 0.03 },
+		"vengeance": { "perRank": 0.04 },
+		"swift_light": { "perRank": 0.02 },
+		"aura_focus": { "perRank": 0.05 },
+		"safe_ground": { "perRank": 3 },
+		"hallowed_wrath": { "perRank": 0.03 },
+		"zealots_momentum": { "perRank": 0.03 },
+		"quickened_light": { "perRank": 0.05 },
+		"blessed_endurance": { "perRank": 0.06 },
+		"fervor": { "perRank": 3 },
+		"sacred_purpose": { "perRank": 0.04 },
+		"zealous_sentence": { "perRank": 0.05 }
+	},
+
+	"affinities": {
+		"righteous_arms": { "value": 0.15 },
+		"plate_training": { "value": 4 },
+		"exposed": { "value": 0.08 }
+	},
+
+	"globals": {
+		"paladinHolyHealPerPoint": 0.02,
+		"paladinRetHolyDmgPerPoint": 0.015,
+		"paladinProtHpPerPoint": 0.5,
+		"paladinBaseHealth": 10,
+		"paladinHpPerLevel": 1,
+		"paladinManaRegenPerSec": 5
+	}
+}

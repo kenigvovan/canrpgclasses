@@ -1,0 +1,68 @@
+{
+	"_comment": "Balance numbers for the Mage class. Single source of truth: spells/talents read these at load, and the templated lang descriptions are filled from the same values. Keys map to fields in the matching spell/talent C# class; a missing key falls back to the code default. Spell keys are global by local id; talent/affinity keys are namespaced by this filename (mage:*). Ticking DoT/zone effects tick once per second (coeffPerTick is per-second; duration = number of ticks). Ground zones (flamestrike/blizzard) are centred UNDER the caster (no cast-point targeting).",
+
+	"spells": {
+		"ice_bolt": { "resource": 20, "cooldown": 0, "cast": 1.8, "coeff": 1.8, "projVelocity": 1.2, "slowAmp": 2, "slowCap": 3, "slowDuration": 2 },
+		"flicker": { "resource": 15, "cooldown": 12, "distance": 6 },
+		"mystic_guard": { "resource": 0, "cooldown": 1.5, "resourceRegen": 0.30 },
+		"frost_guard": { "resource": 0, "cooldown": 1.5, "damageReduction": 0.10 },
+		"molten_guard": { "resource": 0, "cooldown": 1.5, "spellPower": 0.10 },
+
+		"fire_bolt": { "resource": 30, "cooldown": 0, "cast": 2.2, "coeff": 2.5, "projVelocity": 1.2 },
+		"cinder_blast": { "resource": 45, "cooldown": 12, "cast": 3.0, "coeff": 3.5, "projVelocity": 1.1, "duration": 8, "coeffPerTick": 0.3, "stunChance": 0.15, "stunDuration": 2 },
+		"volatile_ember": { "resource": 35, "cooldown": 12, "cast": 1, "duration": 6, "coeffPerTick": 0.35, "explosionCoeff": 1.5, "explosionRadius": 3, "instantFireballChance": 0.15, "instantFireballWindow": 10 },
+		"flame_field": { "resource": 50, "cooldown": 15, "coeff": 0.6, "zoneDuration": 6, "zoneTick": 1, "zoneParticleTick": 0.4, "range": 18, "zoneRadius": 4.5 },
+		"conflagration": { "resource": 0, "cooldown": 120, "spellPower": 0.30, "duration": 15 },
+		"clear_mind": { "resource": 0, "cooldown": 120, "window": 15 },
+
+		"ice_shard": { "resource": 15, "cooldown": 0, "coeff": 1.2, "projVelocity": 3.0, "frozenMultiplier": 3.0 },
+		"freezing_burst": { "resource": 30, "cooldown": 20, "duration": 4, "range": 6 },
+		"ice_storm": { "resource": 50, "cooldown": 15, "coeff": 0.4, "zoneDuration": 6, "zoneTick": 1, "zoneParticleTick": 0.4, "slowAmp": 2, "slowCap": 3, "slowDuration": 2, "range": 18, "zoneRadius": 4.5 },
+		"ice_ward": { "resource": 35, "cooldown": 25, "shieldCoeff": 6, "shieldDuration": 15 },
+		"icy_veins": { "resource": 0, "cooldown": 120, "spellPower": 0.30, "duration": 15 },
+		"frozen_shell": { "resource": 0, "cooldown": 150, "duration": 3, "shieldCoeff": 1000 },
+
+		"mystic_blast": { "resource": 30, "cooldown": 0, "cast": 1.8, "coeff": 2.2, "chargeCap": 4, "chargeDuration": 10, "chargeDamagePerStack": 0.15, "chargeCostPerStack": 0.35 },
+		"mystic_barrage": { "resource": 20, "cooldown": 3, "coeff": 1.2, "projVelocity": 2.8, "channel": 1.5, "bolts": 3 },
+		"mystic_burst": { "resource": 35, "cooldown": 6, "coeff": 1.5, "range": 5 },
+		"mana_draw": { "resource": 0, "cooldown": 90, "manaGain": 50, "channel": 3, "ticks": 4 },
+		"spell_break": { "resource": 20, "cooldown": 24, "duration": 4 },
+		"transmute": { "resource": 25, "cooldown": 30, "cast": 1.9, "duration": 8 },
+		"mystic_surge": { "resource": 0, "cooldown": 120, "spellPower": 0.30, "duration": 15 }
+	},
+
+	"talents": {
+		"flame_mastery": { "perRank": 0.03 },
+		"fire_momentum": { "perRank": 0.05, "hasteAmount": 0.15, "hasteDuration": 3 },
+		"flame_adept": { "perRank": 0.04 },
+		"firebrand": { "perRank": 0.05 },
+		"fire_storm": { "perRank": 0.05 },
+		"frost_power": { "perRank": 0.03 },
+		"icebreaker": { "perRank": 0.05 },
+		"sharp_ice": { "perRank": 0.05 },
+		"frost_channeling": { "perRank": 0.04 },
+		"deep_chill": { "perRank": 0.10 },
+		"mystic_focus": { "perRank": 0.03 },
+		"insight": { "perRank": 15 },
+		"mystic_meditation": { "perRank": 0.15 },
+		"mystic_instability": { "perRank": 0.05 },
+		"mystic_subtlety": { "perRank": 0.04 },
+		"spell_penetration": { "perRank": 0.05 }
+	},
+
+	"affinities": {
+		"arcane_robes": { "value": 0.10 },
+		"encumbered_arcana": { "value": 0.15 },
+		"staff_channeling": { "value": 0.08 }
+	},
+
+	"globals": {
+		"mageBaseHealth": 4,
+		"mageHpPerLevel": 0.75,
+		"mageFireDmgPerPoint": 0.015,
+		"mageFrostDmgPerPoint": 0.015,
+		"mageArcaneDmgPerPoint": 0.015,
+
+		"mageManaRegenPerSec": 5
+	}
+}

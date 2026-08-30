@@ -1,0 +1,288 @@
+{
+  "editor": {
+    "allAngles": true,
+    "backdrops": [],
+    "attachments": []
+  },
+  "textures": {
+    "searingwood": "game:block/wood/planks/burned/blackened/normal1",
+    "searingcrate": "game:block/wood/crate/acacia-inside"
+  },
+  "elements": [
+    {
+      "name": "post",
+      "from":[6.5,0.0,6.5],
+      "to":[9.5,8.0,9.5],
+      "faces": {
+        "north": {
+          "texture": "#searingwood",
+          "uv":[6.5,8.0,9.5,16.0]
+        },
+        "east": {
+          "texture": "#searingwood",
+          "uv":[6.5,8.0,9.5,16.0]
+        },
+        "south": {
+          "texture": "#searingwood",
+          "uv":[6.5,8.0,9.5,16.0]
+        },
+        "west": {
+          "texture": "#searingwood",
+          "uv":[6.5,8.0,9.5,16.0]
+        },
+        "up": {
+          "texture": "#searingwood",
+          "uv":[6.5,6.5,9.5,9.5]
+        },
+        "down": {
+          "texture": "#searingwood",
+          "uv":[6.5,6.5,9.5,9.5]
+        }
+      },
+      "rotationOrigin":[0.0,0.0,0.0],
+      "scaleX": 1.0,
+      "scaleY": 1.0,
+      "scaleZ": 1.0,
+      "uv":[0.0,0.0]
+    },
+    {
+      "name": "bowl",
+      "from":[5.0,5.0999999046325684,5.0],
+      "to":[11.0,6.8999998569488525,11.0],
+      "faces": {
+        "north": {
+          "texture": "#searingwood",
+          "uv":[4.0,4.0,10.0,5.5]
+        },
+        "east": {
+          "texture": "#searingwood",
+          "uv":[4.0,4.0,10.0,5.5]
+        },
+        "south": {
+          "texture": "#searingwood",
+          "uv":[4.0,4.0,10.0,5.5]
+        },
+        "west": {
+          "texture": "#searingwood",
+          "uv":[4.0,4.0,10.0,5.5]
+        },
+        "up": {
+          "texture": "#searingwood",
+          "uv":[4.0,4.0,10.0,10.0]
+        },
+        "down": {
+          "texture": "#searingwood",
+          "uv":[4.0,4.0,10.0,10.0]
+        }
+      },
+      "rotationOrigin":[1.0,-2.9000000953674316,1.0],
+      "scaleX": 1.0,
+      "scaleY": 1.0,
+      "scaleZ": 1.0,
+      "children": [],
+      "uv":[0.0,0.0]
+    },
+    {
+      "name": "bowl (2)",
+      "from":[4.0,8.1000003814697266,4.0],
+      "to":[12.0,11.100000381469727,12.0],
+      "faces": {
+        "north": {
+          "texture": "#searingwood",
+          "uv":[4.0,4.0,12.0,7.0]
+        },
+        "east": {
+          "texture": "#searingwood",
+          "uv":[4.0,4.0,12.0,7.0]
+        },
+        "south": {
+          "texture": "#searingwood",
+          "uv":[4.0,4.0,12.0,7.0]
+        },
+        "west": {
+          "texture": "#searingwood",
+          "uv":[4.0,4.0,12.0,7.0]
+        },
+        "up": {
+          "texture": "#searingwood",
+          "uv":[4.0,4.0,12.0,12.0]
+        },
+        "down": {
+          "texture": "#searingwood",
+          "uv":[4.0,4.0,12.0,12.0]
+        }
+      },
+      "rotationOrigin":[0.0,0.10000038146972656,0.0],
+      "scaleX": 1.0,
+      "scaleY": 1.0,
+      "scaleZ": 1.0,
+      "children": [
+        {
+          "name": "spikeSouth",
+          "from":[2.930631042458117,2.268510065972805,5.4637832716107368],
+          "to":[4.930631042458117,6.268510065972805,7.4637832716107368],
+          "faces": {
+            "north": {
+              "texture": "#searingcrate",
+              "uv":[7.0,0.0,9.0,4.0]
+            },
+            "east": {
+              "texture": "#searingcrate",
+              "uv":[10.5,0.0,12.5,4.0]
+            },
+            "south": {
+              "texture": "#searingcrate",
+              "uv":[7.0,0.0,9.0,4.0]
+            },
+            "west": {
+              "texture": "#searingcrate",
+              "uv":[10.5,0.0,12.5,4.0]
+            },
+            "up": {
+              "texture": "#searingcrate",
+              "uv":[7.0,10.5,9.0,12.5]
+            },
+            "down": {
+              "texture": "#searingcrate",
+              "uv":[7.0,10.5,9.0,12.5]
+            }
+          },
+          "rotationOrigin":[3.930631042458117,2.268510065972805,6.4637832716107368],
+          "rotationX": 37.0,
+          "rotationY": 24.0,
+          "rotationZ": -6.0,
+          "scaleX": 1.0,
+          "scaleY": 1.0,
+          "scaleZ": 1.0,
+          "uv":[0.0,0.0]
+        },
+        {
+          "name": "spikeEast",
+          "from":[5.9126867055892944,2.3014166764914989,3.0],
+          "to":[7.9126867055892944,6.3014166764914989,5.0],
+          "faces": {
+            "north": {
+              "texture": "#searingcrate",
+              "uv":[10.5,0.0,12.5,4.0]
+            },
+            "east": {
+              "texture": "#searingcrate",
+              "uv":[7.0,0.0,9.0,4.0]
+            },
+            "south": {
+              "texture": "#searingcrate",
+              "uv":[10.5,0.0,12.5,4.0]
+            },
+            "west": {
+              "texture": "#searingcrate",
+              "uv":[7.0,0.0,9.0,4.0]
+            },
+            "up": {
+              "texture": "#searingcrate",
+              "uv":[10.5,7.0,12.5,9.0]
+            },
+            "down": {
+              "texture": "#searingcrate",
+              "uv":[10.5,7.0,12.5,9.0]
+            }
+          },
+          "rotationOrigin":[6.9126867055892944,2.3014166764914989,4.0],
+          "rotationZ": 17.0,
+          "scaleX": 1.0,
+          "scaleY": 1.0,
+          "scaleZ": 1.0,
+          "uv":[0.0,0.0]
+        },
+        {
+          "name": "spikeWest",
+          "from":[1.2550137937068939,2.0216355323791504,3.5373440682888031],
+          "to":[3.2550137937068939,6.02163553237915,5.5373440682888031],
+          "faces": {
+            "north": {
+              "texture": "#searingcrate",
+              "uv":[3.5,0.0,5.5,4.0]
+            },
+            "east": {
+              "texture": "#searingcrate",
+              "uv":[7.0,0.0,9.0,4.0]
+            },
+            "south": {
+              "texture": "#searingcrate",
+              "uv":[3.5,0.0,5.5,4.0]
+            },
+            "west": {
+              "texture": "#searingcrate",
+              "uv":[7.0,0.0,9.0,4.0]
+            },
+            "up": {
+              "texture": "#searingcrate",
+              "uv":[3.5,7.0,5.5,9.0]
+            },
+            "down": {
+              "texture": "#searingcrate",
+              "uv":[3.5,7.0,5.5,9.0]
+            }
+          },
+          "rotationOrigin":[2.2550137937068939,2.0216355323791504,4.5373440682888031],
+          "rotationY": -30.0,
+          "rotationZ": 37.0,
+          "scaleX": 1.0,
+          "scaleY": 1.0,
+          "scaleZ": 1.0,
+          "uv":[0.0,0.0]
+        },
+        {
+          "name": "spikeNorth",
+          "from":[3.0,1.9858952164649963,0.56109943985939026],
+          "to":[5.0,5.9858952164649963,2.5610994398593903],
+          "faces": {
+            "north": {
+              "texture": "#searingcrate",
+              "uv":[7.0,0.0,9.0,4.0]
+            },
+            "east": {
+              "texture": "#searingcrate",
+              "uv":[3.5,0.0,5.5,4.0]
+            },
+            "south": {
+              "texture": "#searingcrate",
+              "uv":[7.0,0.0,9.0,4.0]
+            },
+            "west": {
+              "texture": "#searingcrate",
+              "uv":[3.5,0.0,5.5,4.0]
+            },
+            "up": {
+              "texture": "#searingcrate",
+              "uv":[7.0,3.5,9.0,5.5]
+            },
+            "down": {
+              "texture": "#searingcrate",
+              "uv":[7.0,3.5,9.0,5.5]
+            }
+          },
+          "rotationOrigin":[4.0,1.9858952164649963,1.5610994398593903],
+          "rotationX": -44.0,
+          "scaleX": 1.0,
+          "scaleY": 1.0,
+          "scaleZ": 1.0,
+          "uv":[0.0,0.0]
+        }
+      ],
+      "uv":[0.0,0.0]
+    }
+  ],
+  "animations": [],
+  "textureWidth": 16,
+  "textureHeight": 16,
+  "textureSizes": {
+    "searingwood": [
+      16,
+      16
+    ],
+    "searingcrate": [
+      16,
+      16
+    ]
+  }
+}

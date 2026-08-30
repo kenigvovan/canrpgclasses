@@ -1,0 +1,140 @@
+{
+  "editor": {
+    "allAngles": true,
+    "backdrops": [],
+    "attachments": []
+  },
+  "textures": {
+    "earthrock1": "game:block/stone/rock/scoria4",
+    "earthrock2": "game:block/stone/rock/bauxite4",
+    "earthrock3": "game:block/stone/rock/andesite3"
+  },
+  "elements": [
+    {
+      "name": "base",
+      "from":[3.0,0.0,3.0],
+      "to":[13.0,4.0,13.0],
+      "faces": {
+        "north": {
+          "texture": "#earthrock1",
+          "uv":[3.0,12.0,13.0,16.0]
+        },
+        "east": {
+          "texture": "#earthrock1",
+          "uv":[3.0,12.0,13.0,16.0]
+        },
+        "south": {
+          "texture": "#earthrock1",
+          "uv":[3.0,12.0,13.0,16.0]
+        },
+        "west": {
+          "texture": "#earthrock1",
+          "uv":[3.0,12.0,13.0,16.0]
+        },
+        "up": {
+          "texture": "#earthrock1",
+          "uv":[3.0,3.0,13.0,13.0]
+        },
+        "down": {
+          "texture": "#earthrock1",
+          "uv":[3.0,3.0,13.0,13.0]
+        }
+      },
+      "rotationOrigin":[0.0,0.0,0.0],
+      "scaleX": 1.0,
+      "scaleY": 1.0,
+      "scaleZ": 1.0,
+      "uv":[0.0,0.0]
+    },
+    {
+      "name": "body",
+      "from":[4.0,4.0,4.0],
+      "to":[12.0,10.0,12.0],
+      "faces": {
+        "north": {
+          "texture": "#earthrock2",
+          "uv":[4.0,6.0,12.0,12.0]
+        },
+        "east": {
+          "texture": "#earthrock2",
+          "uv":[4.0,6.0,12.0,12.0]
+        },
+        "south": {
+          "texture": "#earthrock2",
+          "uv":[4.0,6.0,12.0,12.0]
+        },
+        "west": {
+          "texture": "#earthrock2",
+          "uv":[4.0,6.0,12.0,12.0]
+        },
+        "up": {
+          "texture": "#earthrock2",
+          "uv":[4.0,4.0,12.0,12.0]
+        },
+        "down": {
+          "texture": "#earthrock2",
+          "uv":[4.0,4.0,12.0,12.0]
+        }
+      },
+      "rotationOrigin":[0.0,0.0,0.0],
+      "scaleX": 1.0,
+      "scaleY": 1.0,
+      "scaleZ": 1.0,
+      "uv":[0.0,0.0]
+    },
+    {
+      "name": "head",
+      "from":[2.5,10.0,3.0],
+      "to":[12.5,15.5,13.0],
+      "faces": {
+        "north": {
+          "texture": "#earthrock3",
+          "uv":[2.5,0.5,12.5,6.0]
+        },
+        "east": {
+          "texture": "#earthrock3",
+          "uv":[3.0,0.5,13.0,6.0]
+        },
+        "south": {
+          "texture": "#earthrock3",
+          "uv":[2.5,0.5,12.5,6.0]
+        },
+        "west": {
+          "texture": "#earthrock3",
+          "uv":[3.0,0.5,13.0,6.0]
+        },
+        "up": {
+          "texture": "#earthrock3",
+          "uv":[2.5,3.0,12.5,13.0]
+        },
+        "down": {
+          "texture": "#earthrock3",
+          "uv":[2.5,3.0,12.5,13.0]
+        }
+      },
+      "rotationOrigin":[8.0,12.0,8.0],
+      "rotationY": 8.0,
+      "scaleX": 1.0,
+      "scaleY": 1.0,
+      "scaleZ": 1.0,
+      "uv":[0.0,0.0]
+    }
+  ],
+  "animations": [],
+  "textureWidth": 16,
+  "textureHeight": 16,
+  "textureSizes": {
+    "earthrock1": [
+      16,
+      16
+    ],
+    "earthrock2": [
+      16,
+      16
+    ],
+    "earthrock3": [
+      16,
+      16
+    ]
+  }
+}

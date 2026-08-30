@@ -1,0 +1,83 @@
+{
+	"_comment": "Balance numbers for the Shaman class. Single source of truth: spells/talents read these at load, and the templated lang descriptions are filled from the same values. Keys map to fields in the matching spell/talent C# class; a missing key falls back to the code default. Spell keys are global by local id; talent/affinity keys are namespaced by this filename (shaman:*). Milestone 1 (base kit) only - Elemental/Enhancement/Restoration spells and talents are added by their own milestones. Heal coefficients are on the same scale as the paladin/priest heals (healCoeff 5-10), NOT the damage scale.",
+
+	"spells": {
+		"arc_bolt": { "resource": 20, "cooldown": 0, "cast": 2.0, "coeff": 2.0, "stormstrikeMultiplier": 1.2 },
+		"earthen_jolt": { "resource": 25, "cooldown": 6, "coeff": 1.5 },
+		"mending_wave": { "resource": 40, "cooldown": 0, "cast": 2.8, "healCoeff": 9 },
+		"static_shield": { "resource": 20, "cooldown": 6, "duration": 600, "charges": 3, "coeff": 0.3 },
+		"spirit_wolf": { "resource": 0, "cooldown": 3, "walkSpeed": 0.30 },
+		"snaring_totem": { "resource": 15, "cooldown": 15, "duration": 20, "radius": 8 },
+
+		"ember_shock": { "resource": 30, "cooldown": 6, "coeff": 0.8, "duration": 12, "coeffPerTick": 0.25 },
+		"forked_lightning": { "resource": 45, "cooldown": 8, "cast": 2.5, "coeff": 2.0, "chainJumps": 3, "chainRadius": 6, "chainFalloff": 0.7, "stormstrikeMultiplier": 1.2 },
+		"magma_burst": { "resource": 35, "cooldown": 8, "cast": 2.0, "coeff": 2.2, "burningMultiplier": 1.5 },
+		"tempest": { "resource": 25, "cooldown": 30, "coeff": 1.2, "radius": 7, "knockback": 2.0 },
+		"ember_totem": { "resource": 35, "cooldown": 20, "duration": 30, "radius": 8 },
+		"elemental_surge": { "resource": 0, "cooldown": 120, "spellPower": 0.30, "duration": 15 },
+
+		"flame_edge": { "resource": 20, "cooldown": 3, "duration": 600, "coeff": 0.35 },
+		"frost_edge": { "resource": 20, "cooldown": 3, "duration": 600, "coeff": 0.20, "slowDuration": 2 },
+		"gale_edge": { "resource": 20, "cooldown": 3, "duration": 600, "coeff": 1.0, "chance": 0.30 },
+		"thunder_cleave": { "resource": 30, "cooldown": 10, "empowerCoeff": 1.5, "empowerWindow": 6, "markerDuration": 12 },
+		"stone_strength_totem": { "resource": 35, "cooldown": 20, "duration": 30, "radius": 8 },
+		"war_chant": { "resource": 40, "cooldown": 300, "duration": 20, "radius": 10, "meleeDamage": 0.15, "walkSpeed": 0.15 },
+
+		"tide_surge": { "resource": 30, "cooldown": 6, "healCoeff": 4, "duration": 6, "coeffPerTick": 0.25 },
+		"cascading_heal": { "resource": 45, "cooldown": 8, "cast": 2.5, "healCoeff": 7, "chainJumps": 3, "chainRadius": 8, "chainFalloff": 0.7 },
+		"mending_totem": { "resource": 40, "cooldown": 20, "duration": 30, "radius": 8 },
+		"wellspring_totem": { "resource": 30, "cooldown": 20, "duration": 30, "radius": 8 },
+		"stone_ward": { "resource": 35, "cooldown": 15, "duration": 600, "charges": 4, "coeff": 0.3 },
+		"spirit_purge": { "resource": 25, "cooldown": 8 },
+		"rising_tide": { "resource": 0, "cooldown": 120, "healingPower": 0.30, "duration": 15 }
+	},
+
+	"talents": {
+		"concussion": { "perRank": 0.03 },
+		"storm_attunement": { "perRank": 8 },
+		"magma_conduit": { "perRank": 0.04 },
+		"elemental_warding": { "perRank": 0.04 },
+		"magma_flow": { "perRank": 0.05 },
+		"elemental_focus": { "perRank": 0.02 },
+		"storm_reach": { "perRank": 0.05 },
+
+		"thundering_strikes": { "perRank": 0.02 },
+		"ancestral_knowledge": { "perRank": 15 },
+		"elemental_weapons": { "perRank": 0.05 },
+		"toughness": { "perRank": 3 },
+		"storm_charge": { "perRank": 0.20, "cap": 5, "duration": 15, "castReductionPerStack": 0.2 },
+		"mental_quickness": { "perRank": 0.02 },
+		"thunder_cleave_mastery": { "perRank": 0.05 },
+
+		"purification": { "perRank": 0.03 },
+		"totemic_focus": { "perRank": 15 },
+		"tidal_rhythm": { "perRank": 0.05 },
+		"nature_warding": { "perRank": 0.04 },
+		"improved_shields": { "perRank": 0.05 },
+		"tidal_mastery": { "perRank": 0.02 },
+		"water_meditation": { "perRank": 0.15 }
+	},
+
+	"affinities": {
+		"mail_attunement": { "value": 0.08 },
+		"plate_burden": { "value": 0.15 },
+		"weapon_of_elements": { "value": 0.08 }
+	},
+
+	"globals": {
+		"shamanBaseHealth": 6,
+		"shamanHpPerLevel": 0.85,
+		"shamanManaRegenPerSec": 5,
+		"shamanElementalPerPoint": 0.015,
+		"shamanEnhancementPerPoint": 0.01,
+		"shamanRestorationPerPoint": 0.01,
+
+		"totemSearingCoeff": 0.4,
+		"totemStreamCoeff": 0.3,
+		"totemEarthMeleeBonus": 0.10,
+		"totemEarthBuffSeconds": 3,
+		"totemEarthbindSlowSeconds": 1.5,
+		"totemEarthbindSlowTier": 2,
+		"totemManaSpringPerTick": 4
+	}
+}
