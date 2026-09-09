@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 using Vintagestory.API.Client;
+using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using canrpgclasses.Core.Items;
 using canrpgclasses.Core.Net;
@@ -10,48 +12,63 @@ using canrpgclasses.Core.Talents;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Client-side spell hotbar state: holds the spell id bound to each slot and turns a hotkey press into a
-    /// <see cref="SpellRequestPacket"/> for the server. Slots are auto-filled from the player's available
-    /// spells unless bound explicitly.
+    /// Client-side spell hotbar state: the player's skill bars (where they sit and what is on them) and turning a
+    /// press or click into a <see cref="SpellRequestPacket"/>. Slots left empty are auto-filled from the spells
+    /// the player can currently use.
     /// </summary>
     public class SpellHotbar
     {
-        /// <summary>Hard cap on slots (hotkeys are registered once at startup, so we reserve this many).</summary>
+        /// <summary>Slots per bar, and bars per set. Both are hard caps: the hotkeys for every (bar, slot) pair
+        /// are registered once at startup, so the pool has to be known up front.</summary>
         public const int MaxSlots = 9;
+        public const int MaxBars = 3;
 
-        /// <summary>Hotkey codes for each slot (registered in the mod system, rebindable in Controls).</summary>
-        public static readonly string[] HotkeyCodes =
+        /// <summary>Hotkey code per bar and slot. Bar 1 keeps the original codes so existing rebinds survive.</summary>
+        public static readonly string[][] HotkeyCodes = BuildHotkeyCodes();
+
+        private static string[][] BuildHotkeyCodes()
         {
-            "canrpgspell1", "canrpgspell2", "canrpgspell3", "canrpgspell4",
-            "canrpgspell5", "canrpgspell6", "canrpgspell7", "canrpgspell8", "canrpgspell9"
-        };
+            var codes = new string[MaxBars][];
+            for (int bar = 0; bar < MaxBars; bar++)
+            {
+                codes[bar] = new string[MaxSlots];
+                for (int slot = 0; slot < MaxSlots; slot++)
+                    codes[bar][slot] = bar == 0
+                        ? "canrpgspell" + (slot + 1)
+                        : "canrpgbar" + (bar + 1) + "spell" + (slot + 1);
+            }
+            return codes;
+        }
 
-        /// <summary>Computed buffer: the spell shown in each slot this frame (bindings + auto-fill).</summary>
-        public readonly string?[] Slots = new string?[MaxSlots];
+        /// <summary>Separates the entries of a sequence binding: one key, first castable entry wins.</summary>
+        public const char SequenceSeparator = ';';
 
         private const string ConfigFile = "canrpgclasses-hotbar.json";
 
         private readonly ICoreClientAPI capi;
+        private readonly HudLayout layout;
         private HotbarConfig config = new HotbarConfig();
 
-        // The slot contents depend only on the class, talent-granted spells, and the active loadout/bindings -
-        // none of which change per frame. So rebuild only when a cheap signature of those inputs actually changes
-        // (checked ~5x/second), or immediately when a local edit (bind / slot count / set switch) flips dirty.
-        // In steady state RefreshSlots does no allocation and no rebuild at all.
+        // Slot contents depend only on class, talent-granted spells and the active set's bars - none of which
+        // change per frame. Rebuild only when a cheap signature of those changes, or when a local edit sets dirty.
         private readonly HashSet<string> usedBuf = new();
         private int lastSig;
         private bool dirty = true;
         private double lastCheckMs;
         private const double CheckIntervalMs = 200;
 
-        public SpellHotbar(ICoreClientAPI capi)
+        // Aura the last set-swap reacted to, and whether any slot holds a sequence (skips the per-tick resolve).
+        private string lastAura = "";
+        private bool hasSequences;
+
+        public SpellHotbar(ICoreClientAPI capi, HudLayout layout)
         {
             this.capi = capi;
+            this.layout = layout;
             LoadConfig();
-            AutoFillFromRegistry();
         }
 
-        // ---- per-class loadout sets: each class has its own list of named sets (slot count + bindings) ----
+        // ---- per-class loadout sets ----
 
         private string CurrentClassId()
         {
@@ -63,33 +80,216 @@ namespace canrpgclasses.Client
         {
             string cls = CurrentClassId();
             if (!config.PerClass.TryGetValue(cls, out var cs) || cs == null) { cs = new ClassSets(); config.PerClass[cls] = cs; }
-            if (cs.Sets.Count == 0) cs.Sets.Add(new SkillSet());
+            if (cs.Sets.Count == 0) cs.Sets.Add(NewSet("Set 1"));
             if (cs.ActiveSet < 0 || cs.ActiveSet >= cs.Sets.Count) cs.ActiveSet = 0;
             return cs;
         }
 
         private SkillSet Active() { var cs = ClassEntry(); return cs.Sets[cs.ActiveSet]; }
 
-        /// <summary>How many slots are active in the current class's active set (1..MaxSlots).</summary>
-        public int SlotCount => Active().SlotCount;
-
-        /// <summary>Player-chosen spell per slot (null = auto) for the active set. Indexing writes through.</summary>
-        public string?[] Bindings => Active().Bindings;
-
-        // ---- set management (current class), used by the spellbook ----
-        public System.Collections.Generic.IReadOnlyList<SkillSet> Sets => ClassEntry().Sets;
+        public IReadOnlyList<SkillSet> Sets => ClassEntry().Sets;
         public int ActiveSetIndex => ClassEntry().ActiveSet;
 
-        public void SwitchSet(int i) { var cs = ClassEntry(); if (i >= 0 && i < cs.Sets.Count) { cs.ActiveSet = i; SaveConfig(); dirty = true; } }
-        public void AddSet() { var cs = ClassEntry(); cs.Sets.Add(new SkillSet { Name = "Set " + (cs.Sets.Count + 1) }); cs.ActiveSet = cs.Sets.Count - 1; SaveConfig(); dirty = true; }
-        public void RenameSet(int i, string name) { var cs = ClassEntry(); if (i >= 0 && i < cs.Sets.Count && !string.IsNullOrWhiteSpace(name)) { cs.Sets[i].Name = name; SaveConfig(); } }
-        public void DeleteSet(int i) { var cs = ClassEntry(); if (cs.Sets.Count <= 1 || i < 0 || i >= cs.Sets.Count) return; cs.Sets.RemoveAt(i); if (cs.ActiveSet >= cs.Sets.Count) cs.ActiveSet = cs.Sets.Count - 1; SaveConfig(); dirty = true; }
+        public void SwitchSet(int i) { var cs = ClassEntry(); if (i >= 0 && i < cs.Sets.Count) { cs.ActiveSet = i; cs.BaseSet = i; SaveConfig(); dirty = true; } }
 
-        /// <summary>
-        /// Recomputes the slot contents (explicit bindings + auto-fill from the player's class/talent spells).
-        /// Called every frame from the HUD, but only rebuilds when the inputs actually change (see the signature
-        /// guard below).
-        /// </summary>
+        /// <summary>Cycles to the next set of the current class (wraps).</summary>
+        public void NextSet(int delta = 1)
+        {
+            var cs = ClassEntry();
+            if (cs.Sets.Count <= 1) return;
+            int n = cs.Sets.Count;
+            SwitchSet(((cs.ActiveSet + delta) % n + n) % n);
+        }
+
+        /// <summary>A new set copies the current bar geometry, so adding one does not mean placing bars again.</summary>
+        public void AddSet()
+        {
+            var cs = ClassEntry();
+            var fresh = new SkillSet { Name = "Set " + (cs.Sets.Count + 1) };
+            foreach (var bar in Active().Bars) fresh.Bars.Add(bar.CloneGeometry());
+            if (fresh.Bars.Count == 0) fresh.Bars.Add(new Bar());
+
+            cs.Sets.Add(fresh);
+            cs.ActiveSet = cs.Sets.Count - 1;
+            cs.BaseSet = cs.ActiveSet;
+            SaveConfig();
+            dirty = true;
+        }
+
+        public void RenameSet(int i, string name)
+        {
+            var cs = ClassEntry();
+            if (i >= 0 && i < cs.Sets.Count && !string.IsNullOrWhiteSpace(name)) { cs.Sets[i].Name = name; SaveConfig(); }
+        }
+
+        public void DeleteSet(int i)
+        {
+            var cs = ClassEntry();
+            if (cs.Sets.Count <= 1 || i < 0 || i >= cs.Sets.Count) return;
+            cs.Sets.RemoveAt(i);
+            if (cs.ActiveSet >= cs.Sets.Count) cs.ActiveSet = cs.Sets.Count - 1;
+            if (cs.BaseSet >= cs.Sets.Count) cs.BaseSet = cs.ActiveSet;
+            SaveConfig();
+            dirty = true;
+        }
+
+        /// <summary>Pushes this set's bar placement onto every other set of the class - bar positions belong to a
+        /// set, and this is how a player keeps them identical everywhere.</summary>
+        public void CopyLayoutToOtherSets()
+        {
+            var cs = ClassEntry();
+            var source = Active().Bars;
+            foreach (var set in cs.Sets)
+            {
+                if (set == Active()) continue;
+                while (set.Bars.Count > source.Count) set.Bars.RemoveAt(set.Bars.Count - 1);
+                for (int i = 0; i < source.Count; i++)
+                {
+                    if (i >= set.Bars.Count) { set.Bars.Add(source[i].CloneGeometry()); continue; }
+                    set.Bars[i].CopyGeometryFrom(source[i]);
+                }
+            }
+            SaveConfig();
+            dirty = true;
+        }
+
+        /// <summary>Which aura/form this set auto-activates in ("" = none).</summary>
+        public string SetAura(int i) { var cs = ClassEntry(); return i >= 0 && i < cs.Sets.Count ? cs.Sets[i].AuraId ?? "" : ""; }
+
+        public void SetSetAura(int i, string? auraId)
+        {
+            var cs = ClassEntry();
+            if (i < 0 || i >= cs.Sets.Count) return;
+            cs.Sets[i].AuraId = string.IsNullOrEmpty(auraId) ? null : auraId;
+            SaveConfig();
+        }
+
+        /// <summary>Swaps to the set tied to the aura the player just entered, and back to the last manually
+        /// chosen set when it ends. Not persisted - the manual choice stays the saved one.</summary>
+        private void ApplyAuraSet(Entity player)
+        {
+            var cs = ClassEntry();
+            string aura = player.WatchedAttributes.GetString(Core.AttrKeys.ActiveAura, "") ?? "";
+            if (aura == lastAura) return;
+            lastAura = aura;
+
+            int target = -1;
+            if (aura.Length > 0)
+                for (int i = 0; i < cs.Sets.Count; i++)
+                    if (cs.Sets[i].AuraId == aura) { target = i; break; }
+
+            if (target < 0) target = Math.Clamp(cs.BaseSet, 0, cs.Sets.Count - 1);
+            if (target == cs.ActiveSet) return;
+            cs.ActiveSet = target;
+            dirty = true;
+        }
+
+        // ---- bars ----
+
+        public IReadOnlyList<Bar> Bars => Active().Bars;
+        public int BarCount => Active().Bars.Count;
+
+        public Bar? BarAt(int bar)
+        {
+            var bars = Active().Bars;
+            return bar >= 0 && bar < bars.Count ? bars[bar] : null;
+        }
+
+        public int SlotCount(int bar) => BarAt(bar)?.Slots.Length ?? 0;
+
+        public string? Binding(int bar, int slot)
+        {
+            var b = BarAt(bar);
+            return b != null && slot >= 0 && slot < b.Slots.Length ? b.Slots[slot] : null;
+        }
+
+        /// <summary>What the slot shows and casts right now: its binding, a sequence's current pick, or an
+        /// auto-filled spell.</summary>
+        public string? Resolved(int bar, int slot)
+        {
+            var b = BarAt(bar);
+            return b != null && slot >= 0 && slot < b.Resolved.Length ? b.Resolved[slot] : null;
+        }
+
+        public Spell? SpellAt(int bar, int slot)
+        {
+            var id = Resolved(bar, slot);
+            var mod = canrpgclassesModSystem.ClientInstance;
+            if (string.IsNullOrEmpty(id) || mod == null) return null;
+            return mod.Spells.TryGet(id!, out var spell) ? spell : null;
+        }
+
+        /// <summary>Adds a bar, placed a row above the last one so it does not land on top of it.</summary>
+        public int AddBar()
+        {
+            var bars = Active().Bars;
+            if (bars.Count >= MaxBars) return -1;
+
+            var fresh = bars.Count > 0 ? bars[bars.Count - 1].CloneGeometry() : new Bar();
+            fresh.AnchorY = Math.Clamp(fresh.AnchorY - 0.07f, 0f, 1f);
+            bars.Add(fresh);
+            SaveConfig();
+            dirty = true;
+            return bars.Count - 1;
+        }
+
+        public void RemoveBar(int bar)
+        {
+            var bars = Active().Bars;
+            if (bars.Count <= 1 || bar < 0 || bar >= bars.Count) return;
+            bars.RemoveAt(bar);
+            SaveConfig();
+            dirty = true;
+        }
+
+        /// <summary>Persists bar geometry after an on-screen drag.</summary>
+        public void SaveBars() => SaveConfig();
+
+        public void SetSlotCount(int bar, int count)
+        {
+            var b = BarAt(bar);
+            if (b == null) return;
+            b.Resize(Math.Clamp(count, 1, MaxSlots));
+            SaveConfig();
+            dirty = true;
+        }
+
+        /// <summary>Assigns a spell (or null to clear) to a slot and persists the choice.</summary>
+        public void SetBinding(int bar, int slot, string? spellId)
+        {
+            var b = BarAt(bar);
+            if (b == null || slot < 0 || slot >= b.Slots.Length) return;
+            b.Slots[slot] = string.IsNullOrEmpty(spellId) ? null : spellId;
+            SaveConfig();
+            dirty = true;
+        }
+
+        /// <summary>Appends a spell to a slot's sequence (or binds it when the slot is empty).</summary>
+        public void AddToSequence(int bar, int slot, string spellId)
+        {
+            string? cur = Binding(bar, slot);
+            if (string.IsNullOrEmpty(spellId)) return;
+            if (string.IsNullOrEmpty(cur)) { SetBinding(bar, slot, spellId); return; }
+
+            foreach (var id in cur!.Split(SequenceSeparator, StringSplitOptions.RemoveEmptyEntries))
+                if (id == spellId) return;
+
+            SetBinding(bar, slot, cur + SequenceSeparator + spellId);
+        }
+
+        /// <summary>The entries of a slot's binding: one id for a plain slot, several for a sequence.</summary>
+        public string[] SequenceAt(int bar, int slot)
+        {
+            string? binding = Binding(bar, slot);
+            return string.IsNullOrEmpty(binding)
+                ? Array.Empty<string>()
+                : binding!.Split(SequenceSeparator, StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        // ---- refresh ----
+
+        /// <summary>Recomputes what each slot shows. Called every frame from the HUD, but only rebuilds when the
+        /// inputs actually change.</summary>
         public void RefreshSlots()
         {
             var player = capi.World?.Player?.Entity;
@@ -99,45 +299,123 @@ namespace canrpgclasses.Client
             if (!dirty && now - lastCheckMs < CheckIntervalMs) return;
             lastCheckMs = now;
 
-            int sig = ComputeSig(player);
-            if (!dirty && sig == lastSig) return;
-            dirty = false;
-            lastSig = sig;
+            ApplyAuraSet(player);
 
-            Rebuild();
+            int sig = ComputeSig(player);
+            if (dirty || sig != lastSig)
+            {
+                dirty = false;
+                lastSig = sig;
+                Rebuild();
+            }
+
+            // Cooldowns move without any of the above changing, so a sequence slot re-picks on its own tick.
+            if (hasSequences) ResolveSequences(player);
         }
 
         private void Rebuild()
         {
             var available = AvailableSpells();
-            if (available.Count == 0) { AutoFillFromRegistry(); return; }
-
             var used = usedBuf;
             used.Clear();
+            hasSequences = false;
 
-            // 1) Honour explicit bindings (only those still available).
-            for (int i = 0; i < SlotCount; i++)
+            var bars = Active().Bars;
+            foreach (var bar in bars) bar.SyncResolved();
+
+            // 1) Explicit bindings first, across every bar. A sequence keeps only the entries the player can use.
+            foreach (var bar in bars)
             {
-                if (!string.IsNullOrEmpty(Bindings[i]) && available.Contains(Bindings[i]!))
+                for (int i = 0; i < bar.Slots.Length; i++)
                 {
-                    Slots[i] = Bindings[i];
-                    used.Add(Bindings[i]!);
+                    string? binding = bar.Slots[i];
+                    bar.Resolved[i] = null;
+                    if (string.IsNullOrEmpty(binding)) continue;
+
+                    if (binding!.IndexOf(SequenceSeparator) >= 0)
+                    {
+                        var kept = new List<string>();
+                        foreach (var id in binding.Split(SequenceSeparator, StringSplitOptions.RemoveEmptyEntries))
+                            if (available.Contains(id) && !kept.Contains(id)) kept.Add(id);
+                        if (kept.Count == 0) continue;
+
+                        bar.Slots[i] = string.Join(SequenceSeparator, kept);
+                        bar.Resolved[i] = kept[0];
+                        hasSequences = true;
+                        foreach (var id in kept) used.Add(id);
+                    }
+                    else if (available.Contains(binding))
+                    {
+                        bar.Resolved[i] = binding;
+                        used.Add(binding);
+                    }
                 }
-                else Slots[i] = null;
             }
 
-            // 2) Auto-fill the remaining slots with leftover available skills.
+            // 2) Auto-fill what is left, first bar first.
             int next = 0;
-            for (int i = 0; i < SlotCount; i++)
+            foreach (var bar in bars)
             {
-                if (Slots[i] != null) continue;
-                while (next < available.Count && used.Contains(available[next])) next++;
-                if (next < available.Count) { Slots[i] = available[next]; used.Add(available[next]); next++; }
+                for (int i = 0; i < bar.Slots.Length; i++)
+                {
+                    if (bar.Resolved[i] != null) continue;
+                    while (next < available.Count && used.Contains(available[next])) next++;
+                    if (next >= available.Count) return;
+                    bar.Resolved[i] = available[next];
+                    used.Add(available[next]);
+                    next++;
+                }
             }
         }
 
-        // A cheap, allocation-free fingerprint of everything the slot fill depends on: current class, talent ranks,
-        // and the active set's slot count + bindings. When it's unchanged there's nothing to rebuild.
+        /// <summary>Points every sequence slot at its first castable entry, falling back to the first one.</summary>
+        private void ResolveSequences(EntityPlayer player)
+        {
+            foreach (var bar in Active().Bars)
+            {
+                bar.SyncResolved();
+                for (int i = 0; i < bar.Slots.Length; i++)
+                {
+                    string? binding = bar.Slots[i];
+                    if (string.IsNullOrEmpty(binding) || binding!.IndexOf(SequenceSeparator) < 0) continue;
+
+                    var parts = binding.Split(SequenceSeparator, StringSplitOptions.RemoveEmptyEntries);
+                    string? pick = null;
+                    foreach (var id in parts)
+                    {
+                        if (!IsCastable(player, id)) continue;
+                        pick = id;
+                        break;
+                    }
+                    bar.Resolved[i] = pick ?? (parts.Length > 0 ? parts[0] : null);
+                }
+            }
+        }
+
+        /// <summary>Client-side "can I press this now": off cooldown (its own and the GCD) and enough resource.
+        /// Advisory only - the server still decides.</summary>
+        public bool IsCastable(EntityPlayer player, string? spellId)
+        {
+            var mod = canrpgclassesModSystem.ClientInstance;
+            if (string.IsNullOrEmpty(spellId) || mod == null || !mod.Spells.TryGet(spellId!, out var spell) || spell == null)
+                return false;
+
+            var cooldowns = player.GetBehavior<Core.EB.EBSpellCooldowns>();
+            if (cooldowns != null)
+            {
+                if (cooldowns.RemainingSeconds(spell.CooldownKey) > 0) return false;
+                if (spell.TriggersGlobalCooldown && cooldowns.RemainingSeconds(Spell.GlobalCooldownKey) > 0) return false;
+            }
+
+            if (spell.Cost.Resource > 0)
+            {
+                var pool = Core.Resources.ResourceState.PrimaryPool(player);
+                if (pool != null && Core.Resources.ResourceState.Get(player, pool) < spell.Cost.Resource) return false;
+            }
+            return true;
+        }
+
+        // A cheap fingerprint of everything the fill depends on: class, talent ranks, and the active set's bars.
         private int ComputeSig(Entity player)
         {
             unchecked
@@ -150,12 +428,11 @@ namespace canrpgclasses.Client
                     foreach (var kv in ranks)
                         h = h * 31 + kv.Key.GetHashCode() + ranks.GetInt(kv.Key) * 7;
 
-                var set = Active();
-                h = h * 31 + set.SlotCount;
-                var b = set.Bindings;
-                if (b != null)
-                    for (int i = 0; i < b.Length; i++)
-                        h = h * 31 + (b[i]?.GetHashCode() ?? 0);
+                foreach (var bar in Active().Bars)
+                {
+                    h = h * 31 + bar.Slots.Length;
+                    foreach (var id in bar.Slots) h = h * 31 + (id?.GetHashCode() ?? 0);
+                }
                 return h;
             }
         }
@@ -166,10 +443,10 @@ namespace canrpgclasses.Client
         {
             var player = capi.World?.Player?.Entity;
             var mod = canrpgclassesModSystem.ClientInstance;
-            var list = canrpgclasses.Core.Spells.SpellAccess.Available(player, mod);
+            var list = SpellAccess.Available(player, mod);
 
-            // Debug fallback: nothing unlocked yet → list the registry's active spells so the
-            // hotbar and spellbook aren't empty while testing.
+            // Debug fallback: nothing unlocked yet - list the registry's active spells so the hotbar and
+            // spellbook aren't empty while testing.
             if (list.Count == 0 && mod != null)
             {
                 foreach (var spell in mod.Spells.All.Values)
@@ -179,101 +456,26 @@ namespace canrpgclasses.Client
             return list;
         }
 
-        /// <summary>Assigns a spell (or null to clear) to a hotbar slot and persists the choice.</summary>
-        public void SetBinding(int slot, string? spellId)
+        // ---- casting ----
+
+        public void CastSlot(int bar, int slot)
         {
-            if (slot < 0 || slot >= MaxSlots) return;
-            Bindings[slot] = string.IsNullOrEmpty(spellId) ? null : spellId;
-            SaveConfig();
-            dirty = true;
-        }
+            var b = BarAt(bar);
+            if (b == null || slot < 0 || slot >= b.Slots.Length) return;
 
-        public void SetSlotCount(int count)
-        {
-            Active().SlotCount = Math.Max(1, Math.Min(MaxSlots, count));
-            SaveConfig();
-            dirty = true;
-        }
+            // Re-pick now: the buffered choice can be a tick old, and that tick is where a just-finished
+            // cooldown would be missed.
+            var player = capi.World?.Player?.Entity;
+            string? binding = b.Slots[slot];
+            if (player != null && !string.IsNullOrEmpty(binding) && binding!.IndexOf(SequenceSeparator) >= 0)
+                ResolveSequences(player);
 
-        private void LoadConfig()
-        {
-            try
-            {
-                var cfg = capi.LoadModConfig<HotbarConfig>(ConfigFile);
-                if (cfg != null) { config = cfg; config.PerClass ??= new System.Collections.Generic.Dictionary<string, ClassSets>(); Normalize(); }
-            }
-            catch { }
-        }
-
-        // Repairs deserialized data: every set needs a full-length Bindings array, a sane SlotCount, and each class
-        // at least one set with a valid ActiveSet index.
-        private void Normalize()
-        {
-            foreach (var cs in config.PerClass.Values)
-            {
-                if (cs == null) continue;
-                cs.Sets ??= new System.Collections.Generic.List<SkillSet>();
-                if (cs.Sets.Count == 0) cs.Sets.Add(new SkillSet());
-                foreach (var s in cs.Sets)
-                {
-                    if (s.Bindings == null || s.Bindings.Length != MaxSlots)
-                    {
-                        var b = new string?[MaxSlots];
-                        for (int i = 0; s.Bindings != null && i < MaxSlots && i < s.Bindings.Length; i++) b[i] = s.Bindings[i];
-                        s.Bindings = b;
-                    }
-                    s.SlotCount = Math.Max(1, Math.Min(MaxSlots, s.SlotCount));
-                }
-                if (cs.ActiveSet < 0 || cs.ActiveSet >= cs.Sets.Count) cs.ActiveSet = 0;
-            }
-        }
-
-        private void SaveConfig()
-        {
-            try { capi.StoreModConfig(config, ConfigFile); } catch { }
-        }
-
-        /// <summary>Debug fallback binding: take the first few Active spells from the registry.</summary>
-        public void AutoFillFromRegistry()
-        {
-            for (int i = 0; i < SlotCount; i++) Slots[i] = null;
-
-            var mod = canrpgclassesModSystem.ClientInstance;
-            if (mod == null) return;
-
-            int n = 0;
-            foreach (var spell in mod.Spells.All.Values)
-            {
-                if (n >= SlotCount) break;
-                if (spell.Type != SpellType.Active) continue;
-                Slots[n++] = spell.Id;
-            }
-        }
-
-        public void SetSlot(int index, string? spellId)
-        {
-            if (index < 0 || index >= SlotCount) return;
-            Slots[index] = spellId;
-        }
-
-        public Spell? SpellAt(int index)
-        {
-            if (index < 0 || index >= SlotCount) return null;
-            var id = Slots[index];
-            if (string.IsNullOrEmpty(id)) return null;
-            var mod = canrpgclassesModSystem.ClientInstance;
-            if (mod == null) return null;
-            return mod.Spells.TryGet(id!, out var spell) ? spell : null;
-        }
-
-        public void CastSlot(int index)
-        {
-            var id = (index >= 0 && index < SlotCount) ? Slots[index] : null;
+            var id = Resolved(bar, slot);
             if (!string.IsNullOrEmpty(id)) Cast(id!);
         }
 
         /// <summary>Sends a cast request for an arbitrary spell id, aimed at whatever the player is looking at.
-        /// Shared by the hotbar keys and the right-click item-cast patch (<see cref="canrpgclasses.Core.HarmonyPatches.SpellItemUsePatches"/>).</summary>
+        /// Shared by the hotbar keys, the click handler and the right-click item-cast patch.</summary>
         public void Cast(string id)
         {
             if (string.IsNullOrEmpty(id)) return;
@@ -310,23 +512,178 @@ namespace canrpgclasses.Client
 
             mod.ClientChannel.SendPacket(packet);
         }
+
+        // ---- persistence ----
+
+        private static SkillSet NewSet(string name)
+        {
+            var set = new SkillSet { Name = name };
+            set.Bars.Add(new Bar());
+            return set;
+        }
+
+        private void LoadConfig()
+        {
+            try
+            {
+                var cfg = capi.LoadModConfig<HotbarConfig>(ConfigFile);
+                if (cfg != null) { config = cfg; config.PerClass ??= new Dictionary<string, ClassSets>(); }
+            }
+            catch { }
+            Normalize();
+        }
+
+        /// <summary>Repairs deserialized data and migrates the pre-bars format: the old single slot row becomes
+        /// bar 1, taking its placement from the HUD layout's legacy fields.</summary>
+        private void Normalize()
+        {
+            foreach (var kv in config.PerClass)
+            {
+                var cs = kv.Value;
+                if (cs == null) continue;
+
+                cs.Sets ??= new List<SkillSet>();
+                if (cs.Sets.Count == 0) cs.Sets.Add(NewSet("Set 1"));
+
+                foreach (var set in cs.Sets)
+                {
+                    set.Bars ??= new List<Bar>();
+
+                    if (set.Bars.Count == 0)
+                    {
+                        var bar = new Bar();
+                        int count = Math.Clamp(set.SlotCount > 0 ? set.SlotCount : 4, 1, MaxSlots);
+                        bar.Resize(count);
+                        for (int i = 0; i < count && set.Bindings != null && i < set.Bindings.Length; i++)
+                            bar.Slots[i] = set.Bindings[i];
+
+                        var legacy = layout.LegacyBarPlacement(kv.Key);
+                        if (legacy != null) bar.CopyGeometryFrom(legacy);
+
+                        set.Bars.Add(bar);
+                        set.Bindings = null;
+                        set.SlotCount = 0;
+                    }
+
+                    if (set.Bars.Count > MaxBars) set.Bars.RemoveRange(MaxBars, set.Bars.Count - MaxBars);
+                    foreach (var bar in set.Bars) bar.Normalize();
+                }
+
+                if (cs.ActiveSet < 0 || cs.ActiveSet >= cs.Sets.Count) cs.ActiveSet = 0;
+                if (cs.BaseSet < 0 || cs.BaseSet >= cs.Sets.Count) cs.BaseSet = cs.ActiveSet;
+            }
+        }
+
+        private void SaveConfig()
+        {
+            try { capi.StoreModConfig(config, ConfigFile); } catch { }
+        }
+
+        /// <summary>The whole hotbar config, for profile export/import.</summary>
+        public HotbarConfig Config => config;
+
+        public void ReplaceConfig(HotbarConfig replacement)
+        {
+            config = replacement ?? new HotbarConfig();
+            config.PerClass ??= new Dictionary<string, ClassSets>();
+            Normalize();
+            SaveConfig();
+            dirty = true;
+        }
+    }
+
+    /// <summary>One skill bar: where it is drawn and what is on it. Geometry and contents live together so a bar
+    /// is a single thing to move, copy and export.</summary>
+    public class Bar
+    {
+        public float AnchorX = 0.5f;   // centre X (0 = left, 1 = right)
+        public float AnchorY = 0.88f;  // centre Y (0 = top, 1 = bottom)
+        public float SlotSize = 48f;
+        public float SlotPadding = 6f;
+        public bool Vertical = false;  // false = row, true = column
+        public bool Visible = true;
+
+        /// <summary>Shown only as a wheel while its hold key is down, never as a row on screen.</summary>
+        public bool Radial = false;
+
+        /// <summary>Player-chosen spell per slot (null = auto-filled). Its length is the bar's slot count.</summary>
+        public string?[] Slots = new string?[4];
+
+        /// <summary>What each slot shows this frame - bindings resolved against sequences and auto-fill.</summary>
+        [JsonIgnore]
+        public string?[] Resolved = new string?[4];
+
+        public void Resize(int count)
+        {
+            var slots = new string?[count];
+            for (int i = 0; i < count && i < Slots.Length; i++) slots[i] = Slots[i];
+            Slots = slots;
+            Resolved = new string?[count];
+        }
+
+        /// <summary>Keeps the render buffer the same length as the bindings.</summary>
+        public void SyncResolved()
+        {
+            if (Resolved.Length != Slots.Length) Resolved = new string?[Slots.Length];
+        }
+
+        public void Normalize()
+        {
+            Slots ??= new string?[4];
+            if (Slots.Length < 1 || Slots.Length > SpellHotbar.MaxSlots)
+                Resize(Math.Clamp(Slots.Length, 1, SpellHotbar.MaxSlots));
+            SlotSize = Math.Clamp(SlotSize, 24f, 96f);
+            SlotPadding = Math.Clamp(SlotPadding, 0f, 24f);
+            AnchorX = Math.Clamp(AnchorX, 0f, 1f);
+            AnchorY = Math.Clamp(AnchorY, 0f, 1f);
+            SyncResolved();
+        }
+
+        public Bar CloneGeometry()
+        {
+            var bar = new Bar();
+            bar.CopyGeometryFrom(this);
+            bar.Resize(Slots.Length);
+            return bar;
+        }
+
+        public void CopyGeometryFrom(Bar other)
+        {
+            AnchorX = other.AnchorX;
+            AnchorY = other.AnchorY;
+            SlotSize = other.SlotSize;
+            SlotPadding = other.SlotPadding;
+            Vertical = other.Vertical;
+            Visible = other.Visible;
+            Radial = other.Radial;
+        }
     }
 
     public class HotbarConfig
     {
-        public System.Collections.Generic.Dictionary<string, ClassSets> PerClass = new();
+        public Dictionary<string, ClassSets> PerClass = new();
     }
 
     public class ClassSets
     {
-        public System.Collections.Generic.List<SkillSet> Sets = new();
+        public List<SkillSet> Sets = new();
         public int ActiveSet = 0;
+
+        /// <summary>The set to come back to when an aura-tied set ends.</summary>
+        public int BaseSet = 0;
     }
 
     public class SkillSet
     {
         public string Name = "Set 1";
-        public int SlotCount = 4;
-        public string?[] Bindings = new string?[SpellHotbar.MaxSlots];
+
+        /// <summary>Aura/form spell id this set auto-activates in (null = manual only).</summary>
+        public string? AuraId;
+
+        public List<Bar> Bars = new();
+
+        // ---- pre-bars format, read once by the migration then cleared ----
+        public int SlotCount;
+        public string?[]? Bindings;
     }
 }

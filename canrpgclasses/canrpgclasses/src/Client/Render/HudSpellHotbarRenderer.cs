@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -26,8 +27,9 @@ namespace canrpgclasses.Client.Render
         private readonly CairoFont barFont = CairoFont.WhiteSmallText();
         private readonly CairoFont keyFont = CairoFont.WhiteDetailText();
 
-        // Edit-mode drag state: 0 = none, 1 = slot block, 2 = resource block, 3 = cast bar, 4 = combo points.
-        private int draggingBlock;
+        // Edit-mode drag: the movable blocks of this frame and which one is being dragged (-1 = none).
+        private readonly List<((float X, float Y, float W, float H) Rect, Action<float, float> SetAnchor)> editBlocks = new();
+        private int dragging = -1;
         private float dragOffsetX, dragOffsetY;
         private bool wasMouseDown;
 
@@ -72,44 +74,83 @@ namespace canrpgclasses.Client.Render
             float screenW = capi.Render.FrameWidth;
             float screenH = capi.Render.FrameHeight;
 
-            int n = hotbar.SlotCount;
-            float size = cfg.SlotSize, pad = cfg.SlotPadding;
-            float blockW = cfg.Vertical ? size : n * size + (n - 1) * pad;
-            float blockH = cfg.Vertical ? n * size + (n - 1) * pad : size;
-            float left = screenW * cfg.SlotAnchorX - blockW / 2f;
-            float top = screenH * cfg.SlotAnchorY - blockH / 2f;
-
             // The aura stance currently active (synced) - its slot gets a glowing "on" border.
             string activeAura = player.WatchedAttributes.GetString(Core.AttrKeys.ActiveAura, "");
 
-            for (int i = 0; i < n; i++)
+            // Slots are clickable whenever the cursor is free, so the hovered one is highlighted then.
+            (int Bar, int Slot) hovered = layout.EditMode || capi.Input.MouseGrabbed
+                ? (-1, -1)
+                : SlotAt(capi.Input.MouseX, capi.Input.MouseY);
+
+            for (int b = 0; b < hotbar.BarCount; b++)
             {
-                float sx = cfg.Vertical ? left : left + i * (size + pad);
-                float sy = cfg.Vertical ? top + i * (size + pad) : top;
-
-                draw.Rect(sx, sy, size, size, new Vec4f(0f, 0f, 0f, 0.55f));
-
-                var spell = hotbar.SpellAt(i);
-                if (spell != null)
-                {
-                    DrawSpellIcon(sx, sy, size, spell);
-                    DrawCooldown(sx, sy, size, spell, cooldowns);
-                    if (!string.IsNullOrEmpty(activeAura) && spell.Id == activeAura)
-                        draw.Frame(sx - 2, sy - 2, size + 4, size + 4, 2.5f, new Vec4f(0.45f, 1f, 0.55f, 0.95f));
-                }
-
-                draw.Frame(sx, sy, size, size, 1.5f, new Vec4f(0.8f, 0.8f, 0.85f, 0.6f));
-
-                string key = HotkeyText(i);
-                if (key.Length > 0) draw.Text(key, keyFont, sx + 3, sy + 1, new Vec4f(0.85f, 0.95f, 1f, 1f));
+                var bar = hotbar.BarAt(b);
+                if (bar is not { Visible: true, Radial: false }) continue;
+                DrawBar(player, b, bar, cooldowns, activeAura, hovered, screenW, screenH);
             }
 
             if (cfg.ShowResources) DrawResources(player, cfg, screenW, screenH);
             if (cfg.ShowCombo) DrawComboPoints(player, cfg, screenW, screenH);
             DrawCastBar(cfg, screenW, screenH);
 
-            if (layout.EditMode) HandleEditDrag(cfg, screenW, screenH, left, top, blockW, blockH);
-            else draggingBlock = 0;
+            if (layout.EditMode) HandleEditDrag(cfg, screenW, screenH);
+            else dragging = -1;
+        }
+
+        /// <summary>Top-left corner and overall size of a bar's slot block.</summary>
+        private static (float Left, float Top, float W, float H) BarBlock(Bar bar, float screenW, float screenH)
+        {
+            int n = bar.Slots.Length;
+            float size = bar.SlotSize, pad = bar.SlotPadding;
+            float w = bar.Vertical ? size : n * size + (n - 1) * pad;
+            float h = bar.Vertical ? n * size + (n - 1) * pad : size;
+            return (screenW * bar.AnchorX - w / 2f, screenH * bar.AnchorY - h / 2f, w, h);
+        }
+
+        private static (float X, float Y) SlotPos(Bar bar, float left, float top, int slot)
+        {
+            float step = bar.SlotSize + bar.SlotPadding;
+            return bar.Vertical ? (left, top + slot * step) : (left + slot * step, top);
+        }
+
+        private void DrawBar(EntityPlayer player, int barIndex, Bar bar, EBSpellCooldowns? cooldowns,
+            string activeAura, (int Bar, int Slot) hovered, float screenW, float screenH)
+        {
+            var block = BarBlock(bar, screenW, screenH);
+            float size = bar.SlotSize;
+
+            for (int i = 0; i < bar.Slots.Length; i++)
+            {
+                var (sx, sy) = SlotPos(bar, block.Left, block.Top, i);
+                bool isHovered = hovered.Bar == barIndex && hovered.Slot == i;
+
+                draw.Rect(sx, sy, size, size, new Vec4f(0f, 0f, 0f, 0.55f));
+
+                var spell = hotbar.SpellAt(barIndex, i);
+                if (spell != null)
+                {
+                    bool ready = !layout.DimUnavailable || hotbar.IsCastable(player, spell.Id);
+                    DrawSpellIcon(sx, sy, size, spell, ready);
+                    DrawCooldown(sx, sy, size, spell, cooldowns);
+                    if (!string.IsNullOrEmpty(activeAura) && spell.Id == activeAura)
+                        draw.Frame(sx - 2, sy - 2, size + 4, size + 4, 2.5f, new Vec4f(0.45f, 1f, 0.55f, 0.95f));
+
+                    if (isHovered)
+                    {
+                        draw.TextCentered(spell.DisplayName, barFont, sx + size / 2f, sy - 10f,
+                            new Vec4f(1f, 0.95f, 0.8f, 1f));
+                    }
+                }
+
+                if (hotbar.SequenceAt(barIndex, i).Length > 1)
+                    draw.Rect(sx + size - 7, sy + size - 7, 5, 5, new Vec4f(1f, 0.8f, 0.3f, 0.9f));
+
+                draw.Frame(sx, sy, size, size, isHovered ? 2.5f : 1.5f,
+                    isHovered ? new Vec4f(1f, 0.9f, 0.5f, 0.95f) : new Vec4f(0.8f, 0.8f, 0.85f, 0.6f));
+
+                string key = HotkeyText(barIndex, i);
+                if (key.Length > 0) draw.Text(key, keyFont, sx + 3, sy + 1, new Vec4f(0.85f, 0.95f, 1f, 1f));
+            }
         }
 
         /// <summary>Bounds of a length/thickness bar centred on the given anchor fraction - shared by the resource
@@ -257,13 +298,34 @@ namespace canrpgclasses.Client.Render
             }
         }
 
-        private void DrawSpellIcon(float x, float y, float size, Spell spell)
+        /// <summary>The bar and slot under a screen point, or (-1, -1). Used by the click and drop handlers.</summary>
+        public (int Bar, int Slot) SlotAt(float mx, float my)
         {
+            float screenW = capi.Render.FrameWidth, screenH = capi.Render.FrameHeight;
+
+            for (int b = 0; b < hotbar.BarCount; b++)
+            {
+                var bar = hotbar.BarAt(b);
+                if (bar is not { Visible: true, Radial: false }) continue;
+
+                var block = BarBlock(bar, screenW, screenH);
+                for (int i = 0; i < bar.Slots.Length; i++)
+                {
+                    var (sx, sy) = SlotPos(bar, block.Left, block.Top, i);
+                    if (mx >= sx && mx <= sx + bar.SlotSize && my >= sy && my <= sy + bar.SlotSize) return (b, i);
+                }
+            }
+            return (-1, -1);
+        }
+
+        private void DrawSpellIcon(float x, float y, float size, Spell spell, bool ready = true)
+        {
+            var tint = ready ? null : new Vec4f(0.45f, 0.45f, 0.5f, 0.85f);
             var tex = canrpgclassesModSystem.ClientInstance?.Icons?.GetTex(
                 IconLoader.PathFor(spell.IconName, spell.LocalId));
             if (tex != null && tex.TextureId != 0)
             {
-                draw.Icon(tex, x, y, size, size);
+                draw.Icon(tex, x, y, size, size, tint);
                 return;
             }
 
@@ -297,59 +359,69 @@ namespace canrpgclasses.Client.Render
             draw.CooldownSweep(x, y, size, 1f - fraction, new Vec4f(0f, 0f, 0f, 0.6f));
         }
 
-        /// <summary>While the HUD settings panel is open: outline the four blocks and let the player drag each to a
-        /// new anchor. The cursor is free (a dialog is open), so raw mouse state is the right input here.
-        /// dragOffset keeps the grab point so the block doesn't jump under the cursor.</summary>
-        private void HandleEditDrag(HudLayoutConfig cfg, float screenW, float screenH,
-            float slotLeft, float slotTop, float blockW, float blockH)
+        /// <summary>While the HUD settings panel is open: outline every movable block and let the player drag it to
+        /// a new anchor. Blocks are collected into a list rather than switched on by index, so any number of bars
+        /// works. The cursor is free (a dialog is open), so raw mouse state is the right input here.</summary>
+        private void HandleEditDrag(HudLayoutConfig cfg, float screenW, float screenH)
         {
             float mx = capi.Input.MouseX, my = capi.Input.MouseY;
             bool down = capi.Input.MouseButton.Left;
 
-            var slots = (X: slotLeft, Y: slotTop, W: blockW, H: blockH);
-            var res = Block(screenW, screenH, cfg.ResAnchorX, cfg.ResAnchorY, cfg.ResWidth, cfg.ResThickness, cfg.ResVertical);
-            var cast = Block(screenW, screenH, cfg.CastAnchorX, cfg.CastAnchorY, cfg.CastWidth, cfg.CastThickness, cfg.CastVertical);
+            editBlocks.Clear();
 
-            float comboSpan = Math.Max(0f, (ResourceState.ComboMax - 1) * cfg.ComboPipSpacing);
-            float comboLen = comboSpan + cfg.ComboPipRadius * 2f;
-            float comboThick = cfg.ComboPipRadius * 2f;
-            var combo = Block(screenW, screenH, cfg.ComboAnchorX, cfg.ComboAnchorY, comboLen, comboThick, cfg.ComboVertical);
+            for (int b = 0; b < hotbar.BarCount; b++)
+            {
+                var bar = hotbar.BarAt(b);
+                if (bar is not { Visible: true, Radial: false }) continue;
+                var block = BarBlock(bar, screenW, screenH);
+                editBlocks.Add(((block.Left, block.Top, block.W, block.H),
+                    (fx, fy) => { bar.AnchorX = fx; bar.AnchorY = fy; }));
+            }
 
-            bool overSlots = In(mx, my, slots);
-            bool overRes = cfg.ShowResources && In(mx, my, res);
-            bool overCast = In(mx, my, cast);
-            bool overCombo = cfg.ShowCombo && In(mx, my, combo);
+            if (cfg.ShowResources)
+                editBlocks.Add((Block(screenW, screenH, cfg.ResAnchorX, cfg.ResAnchorY, cfg.ResWidth, cfg.ResThickness, cfg.ResVertical),
+                    (fx, fy) => { cfg.ResAnchorX = fx; cfg.ResAnchorY = fy; }));
+
+            editBlocks.Add((Block(screenW, screenH, cfg.CastAnchorX, cfg.CastAnchorY, cfg.CastWidth, cfg.CastThickness, cfg.CastVertical),
+                (fx, fy) => { cfg.CastAnchorX = fx; cfg.CastAnchorY = fy; }));
+
+            if (cfg.ShowCombo)
+            {
+                float comboSpan = Math.Max(0f, (ResourceState.ComboMax - 1) * cfg.ComboPipSpacing);
+                editBlocks.Add((Block(screenW, screenH, cfg.ComboAnchorX, cfg.ComboAnchorY,
+                        comboSpan + cfg.ComboPipRadius * 2f, cfg.ComboPipRadius * 2f, cfg.ComboVertical),
+                    (fx, fy) => { cfg.ComboAnchorX = fx; cfg.ComboAnchorY = fy; }));
+            }
+
+            if (dragging >= editBlocks.Count) dragging = -1;
 
             var hi = new Vec4f(1f, 0.85f, 0.25f, 0.95f);
             var norm = new Vec4f(0.55f, 0.8f, 1f, 0.75f);
-            Outline(slots, (draggingBlock == 1 || (overSlots && draggingBlock == 0)) ? hi : norm);
-            if (cfg.ShowResources) Outline(res, (draggingBlock == 2 || (overRes && draggingBlock == 0)) ? hi : norm);
-            Outline(cast, (draggingBlock == 3 || (overCast && draggingBlock == 0)) ? hi : norm);
-            if (cfg.ShowCombo) Outline(combo, (draggingBlock == 4 || (overCombo && draggingBlock == 0)) ? hi : norm);
+            int over = -1;
+            for (int i = 0; i < editBlocks.Count; i++)
+                if (In(mx, my, editBlocks[i].Rect)) { over = i; break; }
 
-            if (draggingBlock == 0 && down && !wasMouseDown)
+            for (int i = 0; i < editBlocks.Count; i++)
+                Outline(editBlocks[i].Rect, (dragging == i || (over == i && dragging < 0)) ? hi : norm);
+
+            if (dragging < 0 && down && !wasMouseDown && over >= 0)
             {
-                if (overSlots) { draggingBlock = 1; Grab(slots, mx, my); }
-                else if (overRes) { draggingBlock = 2; Grab(res, mx, my); }
-                else if (overCast) { draggingBlock = 3; Grab(cast, mx, my); }
-                else if (overCombo) { draggingBlock = 4; Grab(combo, mx, my); }
+                dragging = over;
+                Grab(editBlocks[over].Rect, mx, my);
             }
 
-            if (draggingBlock != 0)
+            if (dragging >= 0)
             {
                 if (down)
+                    editBlocks[dragging].SetAnchor(
+                        Math.Clamp((mx + dragOffsetX) / screenW, 0f, 1f),
+                        Math.Clamp((my + dragOffsetY) / screenH, 0f, 1f));
+                else
                 {
-                    float fx = Math.Clamp((mx + dragOffsetX) / screenW, 0f, 1f);
-                    float fy = Math.Clamp((my + dragOffsetY) / screenH, 0f, 1f);
-                    switch (draggingBlock)
-                    {
-                        case 1: cfg.SlotAnchorX = fx; cfg.SlotAnchorY = fy; break;
-                        case 2: cfg.ResAnchorX = fx; cfg.ResAnchorY = fy; break;
-                        case 3: cfg.CastAnchorX = fx; cfg.CastAnchorY = fy; break;
-                        case 4: cfg.ComboAnchorX = fx; cfg.ComboAnchorY = fy; break;
-                    }
+                    dragging = -1;
+                    layout.Save();
+                    hotbar.SaveBars();
                 }
-                else { draggingBlock = 0; layout.Save(); }
             }
 
             wasMouseDown = down;
@@ -367,13 +439,15 @@ namespace canrpgclasses.Client.Render
         private static bool In(float x, float y, (float X, float Y, float W, float H) b)
             => x >= b.X && x <= b.X + b.W && y >= b.Y && y <= b.Y + b.H;
 
-        /// <summary>The key currently bound to this slot's cast hotkey (reflects rebinds), or the slot number.</summary>
-        private string HotkeyText(int index)
+        /// <summary>The key currently bound to this slot's cast hotkey, or nothing when it has none.</summary>
+        private string HotkeyText(int bar, int slot)
         {
-            if (index < 0 || index >= SpellHotbar.HotkeyCodes.Length) return "";
-            var hk = capi.Input?.GetHotKeyByCode(SpellHotbar.HotkeyCodes[index]);
-            string? key = hk?.CurrentMapping?.PrimaryAsString();
-            return string.IsNullOrEmpty(key) ? (index + 1).ToString() : key!;
+            if (bar < 0 || bar >= SpellHotbar.HotkeyCodes.Length) return "";
+            if (slot < 0 || slot >= SpellHotbar.HotkeyCodes[bar].Length) return "";
+
+            var hk = capi.Input?.GetHotKeyByCode(SpellHotbar.HotkeyCodes[bar][slot]);
+            if (hk?.CurrentMapping == null || hk.CurrentMapping.KeyCode == (int)GlKeys.Unknown) return "";
+            return hk.CurrentMapping.PrimaryAsString() ?? "";
         }
 
         private static (float R, float G, float B) SchoolColor(SpellSchool school) => school switch

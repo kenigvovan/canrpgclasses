@@ -7,7 +7,7 @@
         "KenigVovan"
     ],
     "description": "RPG classes for Vintage Story",
-    "version": "1.0.8",
+    "version": "1.0.9",
   "dependencies": {
     "game": "",
     "canparty": "",

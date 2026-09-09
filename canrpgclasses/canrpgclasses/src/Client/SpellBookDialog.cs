@@ -53,10 +53,15 @@ namespace canrpgclasses.Client
         private static readonly double[] Parchment = { 0.93, 0.88, 0.78, 1 };
 
         private readonly SpellHotbar hotbar;
-        private readonly IconDragState drag = new();
+
+        /// <summary>Shared with the on-screen bars, so a skill dragged out of the book can be dropped on them.</summary>
+        private readonly IconDragState drag;
 
         private string? picked;
         private string filter = "";
+
+        /// <summary>Which bar the slot grid on the right page is editing.</summary>
+        private int editBar;
 
         /// <summary>Ids the left grid currently shows, in cell order - the grid only knows indices.</summary>
         private List<string> shown = new();
@@ -69,9 +74,10 @@ namespace canrpgclasses.Client
         private double gridStartY;
         private long listenerId;
 
-        public SpellBookDialog(ICoreClientAPI capi, SpellHotbar hotbar) : base(capi)
+        public SpellBookDialog(ICoreClientAPI capi, SpellHotbar hotbar, IconDragState drag) : base(capi)
         {
             this.hotbar = hotbar;
+            this.drag = drag;
             // The available list changes with talents and with what's in hand; the slot row changes when a set is
             // switched. Both are cheap to re-read on a slow tick.
             listenerId = capi.Event.RegisterGameTickListener(_ => Refresh(), 500);
@@ -139,10 +145,19 @@ namespace canrpgclasses.Client
             var setNewBounds = ElementBounds.Fixed(rightX + PageW - 84, ry, 84, 26);
             var setNameBounds = ElementBounds.Fixed(rightX, ry + 32, PageW - 90, 26);
             var setDelBounds = ElementBounds.Fixed(rightX + PageW - 84, ry + 32, 84, 26);
+            var auraLabelBounds = ElementBounds.Fixed(rightX, ry + 68, 130, 22);
+            var auraDropBounds = ElementBounds.Fixed(rightX + 134, ry + 64, PageW - 134, 26);
 
-            double slotY = ry + 96;
+            editBar = Math.Clamp(editBar, 0, Math.Max(0, hotbar.BarCount - 1));
+
+            var barLabelBounds = ElementBounds.Fixed(rightX, ry + 104, 130, 22);
+            var barDropBounds = ElementBounds.Fixed(rightX + 134, ry + 100, PageW - 134 - 176, 26);
+            var barAddBounds = ElementBounds.Fixed(rightX + PageW - 172, ry + 100, 84, 26);
+            var barDelBounds = ElementBounds.Fixed(rightX + PageW - 84, ry + 100, 84, 26);
+
+            double slotY = ry + 168;
             int slotCols = Math.Max(1, (int)((PageW + CellPad) / (SlotSize + CellPad)));
-            int slotRows = Math.Max(1, (hotbar.SlotCount + slotCols - 1) / slotCols);
+            int slotRows = Math.Max(1, (hotbar.SlotCount(editBar) + slotCols - 1) / slotCols);
             var slotLabelBounds = ElementBounds.Fixed(rightX, slotY - 30, PageW - 70, 22);
             var slotDecBounds = ElementBounds.Fixed(rightX + PageW - 64, slotY - 32, 30, 24);
             var slotIncBounds = ElementBounds.Fixed(rightX + PageW - 30, slotY - 32, 30, 24);
@@ -203,8 +218,21 @@ namespace canrpgclasses.Client
                     .AddIf(hotbar.Sets.Count > 1)
                         .AddSmallButton(Lang.Get("canrpgclasses:ui-set-del"), DeleteSet, setDelBounds)
                     .EndIf()
+                    .AddStaticText(Lang.Get("canrpgclasses:ui-set-aura"),
+                        CairoFont.WhiteDetailText().WithColor(InkSoft), auraLabelBounds)
+                    .AddDropDown(AuraCodes(), AuraNames(), AuraIndex(), OnAuraSelected, auraDropBounds, "setaura")
 
-                    .AddDynamicText(Lang.Get("canrpgclasses:ui-hotbar-slots", hotbar.SlotCount),
+                    .AddStaticText(Lang.Get("canrpgclasses:ui-bar"),
+                        CairoFont.WhiteDetailText().WithColor(InkSoft), barLabelBounds)
+                    .AddDropDown(BarCodes(), BarNames(), editBar, OnBarSelected, barDropBounds, "bars")
+                    .AddIf(hotbar.BarCount < SpellHotbar.MaxBars)
+                        .AddSmallButton(Lang.Get("canrpgclasses:ui-bar-new"), NewBar, barAddBounds)
+                    .EndIf()
+                    .AddIf(hotbar.BarCount > 1)
+                        .AddSmallButton(Lang.Get("canrpgclasses:ui-bar-del"), DeleteBar, barDelBounds)
+                    .EndIf()
+
+                    .AddDynamicText(Lang.Get("canrpgclasses:ui-hotbar-slots", hotbar.SlotCount(editBar)),
                         CairoFont.WhiteSmallText().WithColor(Heading), slotLabelBounds, "slotlabel")
                     .AddSmallButton("-", () => ChangeSlotCount(-1), slotDecBounds)
                     .AddSmallButton("+", () => ChangeSlotCount(1), slotIncBounds)
@@ -337,21 +365,23 @@ namespace canrpgclasses.Client
             drag.GhostRenderer = slotGrid;
             slotGrid.OnDrop = (slot, id) =>
             {
-                if (slot < hotbar.SlotCount) hotbar.SetBinding(slot, id);
+                if (slot < hotbar.SlotCount(editBar)) hotbar.SetBinding(editBar, slot, id);
                 FillSlotGrid();
             };
             slotGrid.OnCellClick = (slot, button) =>
             {
-                if (slot >= hotbar.SlotCount) return;
-                // Left click drops the picked skill, or clears when nothing is picked; right click always clears.
-                hotbar.SetBinding(slot, button == EnumMouseButton.Right ? null : picked);
+                if (slot >= hotbar.SlotCount(editBar)) return;
+                bool shift = capi.Input.KeyboardKeyState[(int)GlKeys.ShiftLeft]
+                          || capi.Input.KeyboardKeyState[(int)GlKeys.ShiftRight];
+
+                // Left click drops the picked skill (Shift appends it to the slot's sequence instead), or clears
+                // when nothing is picked; right click always clears.
+                if (button == EnumMouseButton.Right) hotbar.SetBinding(editBar, slot, null);
+                else if (shift && picked != null) hotbar.AddToSequence(editBar, slot, picked);
+                else hotbar.SetBinding(editBar, slot, picked);
                 FillSlotGrid();
             };
-            slotGrid.OnCellHover = index =>
-            {
-                string? id = index >= 0 && index < hotbar.SlotCount ? hotbar.Slots[index] : null;
-                ShowTooltip(tooltip, id);
-            };
+            slotGrid.OnCellHover = index => ShowTooltip(tooltip, hotbar.Resolved(editBar, index));
         }
 
         private void ShowTooltip(GuiElementSpellTooltip? tooltip, string? spellId)
@@ -422,22 +452,24 @@ namespace canrpgclasses.Client
             var icons = mod?.Icons;
 
             var cells = new List<IconGridCell>();
-            for (int i = 0; i < hotbar.SlotCount; i++)
+            for (int i = 0; i < hotbar.SlotCount(editBar); i++)
             {
-                string? id = hotbar.Slots[i];
+                string? id = hotbar.Resolved(editBar, i);
+                int chain = hotbar.SequenceAt(editBar, i).Length;
+                string key = HotkeyText(editBar, i);
                 cells.Add(new IconGridCell
                 {
                     Id = id,
                     Icon = string.IsNullOrEmpty(id) ? null : icons?.GetTex(IconLoader.PathFor(IconStem(mod, id!))),
                     IconFallback = string.IsNullOrEmpty(id) ? null : Abbrev(SpellName(mod, id!)),
-                    Badge = HotkeyText(i),
+                    Badge = chain > 1 ? key + " x" + chain : key,
                     FrameColor = string.IsNullOrEmpty(id) ? null : SchoolColor(mod, id!)
                 });
             }
             grid.Cells = cells;
 
             SingleComposer.GetDynamicText("slotlabel")
-                ?.SetNewText(Lang.Get("canrpgclasses:ui-hotbar-slots", hotbar.SlotCount));
+                ?.SetNewText(Lang.Get("canrpgclasses:ui-hotbar-slots", hotbar.SlotCount(editBar)));
         }
 
         private void OnScroll(float value)
@@ -469,6 +501,49 @@ namespace canrpgclasses.Client
             Compose();
         }
 
+        /// <summary>Aura/form spells the player has - the sets that can auto-activate key off these.</summary>
+        private List<string> AuraSpells()
+        {
+            var mod = canrpgclassesModSystem.ClientInstance;
+            var list = new List<string>();
+            if (mod == null) return list;
+
+            foreach (var id in hotbar.AvailableSpells())
+            {
+                if (!mod.Spells.TryGet(id, out var s) || s == null) continue;
+                foreach (var imp in s.Impacts)
+                    if (imp.Action == ImpactAction.ToggleAura) { list.Add(id); break; }
+            }
+            return list;
+        }
+
+        private string[] AuraCodes()
+        {
+            var codes = new List<string> { "" };
+            codes.AddRange(AuraSpells());
+            return codes.ToArray();
+        }
+
+        private string[] AuraNames()
+        {
+            var mod = canrpgclassesModSystem.ClientInstance;
+            var names = new List<string> { Lang.Get("canrpgclasses:ui-set-aura-none") };
+            foreach (var id in AuraSpells()) names.Add(SpellName(mod, id));
+            return names.ToArray();
+        }
+
+        private int AuraIndex()
+        {
+            string cur = hotbar.SetAura(hotbar.ActiveSetIndex);
+            if (cur.Length == 0) return 0;
+            var auras = AuraSpells();
+            int i = auras.IndexOf(cur);
+            return i < 0 ? 0 : i + 1;
+        }
+
+        private void OnAuraSelected(string code, bool selected)
+            => hotbar.SetSetAura(hotbar.ActiveSetIndex, code);
+
         private void OnSetRenamed(string value)
         {
             int i = hotbar.ActiveSetIndex;
@@ -481,15 +556,39 @@ namespace canrpgclasses.Client
 
         private bool ChangeSlotCount(int delta)
         {
-            hotbar.SetSlotCount(hotbar.SlotCount + delta);
+            hotbar.SetSlotCount(editBar, hotbar.SlotCount(editBar) + delta);
             Compose();
             return true;
         }
 
+        private string[] BarCodes() => Enumerable.Range(0, hotbar.BarCount).Select(i => i.ToString()).ToArray();
+
+        private string[] BarNames() => Enumerable.Range(0, hotbar.BarCount)
+            .Select(i => Lang.Get("canrpgclasses:ui-bar-n", i + 1) + (hotbar.BarAt(i)?.Radial == true
+                ? " " + Lang.Get("canrpgclasses:ui-bar-radial-tag")
+                : ""))
+            .ToArray();
+
+        private void OnBarSelected(string code, bool selected)
+        {
+            if (!int.TryParse(code, out int index)) return;
+            editBar = index;
+            Compose();
+        }
+
+        private bool NewBar() { int i = hotbar.AddBar(); if (i >= 0) editBar = i; Compose(); return true; }
+
+        private bool DeleteBar() { hotbar.RemoveBar(editBar); editBar = 0; Compose(); return true; }
+
+        /// <summary>Double-click in the skill list: first empty slot of any bar, this one first.</summary>
         private void AssignToFirstFreeSlot(string id)
         {
-            for (int i = 0; i < hotbar.SlotCount; i++)
-                if (string.IsNullOrEmpty(hotbar.Slots[i])) { hotbar.SetBinding(i, id); return; }
+            for (int i = 0; i < hotbar.SlotCount(editBar); i++)
+                if (string.IsNullOrEmpty(hotbar.Binding(editBar, i))) { hotbar.SetBinding(editBar, i, id); return; }
+
+            for (int b = 0; b < hotbar.BarCount; b++)
+                for (int i = 0; i < hotbar.SlotCount(b); i++)
+                    if (string.IsNullOrEmpty(hotbar.Binding(b, i))) { hotbar.SetBinding(b, i, id); return; }
         }
 
         private string BindText()
@@ -567,13 +666,16 @@ namespace canrpgclasses.Client
             };
         }
 
-        /// <summary>The key currently bound to this slot's cast hotkey (reflects rebinds), or the slot number.</summary>
-        private string HotkeyText(int index)
+        /// <summary>The key bound to this slot's cast hotkey, or the slot number when it has none.</summary>
+        private string HotkeyText(int bar, int slot)
         {
-            if (index < 0 || index >= SpellHotbar.HotkeyCodes.Length) return (index + 1).ToString();
-            var hk = capi.Input?.GetHotKeyByCode(SpellHotbar.HotkeyCodes[index]);
-            string? key = hk?.CurrentMapping?.PrimaryAsString();
-            return string.IsNullOrEmpty(key) ? (index + 1).ToString() : key!;
+            if (bar < 0 || bar >= SpellHotbar.HotkeyCodes.Length ||
+                slot < 0 || slot >= SpellHotbar.HotkeyCodes[bar].Length) return (slot + 1).ToString();
+
+            var hk = capi.Input?.GetHotKeyByCode(SpellHotbar.HotkeyCodes[bar][slot]);
+            if (hk?.CurrentMapping == null || hk.CurrentMapping.KeyCode == (int)GlKeys.Unknown) return (slot + 1).ToString();
+            string? key = hk.CurrentMapping.PrimaryAsString();
+            return string.IsNullOrEmpty(key) ? (slot + 1).ToString() : key!;
         }
 
         private static string Abbrev(string name)

@@ -34,6 +34,12 @@ namespace canrpgclasses
         private PetPanelDialog? petPanel;
         private HudLayout? hudLayout;
         private HudSettingsDialog? hudSettings;
+        /// <summary>Client-only: the one drag in flight, shared by the spellbook and the on-screen bars so a skill
+        /// can be dragged from the book straight onto a bar.</summary>
+        internal Client.Gui.IconDragState? SpellDrag;
+
+        private SpellClickInput? clickInput;
+        private Client.Render.RadialCastMenu? radialMenu;
 
         /// <summary>Client-only: floating damage numbers + health bars over nearby damaged entities.</summary>
         private Client.Render.CombatOverlayRenderer? combatOverlay;
@@ -66,23 +72,51 @@ namespace canrpgclasses
         // ---- Client: spell hotbar HUD + hotkeys ----
         private void SetupHotbar(ICoreClientAPI api)
         {
-            Hotbar = new SpellHotbar(api);
             hudLayout = new HudLayout(api);
+            Hotbar = new SpellHotbar(api, hudLayout);
             Icons = new IconLoader(api);
             Loadouts = new TalentLoadouts(api);
 
-            // Default keys: Z R F V for slots 1-4; 5-9 default to less-common keys (rebind in Controls).
+            // Bar 1, slots 1-4 on Z R F V, 5-9 on X and Shift + Z R F V - one hand covers all nine. Bars 2-3 come
+            // with no keys: they are meant to be clicked, dragged onto, or opened as a wheel.
             var defaultKeys = new[]
             {
-                GlKeys.Z, GlKeys.R, GlKeys.F, GlKeys.V,
-                GlKeys.Insert, GlKeys.Home, GlKeys.PageUp, GlKeys.PageDown, GlKeys.End
+                GlKeys.Z, GlKeys.R, GlKeys.F, GlKeys.V, GlKeys.X,
+                GlKeys.Z, GlKeys.R, GlKeys.F, GlKeys.V
             };
-            for (int i = 0; i < SpellHotbar.HotkeyCodes.Length; i++)
-                RegisterCastHotKey(api, SpellHotbar.HotkeyCodes[i], Lang.Get("canrpgclasses:hotkey-cast", i + 1), defaultKeys[i], i);
+            for (int bar = 0; bar < SpellHotbar.MaxBars; bar++)
+                for (int slot = 0; slot < SpellHotbar.MaxSlots; slot++)
+                    RegisterCastHotKey(api, SpellHotbar.HotkeyCodes[bar][slot],
+                        Lang.Get("canrpgclasses:hotkey-cast-bar", bar + 1, slot + 1),
+                        bar == 0 ? defaultKeys[slot] : GlKeys.Unknown, bar, slot, shift: bar == 0 && slot >= 5);
 
             // Registers itself with the Ortho render stage; there is nothing to open - it draws whenever the
             // player is in-world.
             hotbarHud = new Client.Render.HudSpellHotbarRenderer(api, Hotbar, hudLayout);
+            SpellDrag = new Client.Gui.IconDragState();
+            clickInput = new SpellClickInput(api, Hotbar, hudLayout, hotbarHud, SpellDrag);
+            radialMenu = new Client.Render.RadialCastMenu(api, Hotbar, clickInput);
+
+            // Unbound by default: vanilla's Alt (togglemousecontrol) already frees the cursor while held. This is
+            // only for players who would rather toggle it than hold a key.
+            api.Input.RegisterHotKey("canrpgcursor", Lang.Get("canrpgclasses:hotkey-cursor"), GlKeys.Unknown, HotkeyType.GUIOrOtherControls);
+            api.Input.SetHotKeyHandler("canrpgcursor", _ => { clickInput?.ToggleCursor(); return true; });
+
+            // One hold-to-open wheel per bar; only the first gets a key by default.
+            for (int bar = 0; bar < SpellHotbar.MaxBars; bar++)
+            {
+                int index = bar;
+                string code = "canrpgwheel" + (bar + 1);
+                api.Input.RegisterHotKey(code, Lang.Get("canrpgclasses:hotkey-wheel", bar + 1),
+                    bar == 0 ? GlKeys.Tilde : GlKeys.Unknown, HotkeyType.GUIOrOtherControls);
+                api.Input.SetHotKeyHandler(code, comb => { radialMenu?.Open(index, comb.KeyCode); return true; });
+            }
+
+            api.Input.RegisterHotKey("canrpgnextset", Lang.Get("canrpgclasses:hotkey-nextset"), GlKeys.B, HotkeyType.GUIOrOtherControls);
+            api.Input.SetHotKeyHandler("canrpgnextset", _ => { Hotbar?.NextSet(); return true; });
+
+            for (int i = 0; i < SetHotkeyCodes.Length; i++)
+                RegisterSetHotKey(api, SetHotkeyCodes[i], i);
 
             api.Input.RegisterHotKey("canrpgtalents", Lang.Get("canrpgclasses:hotkey-talents"), GlKeys.K, HotkeyType.GUIOrOtherControls);
             api.Input.SetHotKeyHandler("canrpgtalents", _ => ToggleTalents(api));
@@ -101,6 +135,16 @@ namespace canrpgclasses
             api.ChatCommands.Create("canrpghud")
                 .WithDescription("Open the HUD layout panel (per-class slot/resource placement)")
                 .HandleWith(_ => { ToggleHudSettings(api); return TextCommandResult.Success(); });
+
+            api.ChatCommands.Create("canrpgexport")
+                .WithDescription("Export the hotbar/HUD setup to ModConfig (arg: profile name)")
+                .WithArgs(api.ChatCommands.Parsers.OptionalWord("name"))
+                .HandleWith(args => ExportProfile(api, args[0] as string));
+
+            api.ChatCommands.Create("canrpgimport")
+                .WithDescription("Import a hotbar/HUD profile from ModConfig (args: name, keys)")
+                .WithArgs(api.ChatCommands.Parsers.OptionalWord("name"), api.ChatCommands.Parsers.OptionalBool("keys"))
+                .HandleWith(args => ImportProfile(api, args[0] as string, args[1] as bool? ?? false));
 
             api.Input.RegisterHotKey("canrpgpet", Lang.Get("canrpgclasses:hotkey-pet"), GlKeys.P, HotkeyType.GUIOrOtherControls);
             api.Input.SetHotKeyHandler("canrpgpet", _ => TogglePetPanel(api));
@@ -240,7 +284,8 @@ namespace canrpgclasses
         public bool ToggleSpellBook(ICoreClientAPI api)
         {
             if (Hotbar is not { } hotbar) return false;
-            return ToggleGui(ref spellBook, () => new SpellBookDialog(api, hotbar));
+            var drag = SpellDrag ??= new Client.Gui.IconDragState();
+            return ToggleGui(ref spellBook, () => new SpellBookDialog(api, hotbar, drag));
         }
 
         public bool ToggleClassSelect(ICoreClientAPI api) => ToggleGui(ref classSelectGui, () => new ClassSelectDialog(api));
@@ -271,10 +316,46 @@ namespace canrpgclasses
                 ToggleClassSelect(api);
         }
 
-        private void RegisterCastHotKey(ICoreClientAPI api, string code, string label, GlKeys key, int slot)
+        private TextCommandResult ExportProfile(ICoreClientAPI api, string? name)
         {
-            api.Input.RegisterHotKey(code, label, key, HotkeyType.CharacterControls);
-            api.Input.SetHotKeyHandler(code, _ => { Hotbar?.CastSlot(slot); return true; });
+            if (hudLayout is not { } layout || Hotbar is not { } hotbar) return TextCommandResult.Error("Not ready.");
+            string? file = ProfileIo.Export(api, layout, hotbar, string.IsNullOrWhiteSpace(name) ? "default" : name!);
+            return file != null
+                ? TextCommandResult.Success("Saved to ModConfig/" + file)
+                : TextCommandResult.Error("Could not write the profile.");
+        }
+
+        private TextCommandResult ImportProfile(ICoreClientAPI api, string? name, bool withKeys)
+        {
+            if (hudLayout is not { } layout || Hotbar is not { } hotbar) return TextCommandResult.Error("Not ready.");
+            return ProfileIo.Import(api, layout, hotbar, string.IsNullOrWhiteSpace(name) ? "default" : name!, withKeys)
+                ? TextCommandResult.Success("Profile loaded.")
+                : TextCommandResult.Error("No such profile, or it is from a newer version.");
+        }
+
+        /// <summary>Set-switch hotkeys. Unbound by default - the cycle key covers most players.</summary>
+        private static readonly string[] SetHotkeyCodes = { "canrpgset1", "canrpgset2", "canrpgset3" };
+
+        /// <summary>
+        /// Registered ahead of the vanilla hotkeys, so a cast slot bound to 1-9 wins over the item hotbar in
+        /// NumberRow mode. Returning false in the other modes lets the vanilla handler run as usual - which is
+        /// also how Mouse mode silences the keys.
+        /// </summary>
+        private void RegisterCastHotKey(ICoreClientAPI api, string code, string label, GlKeys key, int bar, int slot, bool shift = false)
+        {
+            api.Input.RegisterHotKeyFirst(code, label, key, HotkeyType.CharacterControls, shiftPressed: shift);
+            api.Input.SetHotKeyHandler(code, _ =>
+            {
+                if (hudLayout?.Mode == InputMode.Mouse) return false;
+                Hotbar?.CastSlot(bar, slot);
+                return true;
+            });
+        }
+
+        private void RegisterSetHotKey(ICoreClientAPI api, string code, int index)
+        {
+            api.Input.RegisterHotKey(code, Lang.Get("canrpgclasses:hotkey-set", index + 1), GlKeys.Unknown, HotkeyType.GUIOrOtherControls);
+            api.Input.SetHotKeyHandler(code, _ => { Hotbar?.SwitchSet(index); return true; });
         }
 
         // Client half of Dispose (called from the main Dispose): GUI windows hold GPU textures/renderers.
@@ -283,6 +364,10 @@ namespace canrpgclasses
             // Instance handler - only this instance's own subscription matches, so the server instance's
             // Dispose (which also runs through here in singleplayer) is a harmless no-op.
             if (ClientApi != null) ClientApi.Event.PlayerJoin -= OnClientPlayerJoin;
+            radialMenu?.Dispose();
+            radialMenu = null;
+            clickInput?.Dispose();
+            clickInput = null;
             hotbarHud?.Dispose();
             hotbarHud = null;
             talentTree?.Dispose();
