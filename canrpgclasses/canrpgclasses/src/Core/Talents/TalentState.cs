@@ -73,6 +73,11 @@ namespace canrpgclasses.Core.Talents
                 var req = registry.Get(talent.RequiresTalent);
                 if (req != null && Rank(e, req.Id) < req.MaxRank) { reason = "prereq"; return false; }
             }
+            if (!Core.Attributes.AttributeStats.Meets(e, talent.RequiresAttributes, out string missing))
+            {
+                reason = "attribute:" + missing;
+                return false;
+            }
             return true;
         }
     }

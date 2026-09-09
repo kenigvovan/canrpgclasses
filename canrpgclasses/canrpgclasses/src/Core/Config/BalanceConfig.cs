@@ -137,6 +137,8 @@ namespace canrpgclasses.Core.Config
                 // config/content/ holds class/spell/talent definitions, not balance numbers - a different shape
                 // entirely. ContentLoader owns those.
                 if (asset.Location.Path.Contains("/content/", StringComparison.OrdinalIgnoreCase)) continue;
+                // Same for the attribute definitions - a different shape, owned by RpgAttributes.
+                if (asset.Name.StartsWith("attributes", StringComparison.OrdinalIgnoreCase)) continue;
 
                 BalanceNumbersModel? file;
                 try { file = asset.ToObject<BalanceNumbersModel>(); }

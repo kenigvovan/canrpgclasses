@@ -404,7 +404,11 @@ namespace canrpgclasses
         private void BroadcastBalanceConfig()
         {
             if (ServerApi == null || ServerChannel == null) return;
-            var msg = new BalanceConfigPacket { Json = BalanceConfig.Serialize() };
+            var msg = new BalanceConfigPacket
+            {
+                Json = BalanceConfig.Serialize(),
+                Attributes = Core.Attributes.RpgAttributes.Serialize()
+            };
             var online = new System.Collections.Generic.List<IServerPlayer>();
             foreach (var p in ServerApi.World.AllOnlinePlayers) if (p is IServerPlayer sp) online.Add(sp);
             ServerChannel.SendPacket(msg, online.ToArray());
@@ -414,7 +418,11 @@ namespace canrpgclasses
         private void OnPlayerNowPlaying(IServerPlayer player)
         {
             if (player == null) return;
-            ServerChannel?.SendPacket(new BalanceConfigPacket { Json = BalanceConfig.Serialize() }, player);
+            ServerChannel?.SendPacket(new BalanceConfigPacket
+            {
+                Json = BalanceConfig.Serialize(),
+                Attributes = Core.Attributes.RpgAttributes.Serialize()
+            }, player);
             // The vanilla-class restrictions live in the server's mod-config folder, so the client has no copy -
             // hand it one, or its class picker would offer classes the server is going to refuse.
             ServerChannel?.SendPacket(new ClassRestrictionsPacket { Json = Core.Classes.ClassRestrictions.Serialize() }, player);
@@ -471,6 +479,8 @@ namespace canrpgclasses
         {
             if (packet == null || string.IsNullOrEmpty(packet.Json)) return;
             BalanceConfig.ApplySerialized(packet.Json);
+            // Attribute definitions ride along, or the client would read its own file instead of the server's.
+            Core.Attributes.RpgAttributes.ApplySerialized(packet.Attributes, ClientApi?.Logger);
 
             RebuildRegistries(null);
 

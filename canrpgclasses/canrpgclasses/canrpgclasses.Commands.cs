@@ -74,6 +74,24 @@ namespace canrpgclasses
                 .WithArgs(api.ChatCommands.Parsers.OptionalWord("player"))
                 .HandleWith(OnClassFreeCommand);
 
+            api.ChatCommands.Create("canrpgattr")
+                .WithDescription("Admin: change a player's attribute by an amount (negative lowers it). 'reset' clears the admin bonus, 'list' shows the totals. Optional: target an online player.")
+                .RequiresPrivilege(Privilege.controlserver)
+                .RequiresPlayer()
+                .WithArgs(api.ChatCommands.Parsers.Word("attribute"), api.ChatCommands.Parsers.Float("amount"),
+                          api.ChatCommands.Parsers.OptionalWord("player"))
+                .HandleWith(OnAttrCommand)
+                .BeginSubCommand("reset")
+                    .WithDescription("Clear the admin bonus on one attribute")
+                    .WithArgs(api.ChatCommands.Parsers.Word("attribute"), api.ChatCommands.Parsers.OptionalWord("player"))
+                    .HandleWith(OnAttrResetCommand)
+                .EndSubCommand()
+                .BeginSubCommand("list")
+                    .WithDescription("List a player's attribute points and what they pay out")
+                    .WithArgs(api.ChatCommands.Parsers.OptionalWord("player"))
+                    .HandleWith(OnAttrListCommand)
+                .EndSubCommand();
+
             // Player-usable: name your hunter pet. The name sticks on you and re-applies to every wolf you summon.
             api.ChatCommands.Create("canrpgpet")
                 .WithDescription("Name your hunter pet (empty clears it)")
@@ -177,6 +195,68 @@ namespace canrpgclasses
             return TextCommandResult.Success($"Class of {who} set to {id} (talents reset).");
         }
 
+        /// <summary>Admin attribute bonus, kept in its own persistent stat source so it survives a relog and never
+        /// fights the class grant or a talent.</summary>
+        private TextCommandResult OnAttrCommand(TextCommandCallingArgs args)
+        {
+            var def = Core.Attributes.RpgAttributes.Get(args[0] as string ?? "");
+            if (def == null) return UnknownAttribute(args[0] as string);
+
+            var target = ResolveTargetEntity(args, 2, out string who);
+            if (target == null) return TextCommandResult.Error($"Player '{who}' is not online.");
+
+            // Clamped like any authored stat - a typo shouldn't send a stat somewhere nothing else expects.
+            const float limit = Core.Content.ContentEditGuard.MaxBaseStatMagnitude;
+            float amount = (float)args[1];
+            if (float.IsNaN(amount) || float.IsInfinity(amount))
+                return TextCommandResult.Error("That is not a number.");
+
+            float bonus = System.Math.Clamp(
+                target.StatSource(def.Id, Core.Attributes.RpgAttributes.AdminSource) + amount, -limit, limit);
+            target.Stats.Set(def.Id, Core.Attributes.RpgAttributes.AdminSource, bonus, true);
+            target.GetBehavior<EBTalents>()?.ReapplyStatTalents();
+            return TextCommandResult.Success($"{who}: {def.Id} admin bonus {bonus:0.##} (total {def.Points(target):0.##}).");
+        }
+
+        private TextCommandResult OnAttrResetCommand(TextCommandCallingArgs args)
+        {
+            var def = Core.Attributes.RpgAttributes.Get(args[0] as string ?? "");
+            if (def == null) return UnknownAttribute(args[0] as string);
+
+            var target = ResolveTargetEntity(args, 1, out string who);
+            if (target == null) return TextCommandResult.Error($"Player '{who}' is not online.");
+
+            target.Stats.Remove(def.Id, Core.Attributes.RpgAttributes.AdminSource);
+            target.GetBehavior<EBTalents>()?.ReapplyStatTalents();
+            return TextCommandResult.Success($"{who}: {def.Id} admin bonus cleared (total {def.Points(target):0.##}).");
+        }
+
+        private TextCommandResult OnAttrListCommand(TextCommandCallingArgs args)
+        {
+            var target = ResolveTargetEntity(args, 0, out string who);
+            if (target == null) return TextCommandResult.Error($"Player '{who}' is not online.");
+            if (!Core.Attributes.RpgAttributes.Any) return TextCommandResult.Success("No attributes are configured.");
+
+            string cls = TalentState.CurrentClass(target);
+            var sb = new StringBuilder();
+            sb.AppendLine($"{who} ({cls}):");
+            foreach (var def in Core.Attributes.RpgAttributes.All)
+            {
+                float points = def.EffectivePoints(target);
+                sb.AppendLine($"  {def.Id}: {def.Points(target):0.##}" + (points != def.Points(target) ? $" (effective {points:0.##})" : ""));
+                foreach (var eff in def.EffectsFor(cls))
+                {
+                    float v = eff.Value(points);
+                    if (System.Math.Abs(v) > 0.0005f) sb.AppendLine($"    {eff.Stat} {v:+0.###;-0.###}");
+                }
+            }
+            return TextCommandResult.Success(sb.ToString());
+        }
+
+        private static TextCommandResult UnknownAttribute(string? id)
+            => TextCommandResult.Error($"Unknown attribute '{id}'. Known: "
+                + (Core.Attributes.RpgAttributes.Any ? string.Join(", ", Core.Attributes.RpgAttributes.Ids) : "(none configured)"));
+
         private TextCommandResult OnClassFreeCommand(TextCommandCallingArgs args)
         {
             var target = ResolveTargetEntity(args, 0, out string who);
@@ -221,6 +301,7 @@ namespace canrpgclasses
         /// were already loaded - for a brand-new file the world still has to be reloaded.</summary>
         private TextCommandResult OnReloadContent(TextCommandCallingArgs args)
         {
+            if (Api != null) Core.Attributes.RpgAttributes.Load(Api); // attribute gates are baked into content at build time
             RebuildRegistries(Api?.Logger);
 
             var report = LastContentReport;

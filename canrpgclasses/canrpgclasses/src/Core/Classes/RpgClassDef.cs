@@ -60,6 +60,14 @@ namespace canrpgclasses.Core.Classes
         /// <summary>Extra <c>maxhealthExtraPoints</c> per level above 1, re-applied on every level-up.</summary>
         public float HpPerLevel { get; protected set; }
 
+        /// <summary>Any stat granted per level above 1 - the general form of <see cref="HpPerLevel"/>. This is how
+        /// a class hands out attribute points as it levels; re-applied on every level-up.</summary>
+        public System.Collections.Generic.List<(string Stat, float PerLevel)> StatsPerLevel { get; protected set; } = new();
+
+        /// <summary>Multiplier on what one point of an attribute pays this class ("intelligence is worth 0.2× to a
+        /// warrior"). Overrides the class entry in <c>attributes.json</c> for the attributes it names.</summary>
+        public System.Collections.Generic.List<(string Attribute, float Multiplier)> AttributeAffinity { get; protected set; } = new();
+
         private string? _displayName;
         /// <summary>Localized class name: lang key <c>canrpgclasses:class-&lt;id&gt;</c> wins; else code default; else humanized id.</summary>
         public string DisplayName

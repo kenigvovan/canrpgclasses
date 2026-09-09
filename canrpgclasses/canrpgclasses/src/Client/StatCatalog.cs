@@ -20,6 +20,9 @@ namespace canrpgclasses.Client
 
         public static IReadOnlyList<(string Key, string Label)> Entries => cached ??= Build();
 
+        /// <summary>Drops the cache after an attribute config (re)load, so the dropdown lists what exists now.</summary>
+        public static void Invalidate() => cached = null;
+
         private static List<(string, string)> Build()
         {
             var list = new List<(string, string)>();
@@ -41,8 +44,29 @@ namespace canrpgclasses.Client
                 if (seen.Add(key)) list.Add((key, $"Spell power: {school}  ({key})"));
             }
 
+            // Attributes are plain stat keys too, so a talent or class can grant them straight from the editor.
+            foreach (var attr in Core.Attributes.RpgAttributes.All)
+                if (seen.Add(attr.Id)) list.Add((attr.Id, $"{attr.DisplayName}  ({attr.Id})"));
+
             list.Sort((a, b) => string.Compare(a.Item2, b.Item2, StringComparison.OrdinalIgnoreCase));
             return list;
+        }
+
+        /// <summary>Readable name of one stat key for display outside the dropdown (the catalog labels carry the
+        /// key in brackets, which only makes sense while picking one). A <c>stat-&lt;key&gt;</c> lang entry wins.</summary>
+        public static string Label(string key)
+        {
+            string lang = "canrpgclasses:stat-" + key;
+            if (Vintagestory.API.Config.Lang.HasTranslation(lang, true, false))
+                return Vintagestory.API.Config.Lang.Get(lang);
+
+            foreach (var (k, label) in Entries)
+                if (k == key)
+                {
+                    int at = label.IndexOf("  (", StringComparison.Ordinal);
+                    return at > 0 ? label.Substring(0, at) : label;
+                }
+            return key;
         }
 
         /// <summary>"MaxHealthExtraPoints" -> "Max health extra points".</summary>

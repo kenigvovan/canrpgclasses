@@ -377,6 +377,7 @@ namespace canrpgclasses
             base.AssetsLoaded(api);
 
             BalanceConfig.Load(api);
+            Core.Attributes.RpgAttributes.Load(api); // before the registries: content spells/talents gate on attributes
 
             RebuildRegistries(Mod.Logger);
             SpellExecutor.RegisterDefaults();
@@ -407,6 +408,11 @@ namespace canrpgclasses
             Talents.RebuildDerived();
 
             Core.Classes.GearAffinity.RebuildGlobal(); // class-agnostic affinities (metal armor → magic resist), from config
+
+            // Payouts are resolved per class up front, so a class declaring its own affinity needs the rebuilt registry.
+            var affinities = new System.Collections.Generic.List<(string, System.Collections.Generic.IReadOnlyList<(string, float)>)>();
+            foreach (var c in Classes.All.Values) affinities.Add((c.Id, c.AttributeAffinity));
+            Core.Attributes.RpgAttributes.SyncClassAffinity(affinities, logger);
         }
 
         // Harmony patches that enforce a stun (movement/jump, attacking, dropping items). See StunPatches.

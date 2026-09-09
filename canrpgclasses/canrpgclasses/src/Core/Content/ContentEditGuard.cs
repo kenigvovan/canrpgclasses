@@ -81,9 +81,48 @@ namespace canrpgclasses.Core.Content
                     }
                 }
 
+                string? badAttr = RejectAttributeRequirement(t.requiresAttributes, Trim(t.id));
+                if (badAttr != null) return badAttr;
+
                 if (t.descArgs is { Length: > 16 }) return $"'{Trim(t.id)}' has too many descArgs";
             }
 
+            return null;
+        }
+
+        /// <summary>A "stat name + value" list on a class, checked like baseStats. Null means it may be applied.</summary>
+        private static string? RejectStatList(List<StatValueModel>? list, string what)
+        {
+            if (list == null) return null;
+            if (list.Count > MaxStatEntries) return $"{list.Count} {what} entries, the limit is {MaxStatEntries}";
+
+            foreach (var s in list)
+            {
+                if (string.IsNullOrWhiteSpace(s.stat) || !IsCleanId(s.stat!) || s.stat!.Length > MaxIdLength)
+                    return $"a {what} entry has a malformed stat name";
+                if (!Finite(s.value) || Math.Abs(s.value) > MaxBaseStatMagnitude)
+                    return $"{what} {s.stat} is outside ±{MaxBaseStatMagnitude}";
+            }
+            return null;
+        }
+
+        /// <summary>Attribute gates on a talent or spell: the attribute has to exist, or the gate would silently
+        /// pass for everyone. Same contract as the other Reject helpers - null means it may be applied.</summary>
+        private static string? RejectAttributeRequirement(Dictionary<string, float>? required, string owner)
+        {
+            if (required == null) return null;
+            if (required.Count > MaxStatEntries)
+                return $"'{owner}' requires {required.Count} attributes, the limit is {MaxStatEntries}";
+
+            foreach (var kv in required)
+            {
+                if (string.IsNullOrWhiteSpace(kv.Key) || !IsCleanId(kv.Key) || kv.Key.Length > MaxIdLength)
+                    return $"'{owner}' has a malformed attribute requirement";
+                if (Core.Attributes.RpgAttributes.Get(kv.Key) == null)
+                    return $"'{owner}' requires unknown attribute '{Trim(kv.Key)}'";
+                if (!Finite(kv.Value) || Math.Abs(kv.Value) > MaxBaseStatMagnitude)
+                    return $"'{owner}' requires {kv.Value} of {Trim(kv.Key)}, outside ±{MaxBaseStatMagnitude}";
+            }
             return null;
         }
 
@@ -140,6 +179,23 @@ namespace canrpgclasses.Core.Content
 
             if (!Finite(m.hpPerLevel) || Math.Abs(m.hpPerLevel) > MaxHpPerLevel)
                 return $"hpPerLevel must be within ±{MaxHpPerLevel}";
+
+            string? badPerLevel = RejectStatList(m.statsPerLevel, "statsPerLevel");
+            if (badPerLevel != null) return badPerLevel;
+
+            if (m.attributeAffinity != null)
+            {
+                if (m.attributeAffinity.Count > MaxStatEntries)
+                    return $"{m.attributeAffinity.Count} attribute affinities, the limit is {MaxStatEntries}";
+                foreach (var a in m.attributeAffinity)
+                {
+                    if (string.IsNullOrWhiteSpace(a.stat) || Core.Attributes.RpgAttributes.Get(a.stat!) == null)
+                        return $"attribute affinity names unknown attribute '{Trim(a.stat)}'";
+                    // Negative would flip a bonus into a penalty; 0 (worthless to this class) to 10x is the range.
+                    if (!Finite(a.value) || a.value < 0f || a.value > 10f)
+                        return $"attribute affinity for {Trim(a.stat)} must be within 0..10";
+                }
+            }
 
             if (m.baseStats != null)
             {
@@ -242,6 +298,9 @@ namespace canrpgclasses.Core.Content
             if (m.requires?.form != null
                 && (m.requires.form.Length > MaxIdLength || !IsCleanId(m.requires.form)))
                 return "the required form is malformed";
+
+            string? badAttr = RejectAttributeRequirement(m.requires?.attributes, Trim(m.id));
+            if (badAttr != null) return badAttr;
 
             if (m.impacts != null)
             {

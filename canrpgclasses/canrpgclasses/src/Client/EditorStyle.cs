@@ -24,14 +24,23 @@ namespace canrpgclasses.Client
         public static CairoFont Status(bool problem)
             => CairoFont.WhiteDetailText().WithColor(problem ? Warn : Gold);
 
-        /// <summary>A hairline separator between blocks, drawn along the top edge of its bounds.</summary>
+        /// <summary>A hairline separator between blocks, drawn along the top edge of its bounds. For an element
+        /// composed into a shared surface (the static elements of a composer), whose coordinates are absolute.</summary>
         public static void Rule(Context ctx, ImageSurface surface, ElementBounds bounds)
+            => Line(ctx, bounds.drawX, bounds.drawY, bounds.OuterWidth);
+
+        /// <summary>The same hairline for an element that owns its surface - an interactive custom-draw gets a
+        /// surface the size of its bounds, where the origin is (0, 0) and absolute coordinates would miss it.</summary>
+        public static void RuleLocal(Context ctx, ImageSurface surface, ElementBounds bounds)
+            => Line(ctx, 0, 1, bounds.OuterWidth);
+
+        private static void Line(Context ctx, double x, double y, double width)
         {
             ctx.SetSourceRGBA(GuiStyle.DialogBorderColor[0], GuiStyle.DialogBorderColor[1],
                 GuiStyle.DialogBorderColor[2], 0.65);
             ctx.LineWidth = 1;
-            ctx.MoveTo(bounds.drawX, bounds.drawY);
-            ctx.LineTo(bounds.drawX + bounds.OuterWidth, bounds.drawY);
+            ctx.MoveTo(x, y);
+            ctx.LineTo(x + width, y);
             ctx.Stroke();
         }
     }

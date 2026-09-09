@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 using Vintagestory.API.Common;
 using canrpgclasses.Core;
@@ -19,6 +20,10 @@ namespace canrpgclasses.Core.Talents
         public int Column { get; protected set; }             // column within the tier
         public int MaxRank { get; protected set; } = 1;
         public string? RequiresTalent { get; protected set; } // prerequisite talent id (must be maxed)
+
+        /// <summary>Attribute points the character must hold to spend on this talent, e.g. <c>strength 10</c>.
+        /// Checked by <see cref="TalentState.CanSpend"/>, so the client preview and the server agree.</summary>
+        public IReadOnlyDictionary<string, float>? RequiresAttributes { get; protected set; }
 
         /// <summary>If set, taking this talent (rank ≥ 1) grants the player this active spell in their hotbar.</summary>
         public string? GrantsSpellId { get; protected set; }

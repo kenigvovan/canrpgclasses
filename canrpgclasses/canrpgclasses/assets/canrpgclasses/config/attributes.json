@@ -1,0 +1,87 @@
+{
+	"_comment": "Character attributes. An attribute is an ordinary stat key, fed by class grants, talents, gear and /canrpgattr; 'effects' is what each point pays out. 'schools' expands one entry over a whole family (magical/physical/all, or 'fire,frost') for stat spellpower, resist or pen. 'perClass' replaces perPoint for one class, 'affinity' scales an attribute's whole payout for a class, 'cap' bounds a payout, 'softcap' halves points past it, 'perLevel' applies once per level above 1. The 'classes' block is the default for the built-in classes; a class authored in the in-game editor carries its own grants and those win. No file = no attributes.",
+
+	"attributes": [
+		{
+			"id": "strength",
+			"order": 0,
+			"softcap": 150,
+			"effects": [
+				{ "stat": "meleeWeaponsDamage", "perPoint": 0.01 }
+			]
+		},
+		{
+			"id": "dexterity",
+			"order": 1,
+			"softcap": 150,
+			"effects": [
+				{ "stat": "rangedWeaponsDamage", "perPoint": 0.01 },
+				{ "stat": "meleeWeaponsDamage", "perPoint": 0, "perClass": { "rogue": 0.01 } },
+				{ "stat": "walkspeed", "perPoint": 0.002, "cap": 0.15 }
+			]
+		},
+		{
+			"id": "constitution",
+			"order": 2,
+			"effects": [
+				{ "stat": "maxhealthExtraPoints", "perPoint": 2, "display": "flat" }
+			]
+		},
+		{
+			"id": "intelligence",
+			"order": 3,
+			"softcap": 150,
+			"effects": [
+				{ "stat": "spellpower", "schools": "magical", "perPoint": 0.01 }
+			]
+		},
+		{
+			"id": "wisdom",
+			"order": 4,
+			"effects": [
+				{ "stat": "resist", "schools": "magical", "perPoint": 0.003, "cap": 0.25 },
+				{ "stat": "resourceRegen", "perPoint": 0.004, "cap": 0.5 }
+			]
+		}
+	],
+
+	"classes": {
+		"warrior": {
+			"base": { "strength": 4, "constitution": 2 },
+			"perLevel": { "strength": 5, "constitution": 0.45, "wisdom": 1 },
+			"affinity": { "intelligence": 0.2 }
+		},
+		"paladin": {
+			"base": { "strength": 3, "intelligence": 2, "constitution": 2 },
+			"perLevel": { "strength": 5, "intelligence": 5, "constitution": 0.5, "wisdom": 2 }
+		},
+		"rogue": {
+			"base": { "dexterity": 4, "strength": 2 },
+			"perLevel": { "dexterity": 5, "strength": 2.5, "constitution": 0.35, "wisdom": 1 },
+			"affinity": { "intelligence": 0.3 }
+		},
+		"hunter": {
+			"base": { "dexterity": 4, "strength": 1 },
+			"perLevel": { "dexterity": 5, "constitution": 0.4, "wisdom": 1.5 },
+			"affinity": { "intelligence": 0.3 }
+		},
+		"mage": {
+			"base": { "intelligence": 4, "wisdom": 2 },
+			"perLevel": { "intelligence": 5, "constitution": 0.375, "wisdom": 2 },
+			"affinity": { "strength": 0.3 }
+		},
+		"priest": {
+			"base": { "intelligence": 4, "wisdom": 3 },
+			"perLevel": { "intelligence": 5, "constitution": 0.375, "wisdom": 2.5 },
+			"affinity": { "strength": 0.3 }
+		},
+		"druid": {
+			"base": { "intelligence": 3, "wisdom": 2, "strength": 1 },
+			"perLevel": { "intelligence": 5, "strength": 2.5, "constitution": 0.4, "wisdom": 2 }
+		},
+		"shaman": {
+			"base": { "intelligence": 3, "wisdom": 2, "strength": 2 },
+			"perLevel": { "intelligence": 5, "strength": 2.5, "constitution": 0.425, "wisdom": 2 }
+		}
+	}
+}

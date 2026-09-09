@@ -65,7 +65,7 @@
 		"warriorFuryRagePerPoint": 0.01,
 		"warriorProtDrPerPoint": 0.003,
 		"warriorBaseHealth": 8,
-		"warriorHpPerLevel": 0.9,
+		"warriorHpPerLevel": 0,
 		"ragePerMeleeHit": 5,
 		"ragePerDamageTaken": 1.5,
 		"rageTakenCapPerHit": 10,

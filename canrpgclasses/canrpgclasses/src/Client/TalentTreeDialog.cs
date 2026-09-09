@@ -42,14 +42,14 @@ namespace canrpgclasses.Client
         private static readonly double[] PlateBlue = { 0.14, 0.20, 0.32, 0.85 };
         private static readonly double[] PlateLocked = { 0.09, 0.09, 0.11, 0.80 };
 
-        private static readonly double[] Accent = { 0.55, 0.82, 1.00, 1 };
+        private static readonly double[] Accent = EditorStyle.Accent;
 
-        // Row colours for the two summary panels (VTML, so hex).
-        private const string RowLabel = "#C9C4BC";
-        private const string Good = "#86D97F";
-        private const string Bad = "#E08A8A";
-        private const string Neutral = "#DCD5C8";
-        private const string Inactive = "#8A8A93";
+        // Row colours for the two summary panels live in VtmlText, shared with the character sheet.
+        private const string RowLabel = VtmlText.RowLabel;
+        private const string Good = VtmlText.Good;
+        private const string Bad = VtmlText.Bad;
+        private const string Neutral = VtmlText.Neutral;
+        private const string Inactive = VtmlText.Inactive;
         private static readonly double[] ArrowMet = { 1.00, 1.00, 1.00, 0.97 };
         private static readonly double[] ArrowUnmet = { 0.58, 0.58, 0.64, 0.85 };
 
@@ -189,7 +189,7 @@ namespace canrpgclasses.Client
                     .AddDynamicText("", CairoFont.WhiteDetailText(), xpTextBounds, "xptext")
                     .AddDynamicText(PointsText(player, totalPoints),
                         CairoFont.WhiteSmallText().WithColor(Gold), pointsBounds, "points")
-                    .AddStaticCustomDraw(ElementBounds.Fixed(0, headerRuleY, treesW, 2), Rule);
+                    .AddStaticCustomDraw(ElementBounds.Fixed(0, headerRuleY, treesW, 2), EditorStyle.Rule);
 
             for (int t = 0; t < treeCount; t++)
             {
@@ -203,7 +203,7 @@ namespace canrpgclasses.Client
                 compo.AddIconGrid(treeBounds[t], treeCols[t], treeRows, CellSize, 0, CellPad, "tree" + t);
             }
 
-            compo.AddStaticCustomDraw(ElementBounds.Fixed(0, treesRuleY, treesW, 2), Rule)
+            compo.AddStaticCustomDraw(ElementBounds.Fixed(0, treesRuleY, treesW, 2), EditorStyle.Rule)
 
                 .AddInset(summaryPanelBounds, 3, 0.85f)
                 .AddStaticText(Lang.Get("canrpgclasses:ui-sum-title"),
@@ -217,7 +217,7 @@ namespace canrpgclasses.Client
                     CairoFont.WhiteSmallishText().WithColor(Accent), affinityTitleBounds)
                 .AddRichtext("", CairoFont.WhiteDetailText(), affinityBounds, "affinities")
 
-                .AddStaticCustomDraw(ElementBounds.Fixed(0, summaryRuleY, treesW, 2), Rule)
+                .AddStaticCustomDraw(ElementBounds.Fixed(0, summaryRuleY, treesW, 2), EditorStyle.Rule)
                 .AddStaticText(Lang.Get("canrpgclasses:ui-build"), CairoFont.WhiteSmallText(), buildLabelBounds)
                 .AddIf(list.Count > 0)
                     .AddDropDown(Enumerable.Range(0, list.Count).Select(i => i.ToString()).ToArray(),
@@ -241,16 +241,6 @@ namespace canrpgclasses.Client
 
             UpdateHeader(player, mod, classId);
             UpdateSummary(player, mod, classId);
-        }
-
-        private static void Rule(Context ctx, ImageSurface surface, ElementBounds bounds)
-        {
-            ctx.SetSourceRGBA(GuiStyle.DialogBorderColor[0], GuiStyle.DialogBorderColor[1],
-                GuiStyle.DialogBorderColor[2], 0.65);
-            ctx.LineWidth = 1;
-            ctx.MoveTo(bounds.drawX, bounds.drawY);
-            ctx.LineTo(bounds.drawX + bounds.OuterWidth, bounds.drawY);
-            ctx.Stroke();
         }
 
         /// <summary>Places each tree's talents into a rectangular cell grid by (Column, Tier). Rows are sized to
@@ -382,6 +372,16 @@ namespace canrpgclasses.Client
                     lines.Add(new SpellTooltip.Line(
                         Lang.Get("canrpgclasses:ui-requires-talent", req.DisplayName), SpellTooltip.Meta));
             }
+
+            if (talent.RequiresAttributes != null)
+                foreach (var kv in talent.RequiresAttributes)
+                {
+                    var attr = Core.Attributes.RpgAttributes.Get(kv.Key);
+                    if (attr == null) continue;
+                    lines.Add(new SpellTooltip.Line(
+                        Lang.Get("canrpgclasses:ui-requires-attribute", attr.DisplayName, kv.Value.ToString("0.##")),
+                        SpellTooltip.Meta));
+                }
 
             tooltip.SetLines(talent.Id + "@" + rank, lines);
         }
@@ -570,10 +570,7 @@ namespace canrpgclasses.Client
             SingleComposer.GetRichtext("affinities")?.SetNewText(sb.ToString(), bodyFont);
         }
 
-        /// <summary>A coloured VTML run. Talent and affinity descriptions come from lang files, so the markup
-        /// characters are escaped rather than trusted.</summary>
-        private static string Vtml(string hexColor, string text)
-            => $"<font color=\"{hexColor}\">{text.Replace("<", "&lt;").Replace(">", "&gt;")}</font>";
+        private static string Vtml(string hexColor, string text) => VtmlText.Color(hexColor, text);
 
         private string CurrentClassId()
         {

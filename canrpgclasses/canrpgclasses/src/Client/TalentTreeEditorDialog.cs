@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Vintagestory.API.Client;
+using canrpgclasses.Core.Attributes;
 using canrpgclasses.Core.Content;
 using canrpgclasses.Core.Net;
 using canrpgclasses.Core.Talents;
@@ -109,7 +110,9 @@ namespace canrpgclasses.Client
                 description = t.Description,
                 icon = t.IconName,
                 requires = t.RequiresTalent,
-                grantsSpell = t.GrantsSpellId
+                grantsSpell = t.GrantsSpellId,
+                // A save rewrites the whole talent, so carry this over or a JSON-authored gate is dropped.
+                requiresAttributes = ToDict(t.RequiresAttributes)
             };
             // Stats aren't a Talent property (they live in ApplyStats), so they are read back off the content
             // talent itself - otherwise saving a talent would silently blank whatever stats it had.
@@ -117,6 +120,9 @@ namespace canrpgclasses.Client
                 m.stats = ct.Stats.Select(s => new TalentStatModel { stat = s.Stat, perRank = s.PerRank }).ToList();
             return m;
         }
+
+        private static Dictionary<string, float>? ToDict(IReadOnlyDictionary<string, float>? src)
+            => src == null || src.Count == 0 ? null : new Dictionary<string, float>(src);
 
         private TalentModel? At(int tier, int column)
             => working.FirstOrDefault(t => t.tier == tier && t.column == column);
@@ -326,6 +332,8 @@ namespace canrpgclasses.Client
                 "f_requires");
             row += RowH + 8;
 
+            if (RpgAttributes.Any) AddAttributeRequirement(compo, m, x, ref row);
+
             Label(compo, x, ref row, "Stat per rank (a talent may set none)");
             var stat = m.stats is { Count: > 0 } ? m.stats[0] : null;
             var statCodes = StatDropdownCodes();
@@ -415,10 +423,67 @@ namespace canrpgclasses.Client
             SingleComposer.GetTextInput("f_desc").SetValue(m.description ?? "");
             SingleComposer.GetNumberInput("f_rank").SetValue(m.maxRank.ToString());
 
+            if (RpgAttributes.Any && m.requiresAttributes is not { Count: > 1 })
+                SingleComposer.GetNumberInput("f_attrreqval").SetValue(
+                    (m.requiresAttributes is { Count: 1 } ? First(m.requiresAttributes).Value : 0f)
+                        .ToString(CultureInfo.InvariantCulture));
+
             var stat = m.stats is { Count: > 0 } ? m.stats[0] : null;
             if (customStat) SingleComposer.GetTextInput("f_statname").SetValue(stat?.stat ?? "");
             SingleComposer.GetNumberInput("f_statval")
                 .SetValue((stat?.perRank ?? 0f).ToString(CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>The attribute gate: one attribute and the points it needs. A talent authored in JSON may gate on
+        /// several - the editor then shows the count and keeps its hands off, rather than dropping the extras.</summary>
+        private void AddAttributeRequirement(GuiComposer compo, TalentModel m, double x, ref double row)
+        {
+            Label(compo, x, ref row, "Requires attribute (points the character must hold)");
+
+            if (m.requiresAttributes is { Count: > 1 })
+            {
+                compo.AddStaticText($"{m.requiresAttributes.Count} requirements - edit them in the content JSON",
+                    CairoFont.WhiteDetailText(), ElementBounds.Fixed(x, row, PanelW, 20));
+                row += RowH + 8;
+                return;
+            }
+
+            var codes = new List<string> { None };
+            var names = new List<string> { "(none)" };
+            foreach (var a in RpgAttributes.All) { codes.Add(a.Id); names.Add(a.DisplayName); }
+
+            string current = m.requiresAttributes is { Count: 1 } ? First(m.requiresAttributes).Key : None;
+            compo.AddDropDown(codes.ToArray(), names.ToArray(), Math.Max(0, codes.IndexOf(current)),
+                    (code, _) => OnAttrRequirementSelected(m, code), ElementBounds.Fixed(x, row, 190, RowH), "f_attrreq")
+                .AddNumberInput(ElementBounds.Fixed(x + 198, row, 100, RowH), v => SetAttrRequirementValue(m, v),
+                    CairoFont.WhiteDetailText(), "f_attrreqval");
+            row += RowH + 8;
+        }
+
+        private static KeyValuePair<string, float> First(Dictionary<string, float> d)
+        {
+            foreach (var kv in d) return kv;
+            return default;
+        }
+
+        private void OnAttrRequirementSelected(TalentModel m, string code)
+        {
+            if (code == None) m.requiresAttributes = null;
+            else
+            {
+                float points = m.requiresAttributes is { Count: 1 } ? First(m.requiresAttributes).Value : 1f;
+                m.requiresAttributes = new Dictionary<string, float> { [code] = points };
+            }
+            Compose();
+        }
+
+        /// <summary>Same rule as <see cref="SetStatValue"/>: the number never creates the requirement, or a
+        /// retained input would gate every talent on whatever was last typed.</summary>
+        private void SetAttrRequirementValue(TalentModel m, string value)
+        {
+            if (m.requiresAttributes is not { Count: 1 }) return;
+            if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float v)) return;
+            m.requiresAttributes[First(m.requiresAttributes).Key] = v;
         }
 
         private static string? Blank(string v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
@@ -545,7 +610,8 @@ namespace canrpgclasses.Client
                     description = t.Description,
                     icon = t.IconName,
                     grantsSpell = t.GrantsSpellId,
-                    requires = t.RequiresTalent
+                    requires = t.RequiresTalent,
+                    requiresAttributes = ToDict(t.RequiresAttributes)
                 };
 
                 // Stats only exist as data on a content talent; a code talent's effect is its ApplyStats override.

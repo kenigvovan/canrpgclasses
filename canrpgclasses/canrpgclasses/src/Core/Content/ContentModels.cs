@@ -35,6 +35,14 @@ namespace canrpgclasses.Core.Content
         /// <summary>Flat stats granted just for being this class.</summary>
         public List<StatValueModel>? baseStats { get; set; }
 
+        /// <summary>Stats granted per level above 1 - the general form of <see cref="hpPerLevel"/>, and how a class
+        /// hands out attribute points as it levels.</summary>
+        public List<StatValueModel>? statsPerLevel { get; set; }
+
+        /// <summary>Multiplier on what one point of an attribute pays this class, e.g. intelligence 0.2 for a
+        /// warrior. Overrides the class entry in <c>attributes.json</c> for the attributes it names.</summary>
+        public List<StatValueModel>? attributeAffinity { get; set; }
+
         /// <summary>"Each point in tree N also grants X of a stat."</summary>
         public List<MasteryModel>? treeMasteries { get; set; }
     }
@@ -80,6 +88,8 @@ namespace canrpgclasses.Core.Content
 
         /// <summary>Id of a talent that must be maxed first.</summary>
         public string? requires { get; set; }
+        /// <summary>Attribute points needed to spend on this talent, e.g. <c>{ "strength": 10 }</c>.</summary>
+        public Dictionary<string, float>? requiresAttributes { get; set; }
         /// <summary>Taking rank 1 grants this spell.</summary>
         public string? grantsSpell { get; set; }
 
@@ -158,6 +168,8 @@ namespace canrpgclasses.Core.Content
         public bool outOfCombat { get; set; }
         /// <summary>Spell id of the form this ability needs, e.g. a cat-form ability.</summary>
         public string? form { get; set; }
+        /// <summary>Attribute points needed to cast, e.g. <c>{ "intelligence": 15 }</c>.</summary>
+        public Dictionary<string, float>? attributes { get; set; }
     }
 
     public class ImpactModel

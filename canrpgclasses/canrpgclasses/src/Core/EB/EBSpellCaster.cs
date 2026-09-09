@@ -169,6 +169,13 @@ namespace canrpgclasses.Core.EB
                 return false;
             }
 
+            // Attribute gate: a spell can ask for e.g. 15 intelligence. Failing costs neither cooldown nor resource.
+            if (!Attributes.AttributeStats.Meets(entity, spell.RequiresAttributes, out string missingAttr))
+            {
+                SendMessage(Lang.Get("canrpgclasses:msg-need-attribute", missingAttr));
+                return false;
+            }
+
             var cooldowns = entity.GetBehavior<EBSpellCooldowns>();
             string cdKey = spell.CooldownKey;
             if (cooldowns != null && cooldowns.IsOnCooldown(cdKey))

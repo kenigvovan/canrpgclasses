@@ -27,6 +27,7 @@ namespace canrpgclasses.Core.Content
             Column = m.column;
             MaxRank = m.maxRank > 0 ? m.maxRank : 1;
             RequiresTalent = m.requires;
+            if (m.requiresAttributes is { Count: > 0 }) RequiresAttributes = m.requiresAttributes;
             GrantsSpellId = m.grantsSpell;
             IconName = m.icon;
 

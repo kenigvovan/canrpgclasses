@@ -93,6 +93,9 @@ namespace canrpgclasses.Core.Net
     public class BalanceConfigPacket
     {
         [ProtoMember(1)] public string Json = "";
+        /// <summary>The attribute definitions, which travel with the balance numbers: both are server-owned config
+        /// the client would otherwise read from its own (possibly different) files.</summary>
+        [ProtoMember(2)] public string Attributes = "";
     }
 
     /// <summary>client → server: an admin's live edit of one balance number from the balance editor GUI. The

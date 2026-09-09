@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Vintagestory.API.Client;
+using canrpgclasses.Core.Attributes;
 using canrpgclasses.Core.Content;
 using canrpgclasses.Core.Net;
 using canrpgclasses.Core.Spells;
@@ -289,7 +290,10 @@ namespace canrpgclasses.Client
             Label(compo, x, ref row, "Required form (spell id of a form, optional)");
             compo.AddTextInput(Field(x, row, PanelW), v => m.requires.form = Blank(v),
                 CairoFont.WhiteDetailText(), "f_form");
-            row += RowH + 12;
+            row += RowH + 8;
+
+            if (RpgAttributes.Any) AddAttributeRequirement(compo, m, x, ref row);
+            row += 4;
 
             Section(compo, x, ref row, "Combo points");
             compo.AddSmallButton(m.comboBuilder ? "Builder: yes" : "Builder: no",
@@ -567,6 +571,9 @@ namespace canrpgclasses.Client
                 SingleComposer.GetNumberInput("f_dspread").SetValue(Num(m.delivery.spreadDegrees));
                 SingleComposer.GetTextInput("f_dentity").SetValue(m.delivery.entity ?? "");
                 SingleComposer.GetTextInput("f_form").SetValue(m.requires!.form ?? "");
+                if (RpgAttributes.Any && m.requires.attributes is not { Count: > 1 })
+                    SingleComposer.GetNumberInput("f_attrreqval").SetValue(
+                        Num(m.requires.attributes is { Count: 1 } ? FirstValue(m.requires.attributes) : 0f));
                 SingleComposer.GetNumberInput("f_combopoints").SetValue(m.comboPointsGenerated.ToString());
             }
             else if (selImpact >= 0 && m.impacts is { Count: > 0 } && selImpact < m.impacts.Count)
@@ -617,6 +624,70 @@ namespace canrpgclasses.Client
         }
 
         private static string Num(float f) => f.ToString(CultureInfo.InvariantCulture);
+        /// <summary>The attribute gate: one attribute and the points it needs. A spell authored in JSON may gate on
+        /// several - the editor then shows the count and leaves them alone, rather than dropping the extras.</summary>
+        private void AddAttributeRequirement(GuiComposer compo, SpellModel m, double x, ref double row)
+        {
+            Label(compo, x, ref row, "Requires attribute (points the caster must hold)");
+
+            var req = m.requires!.attributes;
+            if (req is { Count: > 1 })
+            {
+                compo.AddStaticText($"{req.Count} requirements - edit them in the content JSON",
+                    CairoFont.WhiteDetailText(), ElementBounds.Fixed(x, row, PanelW, 20));
+                row += RowH + 8;
+                return;
+            }
+
+            var codes = new List<string> { NoAttribute };
+            var names = new List<string> { "(none)" };
+            foreach (var a in RpgAttributes.All) { codes.Add(a.Id); names.Add(a.DisplayName); }
+
+            string current = req is { Count: 1 } ? FirstKey(req) : NoAttribute;
+            compo.AddDropDown(codes.ToArray(), names.ToArray(), Math.Max(0, codes.IndexOf(current)),
+                    (code, _) => OnAttrRequirementSelected(m, code), Field(x, row, 190), "f_attrreq")
+                .AddNumberInput(Field(x + 198, row, 100), v => SetAttrRequirementValue(m, v),
+                    CairoFont.WhiteDetailText(), "f_attrreqval");
+            row += RowH + 8;
+        }
+
+        /// <summary>Dropdown entry standing for "no attribute requirement".</summary>
+        private const string NoAttribute = " none";
+
+        private static string FirstKey(Dictionary<string, float> d)
+        {
+            foreach (var kv in d) return kv.Key;
+            return "";
+        }
+
+        private static float FirstValue(Dictionary<string, float> d)
+        {
+            foreach (var kv in d) return kv.Value;
+            return 0f;
+        }
+
+        private void OnAttrRequirementSelected(SpellModel m, string code)
+        {
+            var req = m.requires!;
+            if (code == NoAttribute) req.attributes = null;
+            else
+            {
+                float points = req.attributes is { Count: 1 } ? FirstValue(req.attributes) : 1f;
+                req.attributes = new Dictionary<string, float> { [code] = points };
+            }
+            Compose();
+        }
+
+        /// <summary>The number never creates the requirement, or a retained input would gate every spell on
+        /// whatever was last typed.</summary>
+        private void SetAttrRequirementValue(SpellModel m, string value)
+        {
+            var req = m.requires?.attributes;
+            if (req is not { Count: 1 }) return;
+            if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float v)) return;
+            req[FirstKey(req)] = v;
+        }
+
         private static string? Blank(string v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
 
         private static float ParseFloat(string text, float fallback)
@@ -719,7 +790,10 @@ namespace canrpgclasses.Client
                     bow = s.RequiresBow,
                     shield = s.RequiresShield,
                     outOfCombat = s.RequiresOutOfCombat,
-                    form = s.RequiresForm
+                    form = s.RequiresForm,
+                    // Not editable here; copying a spell without it would silently drop its attribute gate.
+                    attributes = s.RequiresAttributes is { Count: > 0 } req
+                        ? new Dictionary<string, float>(req) : null
                 },
                 impacts = s.Impacts.Select(ToModel).ToList()
             };

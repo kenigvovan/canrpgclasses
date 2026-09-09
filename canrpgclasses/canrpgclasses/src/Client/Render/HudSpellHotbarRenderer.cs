@@ -450,18 +450,7 @@ namespace canrpgclasses.Client.Render
             return hk.CurrentMapping.PrimaryAsString() ?? "";
         }
 
-        private static (float R, float G, float B) SchoolColor(SpellSchool school) => school switch
-        {
-            SpellSchool.PhysicalMelee => (0.85f, 0.35f, 0.30f),
-            SpellSchool.PhysicalRanged => (0.80f, 0.65f, 0.30f),
-            SpellSchool.Fire => (0.95f, 0.45f, 0.15f),
-            SpellSchool.Frost => (0.40f, 0.75f, 0.95f),
-            SpellSchool.Arcane => (0.70f, 0.40f, 0.90f),
-            SpellSchool.Holy => (0.95f, 0.90f, 0.55f),
-            SpellSchool.Nature => (0.40f, 0.80f, 0.40f),
-            SpellSchool.Shadow => (0.45f, 0.35f, 0.55f),
-            _ => (0.6f, 0.6f, 0.6f)
-        };
+        private static (float R, float G, float B) SchoolColor(SpellSchool school) => SchoolPalette.Rgb(school);
 
         private static string Abbreviate(string name)
         {

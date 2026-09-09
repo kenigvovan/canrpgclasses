@@ -173,6 +173,15 @@ namespace canrpgclasses.Client
                 if (cls.HpPerLevel > 0f) Add(StatKeys.MaxHealthExtraPoints, cls.HpPerLevel * Math.Max(0, level - 1));
             }
 
+            // Attributes pay into the same stats, and the level curves now run through them - without this the
+            // summary reads far too low.
+            foreach (var def in Core.Attributes.RpgAttributes.All)
+            {
+                float points = def.EffectivePoints(player);
+                if (Math.Abs(points) < 1e-4f) continue;
+                foreach (var eff in def.EffectsFor(classId)) Add(eff.Stat, eff.Value(points));
+            }
+
             var lines = new List<Row>();
 
             foreach (var (stat, langKey, pct) in SummaryRows)
@@ -215,6 +224,6 @@ namespace canrpgclasses.Client
             return result;
         }
 
-        private static string Signed(int n) => (n >= 0 ? "+" : "") + n;
+        private static string Signed(int n) => SheetFormat.Signed(n);
     }
 }

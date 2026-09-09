@@ -56,6 +56,20 @@ namespace canrpgclasses.Core.Content
                     BaseStats.Add((s.stat!, s.value));
                 }
 
+            if (m.statsPerLevel != null)
+                foreach (var s in m.statsPerLevel)
+                {
+                    if (string.IsNullOrEmpty(s.stat)) { report.Warn(id, "a statsPerLevel entry has no 'stat' name"); continue; }
+                    StatsPerLevel.Add((s.stat!, s.value));
+                }
+
+            if (m.attributeAffinity != null)
+                foreach (var s in m.attributeAffinity)
+                {
+                    if (string.IsNullOrEmpty(s.stat)) { report.Warn(id, "an attributeAffinity entry has no attribute name"); continue; }
+                    AttributeAffinity.Add((s.stat!, s.value));
+                }
+
             if (m.treeMasteries != null)
                 foreach (var t in m.treeMasteries)
                 {

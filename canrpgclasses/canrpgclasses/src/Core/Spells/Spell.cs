@@ -125,6 +125,9 @@ namespace canrpgclasses.Core.Spells
         /// <summary>Gate: needs a shield (a VS item carrying a "shield" attribute block) in either hand.</summary>
         public bool RequiresShield { get; protected set; }
 
+        /// <summary>Gate: attribute points the caster must hold, e.g. <c>intelligence 15</c>. Failing costs nothing.</summary>
+        public System.Collections.Generic.IReadOnlyDictionary<string, float>? RequiresAttributes { get; protected set; }
+
         /// <summary>Gate: the target must already carry one of these effects. Checked against the entity the spell
         /// would resolve, so a failed check costs nothing.</summary>
         public string[]? RequiresTargetEffectIds { get; protected set; }

@@ -70,7 +70,7 @@
 		"hunterMarksRangedPerPoint": 0.015,
 		"hunterSurvivalSpeedPerPoint": 0.003,
 		"hunterBaseHealth": 5,
-		"hunterHpPerLevel": 0.8,
+		"hunterHpPerLevel": 0,
 		"hunterFocusRegenPerSec": 6,
 
 		"hunterPetBaseHp": 20,

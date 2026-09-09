@@ -15,7 +15,7 @@ namespace canrpgclasses.Client
     public static class SpellTooltip
     {
         // Palette as Cairo RGBA (0..1), which is what the vanilla GUI wants.
-        public static readonly double[] Name = { 0.95, 0.88, 0.55, 1 }; // gold
+        public static readonly double[] Name = EditorStyle.Gold;
         public static readonly double[] Dmg = { 1.00, 0.55, 0.40, 1 };  // warm red
         public static readonly double[] Heal = { 0.45, 1.00, 0.50, 1 }; // green
         public static readonly double[] Ctrl = { 0.60, 0.80, 1.00, 1 }; // blue (stun/shield)
@@ -152,6 +152,17 @@ namespace canrpgclasses.Client
             }
             if (spell.Range > 0) parts.Add(Lang.Get("canrpgclasses:ui-tt-range", R(spell.Range)));
             if (parts.Count > 0) Add(string.Join("   ·   ", parts), Meta);
+
+            // Attribute gate, or the only hint the player gets is the refusal in chat when the cast fails.
+            if (spell.RequiresAttributes != null)
+                foreach (var kv in spell.RequiresAttributes)
+                {
+                    var attr = Core.Attributes.RpgAttributes.Get(kv.Key);
+                    if (attr == null) continue;
+                    bool met = player == null || attr.Points(player) + 0.0005f >= kv.Value;
+                    Add(Lang.Get("canrpgclasses:ui-requires-attribute", attr.DisplayName, F(kv.Value)),
+                        met ? Meta : Dmg);
+                }
 
             return lines;
         }

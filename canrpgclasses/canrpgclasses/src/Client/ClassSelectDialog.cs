@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
-using Cairo;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using canrpgclasses.Client.Gui;
+using canrpgclasses.Core.Attributes;
 using canrpgclasses.Core.Classes;
 using canrpgclasses.Core.Economy;
 using canrpgclasses.Core.Net;
@@ -26,9 +26,10 @@ namespace canrpgclasses.Client
         private const double RowH = 44;
         private const double IconSize = 36;
 
-        private static readonly double[] Gold = { 0.95, 0.88, 0.55, 1 };
-        private static readonly double[] Accent = { 0.55, 0.82, 1.00, 1 };
-        private static readonly double[] Muted = { 0.68, 0.66, 0.62, 1 };
+        // The window's palette is the mod's shared one; only the plate tints below are local to the picker.
+        private static readonly double[] Gold = EditorStyle.Gold;
+        private static readonly double[] Accent = EditorStyle.Accent;
+        private static readonly double[] Muted = EditorStyle.Muted;
 
         private static readonly double[] PlateCurrent = { 0.30, 0.26, 0.10, 0.85 };
         private static readonly double[] PlateSelected = { 0.14, 0.22, 0.32, 0.85 };
@@ -46,16 +47,6 @@ namespace canrpgclasses.Client
             double w = font.GetTextExtents(text).Width;
             if (w > max && w > 0) font.UnscaledFontsize *= max / w;
             return font;
-        }
-
-        private static void Rule(Context ctx, ImageSurface surface, ElementBounds bounds)
-        {
-            ctx.SetSourceRGBA(GuiStyle.DialogBorderColor[0], GuiStyle.DialogBorderColor[1],
-                GuiStyle.DialogBorderColor[2], 0.65);
-            ctx.LineWidth = 1;
-            ctx.MoveTo(bounds.drawX, bounds.drawY);
-            ctx.LineTo(bounds.drawX + bounds.OuterWidth, bounds.drawY);
-            ctx.Stroke();
         }
 
         private string selected = "";
@@ -128,7 +119,7 @@ namespace canrpgclasses.Client
                             ? Lang.Get("canrpgclasses:ui-classselect-current", mod.Classes.Get(current)?.DisplayName ?? current)
                             : Lang.Get("canrpgclasses:ui-classselect-nopick"),
                         CairoFont.WhiteSmallishText().WithColor(Gold), headerBounds)
-                    .AddStaticCustomDraw(headerRuleBounds, Rule)
+                    .AddStaticCustomDraw(headerRuleBounds, EditorStyle.Rule)
                     .AddInset(listPanelBounds, 3, 0.85f)
                     .AddInset(previewPanelBounds, 3, 0.85f)
                     .AddIconGrid(gridBounds, 1, classes.Count, IconSize, 0, RowH - IconSize, "classgrid");
@@ -176,7 +167,7 @@ namespace canrpgclasses.Client
                         ElementBounds.Fixed(previewX, py, PreviewWidth, 20));
                     py += 22;
                 }
-                compo.AddStaticCustomDraw(ElementBounds.Fixed(previewX, py, PreviewWidth, 2), Rule);
+                compo.AddStaticCustomDraw(ElementBounds.Fixed(previewX, py, PreviewWidth, 2), EditorStyle.Rule);
                 py += 8;
 
                 if (!string.IsNullOrEmpty(cls.Description))
@@ -201,10 +192,22 @@ namespace canrpgclasses.Client
                     ElementBounds.Fixed(previewX + 134, py, PreviewWidth - 134, 20));
                 py += 28;
 
+                // Attribute profile: with the level curves living on attributes, this is now a big part of what
+                // separates two classes, and picking blind would hide it.
+                string profile = AttributeProfile(cls);
+                if (profile.Length > 0)
+                {
+                    compo.AddStaticText(Lang.Get("canrpgclasses:ui-classselect-attributes"),
+                        CairoFont.WhiteDetailText().WithColor(Muted), ElementBounds.Fixed(previewX, py, 130, 20));
+                    compo.AddStaticText(profile, CairoFont.WhiteDetailText(),
+                        ElementBounds.Fixed(previewX + 134, py, PreviewWidth - 134, 40));
+                    py += 44;
+                }
+
                 compo.AddStaticText(Lang.Get("canrpgclasses:ui-classselect-startskills"),
                     CairoFont.WhiteSmallText().WithColor(Accent), ElementBounds.Fixed(previewX, py, PreviewWidth, 20));
                 py += 20;
-                compo.AddStaticCustomDraw(ElementBounds.Fixed(previewX, py, PreviewWidth, 2), Rule);
+                compo.AddStaticCustomDraw(ElementBounds.Fixed(previewX, py, PreviewWidth, 2), EditorStyle.Rule);
                 py += 8;
 
                 previewSpellIds = cls.BaseSpells.ToList();
@@ -217,7 +220,7 @@ namespace canrpgclasses.Client
                     cols, rows, skillCell, 0, skillPad, "spellgrid");
             }
 
-            compo.AddStaticCustomDraw(footerRuleBounds, Rule)
+            compo.AddStaticCustomDraw(footerRuleBounds, EditorStyle.Rule)
                 .AddDynamicText(CostHint(entity), CairoFont.WhiteDetailText().WithColor(Muted), costBounds, "costhint");
 
             bool canAct = !string.IsNullOrEmpty(selected) && !(chosen && selected == current) && !IsLocked(entity, selected);
@@ -360,6 +363,37 @@ namespace canrpgclasses.Client
 
         /// <summary>The player's race (PlayerModelLib model code), translated when the race mod ships a lang entry
         /// under that code - there is no agreed key for model names, so the bare model name is the fallback.</summary>
+        /// <summary>"Strength +5/lvl, Constitution +0.45/lvl, Intelligence x0.2" - what this class does with
+        /// attributes, from its JSON grant plus whatever the class itself declares. Empty when it does nothing.</summary>
+        private static string AttributeProfile(RpgClassDef cls)
+        {
+            if (!RpgAttributes.Any) return "";
+
+            var grant = RpgAttributes.ForClass(cls.Id);
+            var parts = new List<string>();
+
+            foreach (var def in RpgAttributes.All)
+            {
+                // The two sources stack at runtime (separate stat sources), so they stack here too.
+                float perLevel = grant.PerLevel.TryGetValue(def.Id, out var p) ? p : 0f;
+                foreach (var (stat, v) in cls.StatsPerLevel)
+                    if (string.Equals(stat, def.Id, System.StringComparison.OrdinalIgnoreCase)) perLevel += v;
+
+                if (System.Math.Abs(perLevel) > 0.0005f)
+                    parts.Add(Lang.Get("canrpgclasses:ui-classselect-attr-perlevel", def.DisplayName,
+                        (perLevel > 0 ? "+" : "") + perLevel.ToString("0.##")));
+            }
+
+            foreach (var def in RpgAttributes.All)
+            {
+                float mul = grant.Affinity.TryGetValue(def.Id, out var a) ? a : 1f;
+                if (System.Math.Abs(mul - 1f) > 0.005f)
+                    parts.Add(Lang.Get("canrpgclasses:ui-classselect-attr-affinity", def.DisplayName, mul.ToString("0.##")));
+            }
+
+            return string.Join(", ", parts);
+        }
+
         private static string RaceName(Entity entity)
         {
             string code = ClassRestrictions.RaceOf(entity);

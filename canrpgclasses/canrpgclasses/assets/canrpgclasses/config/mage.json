@@ -58,7 +58,7 @@
 
 	"globals": {
 		"mageBaseHealth": 4,
-		"mageHpPerLevel": 0.75,
+		"mageHpPerLevel": 0,
 		"mageFireDmgPerPoint": 0.015,
 		"mageFrostDmgPerPoint": 0.015,
 		"mageArcaneDmgPerPoint": 0.015,

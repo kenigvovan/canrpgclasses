@@ -60,7 +60,7 @@
 		"paladinRetHolyDmgPerPoint": 0.015,
 		"paladinProtHpPerPoint": 0.5,
 		"paladinBaseHealth": 10,
-		"paladinHpPerLevel": 1,
+		"paladinHpPerLevel": 0,
 		"paladinManaRegenPerSec": 5
 	}
 }

@@ -66,7 +66,7 @@
 
 	"globals": {
 		"shamanBaseHealth": 6,
-		"shamanHpPerLevel": 0.85,
+		"shamanHpPerLevel": 0,
 		"shamanManaRegenPerSec": 5,
 		"shamanElementalPerPoint": 0.015,
 		"shamanEnhancementPerPoint": 0.01,

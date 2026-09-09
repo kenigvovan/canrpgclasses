@@ -69,7 +69,7 @@
 
 	"globals": {
 		"druidBaseHealth": 5.5,
-		"druidHpPerLevel": 0.8,
+		"druidHpPerLevel": 0,
 		"druidManaRegenPerSec": 5,
 		"druidBalancePerPoint": 0.015,
 		"druidFeralPerPoint": 0.015,

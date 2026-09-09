@@ -57,7 +57,7 @@
 
 	"globals": {
 		"priestBaseHealth": 4,
-		"priestHpPerLevel": 0.75,
+		"priestHpPerLevel": 0,
 		"priestManaRegenPerSec": 5,
 		"priestDiscHolyPerPoint": 0.01,
 		"priestHolyHealPerPoint": 0.02,

@@ -57,7 +57,7 @@
 		"rogueStealthSpeedPerPoint": 0.003,
 		"rogueUtilityHpPerPoint": 0.4,
 		"rogueBaseHealth": 3,
-		"rogueHpPerLevel": 0.7,
+		"rogueHpPerLevel": 0,
 
 		"rogueEnergyRegenPerSec": 12
 	}

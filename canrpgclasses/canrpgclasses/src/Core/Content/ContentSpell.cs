@@ -47,6 +47,7 @@ namespace canrpgclasses.Core.Content
                 RequiresShield = m.requires.shield;
                 RequiresOutOfCombat = m.requires.outOfCombat;
                 RequiresForm = m.requires.form;
+                if (m.requires.attributes is { Count: > 0 }) RequiresAttributes = m.requires.attributes;
                 // An in-form ability has to be castable while the form locks everything else.
                 if (!string.IsNullOrEmpty(m.requires.form)) BypassesFormLock = true;
             }
