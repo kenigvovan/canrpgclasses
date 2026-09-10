@@ -343,7 +343,12 @@ namespace canrpgclasses
         /// </summary>
         private void RegisterCastHotKey(ICoreClientAPI api, string code, string label, GlKeys key, int bar, int slot, bool shift = false)
         {
-            api.Input.RegisterHotKeyFirst(code, label, key, HotkeyType.CharacterControls, shiftPressed: shift);
+            // The hotkey manager is a process-lifetime static (ScreenManager.hotkeyManager): leaving a world only
+            // clears the handlers, the hotkeys stay. A second insert-first of the same code throws (Insert ->
+            // Dictionary.Add), so on a relog re-register only what isn't there - the entry keeps its ordering and
+            // the player's rebind, and the handler below is re-attached either way.
+            if (api.Input.GetHotKeyByCode(code) == null)
+                api.Input.RegisterHotKeyFirst(code, label, key, HotkeyType.CharacterControls, shiftPressed: shift);
             api.Input.SetHotKeyHandler(code, _ =>
             {
                 if (hudLayout?.Mode == InputMode.Mouse) return false;
