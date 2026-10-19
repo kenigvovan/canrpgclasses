@@ -12,9 +12,8 @@ using InvisEffect = effectshud.src.DefaultEffects.InvisibilityEffect;
 namespace canrpgclasses.Client.Render
 {
     /// <summary>
-    /// World-space combat overlay drawn on the Ortho stage: floating damage numbers, health and cast bars, the
-    /// target marker and the local shield/combat readouts. World positions are projected with the camera state
-    /// cached per frame in <see cref="OnRenderFrame"/>.
+    /// Ortho-stage combat overlay: damage numbers, health and cast bars, target marker, shield/combat readouts.
+    /// Projection uses camera state cached per frame in <see cref="OnRenderFrame"/>.
     /// </summary>
     public class CombatOverlayRenderer : IRenderer
     {
@@ -24,12 +23,12 @@ namespace canrpgclasses.Client.Render
         private const double DmgLifetimeMs = 1200; // how long a damage number stays
         private const float DmgRisePerSec = 38f;   // screen pixels a number floats up per second
 
-        // Counterstrike/thorns indicator: an icon over the head + sparkles, so attackers see "this one reflects".
+        // Counterstrike/thorns indicator: icon over the head plus sparkles.
         private const string RiposteEffect = "thorns";
         private const float StatusIconSize = 20f;
         private const double ParticleIntervalMs = 180;
 
-        // Target marker: corner brackets around the entity under the crosshair (the Aim/smart-cast pick).
+        // Target marker around the Aim/smart-cast pick.
         private const float TargetMarkerRange = 16f; // matches the default Aim spell range
         private static readonly Vec4f TargetMarkerColor = new(1f, 0.9f, 0.35f, 0.95f);    // gold (enemy/neutral)
         private static readonly Vec4f TargetMarkerAllyColor = new(0.35f, 1f, 0.45f, 0.95f); // green (ally)
@@ -52,14 +51,12 @@ namespace canrpgclasses.Client.Render
         private double lastParticleMs;
         private static SimpleParticleProperties? riposteParticles;
 
-        // Nearby living agents, refreshed at ~12Hz and shared by the health bars and the target picker - one
-        // spatial query a few times a second instead of GetEntitiesAround twice every frame.
+        // Nearby living agents, refreshed at ~12Hz and shared by health bars and the target picker.
         private const double NearbyScanIntervalMs = 80;
         private readonly List<Entity> nearby = new();
         private double lastNearbyScanMs;
 
-        // Per-frame projection state, computed ONCE and shared by every TryProject/PickAimedEntity call (dozens
-        // per frame: 8 target-marker corners plus one per health bar / damage number / cast bar).
+        // Per-frame projection state shared by TryProject/PickAimedEntity.
         private double eyeX, eyeY, eyeZ;
         private double viewX, viewY, viewZ;
         private readonly double[] pvMat = Mat4d.Create();
@@ -79,9 +76,7 @@ namespace canrpgclasses.Client.Render
         {
             double now = capi.InWorldEllapsedMilliseconds;
 
-            // Nudge sideways per already-fresh number at ~the same spot, so near-simultaneous hits on the same
-            // target (a melee swing landing together with its separate empowered-bonus hit) don't render exactly
-            // on top of each other and go unreadable.
+            // Spread near-simultaneous numbers at the same spot (e.g. swing + empowered bonus hit).
             int collisions = 0;
             foreach (var n in numbers)
             {
@@ -132,9 +127,7 @@ namespace canrpgclasses.Client.Render
             DrawInCombatIndicator(player);
         }
 
-        /// <summary>Corner brackets around the entity currently under the crosshair - the one an Aim spell (or a
-        /// smart-cast heal) would pick. Mirrors the server's LookedAtAgent so the player sees the same pick before
-        /// casting.</summary>
+        /// <summary>Corner brackets around the entity an Aim spell would pick (mirrors server LookedAtAgent).</summary>
         private void DrawTargetMarker(EntityPlayer player)
         {
             var target = PickAimedEntity(TargetMarkerRange);
@@ -144,7 +137,7 @@ namespace canrpgclasses.Client.Render
             double px = target.Pos.X, py = target.Pos.Y, pz = target.Pos.Z;
             double hx = box.XSize / 2.0, hz = box.ZSize / 2.0;
 
-            // Project the 8 box corners and take the screen-space bounds. Bail if any corner is behind the camera.
+            // Screen bounds of the 8 box corners; bail if any is behind the camera.
             float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
             for (int i = 0; i < 8; i++)
             {
@@ -162,7 +155,6 @@ namespace canrpgclasses.Client.Render
             bool ally = Core.Execution.SpellExecutor.IsAlly(player, target);
             var col = ally ? TargetMarkerAllyColor : TargetMarkerColor;
 
-            // Four L-shaped corner brackets.
             draw.Line(minX, minY, minX + len, minY, 2f, col);
             draw.Line(minX, minY, minX, minY + len, 2f, col);
             draw.Line(maxX, minY, maxX - len, minY, 2f, col);
@@ -173,14 +165,12 @@ namespace canrpgclasses.Client.Render
             draw.Line(maxX, maxY, maxX, maxY - len, 2f, col);
         }
 
-        /// <summary>Client-side copy of SpellExecutor.LookedAtAgent: the living agent nearest along the look ray.
-        /// Uses the frame-cached eye/view and plain scalar math - a per-entity Vec3d chain would allocate two or
-        /// three vectors per nearby entity every frame.</summary>
+        /// <summary>Client copy of SpellExecutor.LookedAtAgent, in scalar math to avoid per-entity allocations.</summary>
         private Entity? PickAimedEntity(float range)
         {
             Entity? best = null;
             double bestAlong = double.MaxValue;
-            // Reuse the shared nearby cache (radius ⊇ this pick range); the along/perp test applies the range.
+            // The nearby cache radius covers this range.
             foreach (var e in nearby)
             {
                 if (e == null || !e.Alive) continue;
@@ -198,10 +188,8 @@ namespace canrpgclasses.Client.Render
             return best;
         }
 
-        /// <summary>Refreshes <see cref="nearby"/> (living agents within HpRadius) at ~12Hz instead of every frame.
-        /// The cached entities may go stale for up to one interval, so users re-check Alive. Invisible entities are
-        /// excluded outright - health bars and the target marker both read this cache, so hiding them here hides
-        /// them from both at once.</summary>
+        /// <summary>Refreshes <see cref="nearby"/>; may be stale by one interval, so readers re-check Alive.
+        /// Invisible entities are excluded here.</summary>
         private void RefreshNearby(EntityPlayer player)
         {
             double now = capi.InWorldEllapsedMilliseconds;
@@ -214,8 +202,7 @@ namespace canrpgclasses.Client.Render
                 nearby.Add(e);
         }
 
-        /// <summary>True if the entity should be hidden from this client's overlay because it's invisible. The
-        /// synced flag comes first: HasEffect only sees the local player's own effects, not another entity's.</summary>
+        /// <summary>Checks the synced flag first: HasEffect only sees the local player's own effects.</summary>
         private static bool IsInvisibleToObserver(Entity e)
         {
             if (e.WatchedAttributes.GetBool(InvisEffect.InvisibleAttr)) return true;
@@ -231,7 +218,7 @@ namespace canrpgclasses.Client.Render
             {
                 if (e == null || !e.Alive) continue;
 
-                // Counterstrike/thorns indicator - shown regardless of health so attackers see it before striking.
+                // Shown regardless of health.
                 if (e.GetBehavior<EBEffects>()?.HasEffect(RiposteEffect) == true)
                 {
                     var tex = icons?.GetTex(IconLoader.PathFor("body-balance"));
@@ -257,8 +244,7 @@ namespace canrpgclasses.Client.Render
                 draw.Frame(bx, by, HpBarWidth, HpBarHeight, 1f, new Vec4f(0.85f, 0.85f, 0.9f, 0.6f));
             }
 
-            // Your own Counterstrike: the scan above excludes yourself, so emit on yourself too (visual
-            // confirmation; other players still see it through their own overlay).
+            // The scan excludes the local player.
             if (emit && player.GetBehavior<EBEffects>()?.HasEffect(RiposteEffect) == true) EmitRiposteParticles(player);
             if (emit && HasActiveShield(player)) EmitShieldParticles(player);
 
@@ -272,8 +258,7 @@ namespace canrpgclasses.Client.Render
             return e.World.ElapsedMilliseconds <= wa.GetLong(Core.CombatFlags.AbsorbUntil, 0);
         }
 
-        /// <summary>Screen readout of the local player's own absorb shield: a holy-ring icon with the remaining
-        /// amount and seconds left, centred just above the resource bar, while a shield is up.</summary>
+        /// <summary>Local absorb shield readout: remaining amount and seconds left.</summary>
         private void DrawSelfShield(EntityPlayer player)
         {
             var wa = player.WatchedAttributes;
@@ -289,8 +274,7 @@ namespace canrpgclasses.Client.Render
                 capi.Render.FrameHeight * 0.755f);
         }
 
-        /// <summary>Small "in combat" readout stacked directly above the shield readout while the general combat
-        /// tag (which also gates Stealth casting) is active.</summary>
+        /// <summary>"In combat" readout above the shield readout.</summary>
         private void DrawInCombatIndicator(EntityPlayer player)
         {
             if (!Core.HarmonyPatches.StunPatches.IsInCombat(player)) return;
@@ -302,8 +286,7 @@ namespace canrpgclasses.Client.Render
                 capi.Render.FrameHeight * 0.755f - iconSize - 6f);
         }
 
-        /// <summary>Icon + text, centred horizontally at the given screen row - the shared shape of the shield and
-        /// in-combat readouts.</summary>
+        /// <summary>Icon + text, centred horizontally at the given row.</summary>
         private void DrawBadge(string iconName, string text, Vec4f textColor, Vec4f iconTint, float y)
         {
             var icons = canrpgclassesModSystem.ClientInstance?.Icons;
@@ -318,9 +301,7 @@ namespace canrpgclasses.Client.Render
             draw.Text(text, smallFont, x0 + iconSize + gap, y + (iconSize - ts.Y) / 2f, textColor);
         }
 
-        /// <summary>Cast bars over other casters' heads, so the player can see a channel and try to interrupt it.
-        /// Entries come from the network handlers and expire on their own when the duration elapses (the server's
-        /// cancel packet hides interrupted ones).</summary>
+        /// <summary>Cast bars over other casters. Entries expire by duration; interrupts arrive as cancel packets.</summary>
         private void DrawCastBars(EntityPlayer player)
         {
             if (casts.Count == 0) return;
@@ -375,7 +356,6 @@ namespace canrpgclasses.Client.Render
             }
         }
 
-        // A glowing golden shell of particles around the entity - the "shield bubble" while absorb is active.
         private void EmitShieldParticles(Entity e)
         {
             var box = e.SelectionBox;
@@ -385,14 +365,14 @@ namespace canrpgclasses.Client.Render
             var rnd = capi.World.Rand;
             for (int i = 0; i < 10; i++)
             {
-                double u = rnd.NextDouble() * 2.0 - 1.0;          // cos(theta) → uniform on sphere
+                double u = rnd.NextDouble() * 2.0 - 1.0;          // cos(theta), uniform on sphere
                 double phi = rnd.NextDouble() * Math.PI * 2.0;
                 double s = Math.Sqrt(Math.Max(0.0, 1.0 - u * u));
                 var at = new Vec3d(center.X + s * Math.Cos(phi) * rxz,
                                    center.Y + u * ry,
                                    center.Z + s * Math.Sin(phi) * rxz);
                 var p = new SimpleParticleProperties(
-                    1, 1, ColorUtil.ToRgba(160, 255, 235, 130), // a,r,g,b → holy gold, semi-transparent
+                    1, 1, ColorUtil.ToRgba(160, 255, 235, 130), // a,r,g,b
                     at, at,
                     new Vec3f(-0.05f, 0f, -0.05f), new Vec3f(0.05f, 0.1f, 0.05f),
                     0.6f, 0f, 0.25f, 0.5f, EnumParticleModel.Quad);
@@ -407,7 +387,7 @@ namespace canrpgclasses.Client.Render
         {
             var p = riposteParticles ??= new SimpleParticleProperties(
                 1, 2,
-                ColorUtil.ToRgba(220, 240, 200, 80), // a,r,g,b → golden, semi-transparent
+                ColorUtil.ToRgba(220, 240, 200, 80), // a,r,g,b
                 new Vec3d(), new Vec3d(),
                 new Vec3f(-0.2f, 0.1f, -0.2f), new Vec3f(0.2f, 0.45f, 0.2f),
                 0.7f, 0f, 0.2f, 0.5f, EnumParticleModel.Quad);
@@ -419,10 +399,8 @@ namespace canrpgclasses.Client.Render
             capi.World.SpawnParticles(p);
         }
 
-        /// <summary>Projects a world position to screen pixels using the per-frame camera state. Returns false if
-        /// the point is behind the camera. Inlines MatrixToolsd.Project's math (column-major mat*vec on the
-        /// premultiplied projection*view): the API method allocates two arrays and a Vec3d per call, and this runs
-        /// dozens of times per frame. GL's y is bottom-up, the Ortho screen is top-down, hence the flip.</summary>
+        /// <summary>Allocation-free inline of MatrixToolsd.Project; false if behind the camera. Y is flipped
+        /// because the Ortho screen is top-down.</summary>
         private bool TryProject(double wx, double wy, double wz, out float screenX, out float screenY)
         {
             screenX = 0; screenY = 0;
@@ -439,7 +417,7 @@ namespace canrpgclasses.Client.Render
             return true;
         }
 
-        // red (low) → yellow (mid) → green (high)
+        // red (low) - yellow - green (high)
         private static Vec4f HealthColor(float frac)
             => new(Math.Min(1f, 2f * (1f - frac)), Math.Min(1f, 2f * frac), 0.15f, 0.9f);
 

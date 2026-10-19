@@ -13,9 +13,8 @@ using canrpgclasses.Core.Talents;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Spellbook dialog: left page lists the skills usable right now, right page holds the loadout picker, hotbar
-    /// slots and bind-to-item panel. Bindings persist via <see cref="SpellHotbar"/> and never leave the client -
-    /// only bind-to-item goes to the server.
+    /// Spellbook: usable skills on the left, loadouts, hotbar slots and bind-to-item on the right. Slot bindings
+    /// are client-only via <see cref="SpellHotbar"/>; only bind-to-item goes to the server.
     /// </summary>
     public class SpellBookDialog : CanrpgDialog
     {
@@ -25,19 +24,17 @@ namespace canrpgclasses.Client
         private const double PageTop = 22;
         private const double SpineGap = 46;
         private const double PageW = 420;
-        // Tall enough for the chapter heading, hint and ruled sections that make it read as a book page - the
-        // earlier value only fitted the bare controls.
         private const double BookH = 540;
 
         private const double CellSize = 56;
-        // Two lines of caption: most spell names do not fit one line at this cell width.
+        // Two caption lines: most spell names don't fit one.
         private const double CellLabelH = 34;
         private const double CellPad = 6;
         private const double SlotSize = 44;
 
         private const double GridHeight = 300;
 
-        // Parchment and ink palette: warm, low-chroma aged paper with dark ink text.
+        // Parchment and ink palette.
         private static readonly double[] PageLight = { 0.69, 0.59, 0.42, 1 };
         private static readonly double[] PageEdge = { 0.57, 0.47, 0.31, 1 };
         private static readonly double[] Ink = { 0.14, 0.09, 0.04, 1 };
@@ -47,7 +44,7 @@ namespace canrpgclasses.Client
         private static readonly double[] BookBorder = { 0.28, 0.17, 0.08, 1 };
         private static readonly double[] Picked = { 0.85, 0.65, 0.20, 1 };
 
-        /// <summary>Cell plate and badge backing, tuned for parchment: a dark slot would read as a hole in the page.</summary>
+        /// <summary>Cell plate and badge backing, tuned for parchment.</summary>
         private static readonly double[] Plate = { 0.42, 0.33, 0.20, 0.55 };
         private static readonly double[] BadgeBack = { 0.22, 0.15, 0.07, 0.80 };
         private static readonly double[] Parchment = { 0.93, 0.88, 0.78, 1 };
@@ -63,11 +60,10 @@ namespace canrpgclasses.Client
         /// <summary>Which bar the slot grid on the right page is editing.</summary>
         private int editBar;
 
-        /// <summary>Ids the left grid currently shows, in cell order - the grid only knows indices.</summary>
+        /// <summary>Ids the left grid shows, in cell order.</summary>
         private List<string> shown = new();
 
-        /// <summary>Grid geometry fixed at compose time; the filter only changes which cells are filled, never the
-        /// layout, so typing never rebuilds (and never steals focus from) the search box.</summary>
+        /// <summary>Fixed at compose time so filtering never rebuilds the dialog and steals search-box focus.</summary>
         private int gridCols = 1, gridRows = 1;
 
         private ElementBounds gridBounds = null!;
@@ -78,8 +74,7 @@ namespace canrpgclasses.Client
         {
             this.hotbar = hotbar;
             this.drag = drag;
-            // The available list changes with talents and with what's in hand; the slot row changes when a set is
-            // switched. Both are cheap to re-read on a slow tick.
+            // Available skills depend on talents and held item; re-read on a slow tick.
             listenerId = capi.Event.RegisterGameTickListener(_ => Refresh(), 500);
         }
 
@@ -94,8 +89,7 @@ namespace canrpgclasses.Client
             if (!IsOpened()) return;
             hotbar.RefreshSlots();
 
-            // A change in how many skills exist (talent spent, weapon swapped) needs new cells, which is a layout
-            // change; anything else is just contents.
+            // A changed skill count needs new cells; anything else is a content refresh.
             int count = hotbar.AvailableSpells().Count;
             int neededRows = Math.Max(1, (count + gridCols - 1) / gridCols);
             if (neededRows > gridRows) { Compose(); return; }
@@ -120,8 +114,6 @@ namespace canrpgclasses.Client
             var bookBounds = ElementBounds.Fixed(0, 0, bookW, BookH);
 
             // ---- left page ----
-            // Chapter heading: a small kicker over the class name, a rule under both, then the usage hint - the
-            // page needs to read as the opening of a chapter, not as a toolbar.
             var kickerBounds = ElementBounds.Fixed(leftX + 56, PageTop + 4, PageW - 60, 18);
             var classNameBounds = ElementBounds.Fixed(leftX + 56, PageTop + 20, PageW - 60, 26);
             var headRuleBounds = ElementBounds.Fixed(leftX, PageTop + 52, PageW, 2);
@@ -132,8 +124,7 @@ namespace canrpgclasses.Client
             var filterBounds = ElementBounds.Fixed(leftX, ly + 28, PageW, 26);
             var emptyBounds = ElementBounds.Fixed(leftX, ly + 64, PageW, 22);
             var clipBounds = ElementBounds.Fixed(leftX, ly + 60, PageW, GridHeight);
-            // BeginClip calls BeginChildElements, so the grid's bounds are relative to the clip - not to the page.
-            // Giving it the page coordinates again shifted it down (and right) by the clip's own offset.
+            // BeginClip calls BeginChildElements, so grid bounds are relative to the clip.
             gridStartY = 0;
             gridBounds = ElementBounds.Fixed(0, gridStartY, PageW, gridRows * (CellSize + CellLabelH + CellPad));
             var scrollBounds = clipBounds.CopyOffsetedSibling(PageW + 2, 0, 0, 0).WithFixedWidth(18);
@@ -171,8 +162,7 @@ namespace canrpgclasses.Client
             var bindHeadBounds = ElementBounds.Fixed(rightX, bindY, PageW, 22);
             var bindRuleBounds = ElementBounds.Fixed(rightX, bindY + 22, PageW, 2);
             var bindTextBounds = ElementBounds.Fixed(rightX, bindY + 28, PageW, 40);
-            // Stacked, full width: these captions are whole phrases ("Bind picked spell to held item") and their
-            // text runs past a half-width button into the one beside it.
+            // Full width: the captions are too long for half-width buttons.
             var bindDoBounds = ElementBounds.Fixed(rightX, bindY + 70, PageW, 26);
             var bindClearBounds = ElementBounds.Fixed(rightX, bindY + 100, PageW, 26);
 
@@ -184,7 +174,7 @@ namespace canrpgclasses.Client
                     ElementStdBounds.AutosizedMainDialog.WithAlignment(EnumDialogArea.CenterMiddle))
                 .AddShadedDialogBG(ElementBounds.Fixed(0, 0, bookW + 40, BookH + 60), true, 5.0, 0.75f)
                 .AddDialogTitleBar(Lang.Get("canrpgclasses:ui-spellbook-title"), () => TryClose())
-                // Below the title bar: at y=30 the chapter heading ran under it.
+                // Below the title bar.
                 .BeginChildElements(ElementBounds.Fixed(20, GuiStyle.TitleBarHeight + 12, bookW, BookH))
                     .AddStaticCustomDraw(bookBounds, DrawParchment)
 
@@ -276,7 +266,7 @@ namespace canrpgclasses.Client
             GuiElement.RoundRectangle(ctx, x, y, w, h, GuiStyle.DialogBGRadius);
             ctx.Fill();
 
-            // Darker towards both outer edges, lighter mid-page - the look of a bound book lying open.
+            // Darker toward the outer edges.
             using (var grad = new LinearGradient(x, y, x + w, y))
             {
                 grad.AddColorStop(0.00, new Color(PageEdge[0], PageEdge[1], PageEdge[2], 1));
@@ -288,7 +278,7 @@ namespace canrpgclasses.Client
                 ctx.Fill();
             }
 
-            // Spine: a soft shadow either side of a hairline crease.
+            // Spine: shadow either side of a hairline crease.
             double spineX = x + w / 2;
             using (var grad = new LinearGradient(spineX - GuiElement.scaled(SpineGap) / 2, y,
                                                  spineX + GuiElement.scaled(SpineGap) / 2, y))
@@ -331,7 +321,7 @@ namespace canrpgclasses.Client
             var tooltip = SingleComposer.GetSpellTooltip("tooltip");
             if (spellGrid == null || slotGrid == null) return;
 
-            // Sepia plates and ink labels: the default dark slot would read as a hole punched in the parchment.
+            // Sepia plates and ink labels to suit the parchment.
             spellGrid.LabelFont = CairoFont.WhiteDetailText().WithColor(Ink);
             spellGrid.BadgeFont = CairoFont.WhiteDetailText().WithColor(Parchment);
             spellGrid.DefaultFrameColor = BookBorder;
@@ -360,8 +350,7 @@ namespace canrpgclasses.Client
             slotGrid.BadgeBackColor = BadgeBack;
             slotGrid.Drag = drag;
             slotGrid.AcceptsDrop = true;
-            // The slot grid draws the cursor ghost for both grids: the spell grid lives inside BeginClip, so a ghost
-            // it drew was scissored to the list and disappeared as soon as you dragged towards these slots.
+            // The slot grid draws the ghost for both: the spell grid is inside BeginClip and would be scissored.
             drag.GhostRenderer = slotGrid;
             slotGrid.OnDrop = (slot, id) =>
             {
@@ -374,8 +363,7 @@ namespace canrpgclasses.Client
                 bool shift = capi.Input.KeyboardKeyState[(int)GlKeys.ShiftLeft]
                           || capi.Input.KeyboardKeyState[(int)GlKeys.ShiftRight];
 
-                // Left click drops the picked skill (Shift appends it to the slot's sequence instead), or clears
-                // when nothing is picked; right click always clears.
+                // Left click drops the picked skill (Shift appends to the sequence) or clears; right click clears.
                 if (button == EnumMouseButton.Right) hotbar.SetBinding(editBar, slot, null);
                 else if (shift && picked != null) hotbar.AddToSequence(editBar, slot, picked);
                 else hotbar.SetBinding(editBar, slot, picked);
@@ -433,8 +421,7 @@ namespace canrpgclasses.Client
                     FrameColor = picked == id ? Picked : SchoolColor(mod, id)
                 });
             }
-            // Pad out to the composed grid size: cells beyond the filtered list exist but draw nothing, so
-            // filtering never changes the layout.
+            // Pad to the composed grid size so filtering never changes the layout.
             while (cells.Count < gridCols * gridRows) cells.Add(new IconGridCell { Hidden = true });
 
             grid.Cells = cells;
@@ -501,7 +488,7 @@ namespace canrpgclasses.Client
             Compose();
         }
 
-        /// <summary>Aura/form spells the player has - the sets that can auto-activate key off these.</summary>
+        /// <summary>Aura/form spells the player has; sets can auto-activate on these.</summary>
         private List<string> AuraSpells()
         {
             var mod = canrpgclassesModSystem.ClientInstance;
@@ -606,7 +593,7 @@ namespace canrpgclasses.Client
                 : Lang.Get("canrpgclasses:ui-bind-none");
         }
 
-        /// <summary>What clicking a slot will do right now - which skill is picked up, or that a click clears.</summary>
+        /// <summary>What clicking a slot will do right now.</summary>
         private string PickHint()
         {
             var mod = canrpgclassesModSystem.ClientInstance;

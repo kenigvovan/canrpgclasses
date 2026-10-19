@@ -4,10 +4,7 @@ using Vintagestory.API.Common;
 
 namespace canrpgclasses.Core.Content
 {
-    /// <summary>
-    /// Collects what went wrong while reading content files, so a mod author gets a straight answer instead of a
-    /// silently missing spell. Problems never abort the load - the entry falls back to a sane default.
-    /// </summary>
+    /// <summary>Collects content-file problems. They never abort the load; the entry falls back to a default.</summary>
     public class ContentReport
     {
         private readonly List<string> problems = new();
@@ -28,8 +25,7 @@ namespace canrpgclasses.Core.Content
             logger?.Warning("[canrpgclasses] content - {0}", line);
         }
 
-        /// <summary>Parses an enum by name, case-insensitively. An empty value quietly takes the default (the
-        /// field was simply omitted); a wrong one is reported with the list of valid names.</summary>
+        /// <summary>Case-insensitive enum parse. Empty = default silently; an invalid name is reported.</summary>
         public T Enum<T>(string? value, T fallback, string where, string field) where T : struct
         {
             if (string.IsNullOrWhiteSpace(value)) return fallback;

@@ -8,9 +8,8 @@ using canrpgclasses.Core.Spells;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Builds the colour-coded tooltip body for a spell, shared by the spellbook, class picker and talent window.
-    /// Numbers are estimates at the local player's current spell power. <see cref="BuildLines"/> is pure -
-    /// <see cref="Gui.GuiElementSpellTooltip"/> does the drawing.
+    /// Colour-coded spell tooltip lines, estimated at the local player's spell power. Drawn by
+    /// <see cref="Gui.GuiElementSpellTooltip"/>.
     /// </summary>
     public static class SpellTooltip
     {
@@ -26,7 +25,7 @@ namespace canrpgclasses.Client
         {
             public readonly string Text;
             public readonly double[] Color;
-            /// <summary>Flavour text - the only line that should be word-wrapped rather than shown as-is.</summary>
+            /// <summary>Flavour text, the only word-wrapped line.</summary>
             public readonly bool Wrap;
 
             public Line(string text, double[] color, bool wrap = false) { Text = text; Color = color; Wrap = wrap; }
@@ -103,8 +102,7 @@ namespace canrpgclasses.Client
                         Add(Lang.Get("canrpgclasses:ui-tt-reveal", R(spell.Range > 0 ? spell.Range : 12f)), Ctrl);
                         break;
                     case ImpactAction.PetTarget:
-                        // Two flavours share this action: Tend Beast heals (scales with spell power) and Beast Fury
-                        // buffs pet damage (DamageSpellPowerCoefficient is a flat +% for a window).
+                        // Tend Beast heals; Beast Fury uses DamageSpellPowerCoefficient as a flat pet damage +%.
                         if (imp.HealSpellPowerCoefficient > 0)
                             Add(Lang.Get("canrpgclasses:ui-tt-pet-heal", R(sp * imp.HealSpellPowerCoefficient)), Heal);
                         if (imp.DamageSpellPowerCoefficient > 0)
@@ -119,8 +117,7 @@ namespace canrpgclasses.Client
                             R(imp.EvasionChance * 100f), F(imp.StatusEffectDuration)), Ctrl);
                         break;
                     case ImpactAction.GainResource:
-                        // Stances carry a GainResource impact with no fixed amount (the stance-switch bonus is a
-                        // global, shown in their description) - only spells with an explicit amount draw a line.
+                        // Stances gain resource via a global, not a fixed amount; only explicit amounts draw a line.
                         if (imp.ResourceGainAmount > 0f)
                             Add(Lang.Get("canrpgclasses:ui-tt-gainrage", (int)imp.ResourceGainAmount), Meta);
                         break;
@@ -135,9 +132,7 @@ namespace canrpgclasses.Client
 
             var parts = new List<string>();
             if (spell.Cost.Resource > 0) parts.Add(Lang.Get("canrpgclasses:ui-tt-cost", (int)spell.Cost.Resource));
-            // Cooldown / cast shown at the viewing player's effective value (mirrors EBSpellCaster): base minus the
-            // global cooldownReduction + a per-spell cooldownReduction_<spell> / castReduction_<spell>, capped at
-            // 80%, so talents like Swift Light visibly lower the number after they're taken.
+            // Effective cooldown/cast as in EBSpellCaster: global + per-spell reductions, capped at 80%.
             if (spell.Cost.Cooldown.Duration > 0)
             {
                 float cdr = player != null
@@ -153,7 +148,7 @@ namespace canrpgclasses.Client
             if (spell.Range > 0) parts.Add(Lang.Get("canrpgclasses:ui-tt-range", R(spell.Range)));
             if (parts.Count > 0) Add(string.Join("   ·   ", parts), Meta);
 
-            // Attribute gate, or the only hint the player gets is the refusal in chat when the cast fails.
+            // Attribute gate.
             if (spell.RequiresAttributes != null)
                 foreach (var kv in spell.RequiresAttributes)
                 {
@@ -170,8 +165,7 @@ namespace canrpgclasses.Client
         private static int R(float f) => (int)System.Math.Round(f);
         private static string F(float f) => f.ToString("0.#");
 
-        /// <summary>One buff/debuff line for an effect id + tier + duration: "+50% move speed for 8s" when the
-        /// effect has a known per-tier magnitude, else "Invisibility for 4s". Unknown ids add nothing.</summary>
+        /// <summary>E.g. "+50% move speed for 8s", or "Invisibility for 4s" without a magnitude. Unknown ids add nothing.</summary>
         private static void AddBuff(List<Line> lines, string? id, int tier, float seconds)
         {
             var (label, perTier, debuff) = BuffInfo(id);
@@ -184,8 +178,7 @@ namespace canrpgclasses.Client
             lines.Add(new Line(line, debuff ? Ctrl : Heal));
         }
 
-        /// <summary>Per-effect display: human label, per-tier magnitude (0 = duration-only, no %), and whether it reads
-        /// as a debuff. Magnitudes mirror effectshud's effect classes (±0.25/tier for the stat buffs).</summary>
+        /// <summary>Label, per-tier magnitude (0 = duration only) and debuff flag. Magnitudes mirror effectshud.</summary>
         private static (string label, float perTier, bool debuff) BuffInfo(string? id) => id switch
         {
             "strengthmelee" => (Lang.Get("canrpgclasses:ui-eff-strengthmelee"), 0.25f, false),
@@ -200,7 +193,7 @@ namespace canrpgclasses.Client
             "poison"        => (Lang.Get("canrpgclasses:ui-eff-poison"), 0f, true),
             "canrpgclasses:slice_stacks" => (Lang.Get("canrpgclasses:ui-eff-strengthmelee"),
                 canrpgclasses.Core.Config.BalanceConfig.Spell("quickblades").F("perStack", 0.06f), false),
-            // Priest effects (magnitudes live in each spell's description; these just name the buff/debuff + duration).
+            // Priest effects (magnitudes are in the spell descriptions).
             "canrpg_renew"             => (Lang.Get("canrpgclasses:ui-eff-renew"), 0f, false),
             "canrpg_shadow_brand"  => (Lang.Get("canrpgclasses:ui-eff-shadow_brand"), 0f, true),
             "canrpg_consuming_plague"  => (Lang.Get("canrpgclasses:ui-eff-consuming_plague"), 0f, true),
@@ -210,7 +203,7 @@ namespace canrpgclasses.Client
             "canrpg_sheltering_spirit"   => (Lang.Get("canrpgclasses:ui-eff-sheltering_spirit"), 0f, false),
             "canrpg_dissipate"        => (Lang.Get("canrpgclasses:ui-eff-dissipate"), 0f, false),
             "canrpgaura_shadow_guise"    => (Lang.Get("canrpgclasses:ui-eff-shadow_guise"), 0f, false),
-            // Mage effects (magnitudes live in each spell's description; these name the buff/debuff + duration).
+            // Mage effects.
             "canrpg_chilled"      => (Lang.Get("canrpgclasses:ui-eff-chilled"), -0.15f, true),
             "canrpg_ignite"       => (Lang.Get("canrpgclasses:ui-eff-ignite"), 0f, true),
             "canrpg_volatile_ember"  => (Lang.Get("canrpgclasses:ui-eff-volatile_ember"), 0f, true),

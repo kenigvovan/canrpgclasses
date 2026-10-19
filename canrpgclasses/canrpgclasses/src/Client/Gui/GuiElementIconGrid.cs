@@ -8,14 +8,12 @@ using Vintagestory.API.MathTools;
 namespace canrpgclasses.Client.Gui
 {
     /// <summary>
-    /// Grid of icon cells with hover, click and drag&amp;drop between two grids (spellbook, talent tree).
-    /// Modelled on vanilla's <c>GuiElementSkillItemGrid</c>, but nothing is baked per cell into the static layer -
-    /// the reusable pieces are tinted per cell at draw time, so a change of contents never needs a recompose.
+    /// Icon grid with hover, click and drag&amp;drop between grids. Unlike vanilla <c>GuiElementSkillItemGrid</c>,
+    /// cells are tinted at draw time, so content changes never need a recompose.
     /// </summary>
     public class GuiElementIconGrid : GuiElement
     {
-        /// <summary>How far the cursor must travel with the button down before it counts as a drag rather than a
-        /// click. Below this, a slightly shaky click still selects the cell.</summary>
+        /// <summary>Cursor travel before a press counts as a drag rather than a click.</summary>
         private const int DragThresholdPx = 4;
 
         private const long DoubleClickMs = 400;
@@ -34,15 +32,13 @@ namespace canrpgclasses.Client.Gui
         private LoadedTexture badgeTexture;
         private readonly Dictionary<string, LoadedTexture> textCache = new();
 
-        /// <summary>Captions wrapped to the cell width, cached because measuring text is a Cairo round trip and
-        /// this would otherwise run for every visible cell every frame.</summary>
+        /// <summary>Wrapped captions, cached: measuring text is a Cairo round trip.</summary>
         private readonly Dictionary<string, string[]> labelCache = new();
 
         /// <summary>A caption longer than two lines is cut rather than pushed into the row below.</summary>
         private const int MaxLabelLines = 2;
 
-        /// <summary>Cells in reading order (row-major), length cols*rows. Short lists are fine - missing entries
-        /// simply aren't drawn. The owner replaces this list whenever its data changes.</summary>
+        /// <summary>Cells in row-major order; missing trailing entries aren't drawn.</summary>
         public List<IconGridCell> Cells = new();
 
         /// <summary>Cell drawn with the selected border, or -1.</summary>
@@ -53,9 +49,8 @@ namespace canrpgclasses.Client.Gui
 
         public CairoFont LabelFont = CairoFont.WhiteDetailText();
 
-        /// <summary>Badge text. Deliberately unstroked: the generated text texture is sized from the glyph extents
-        /// alone, so a stroke bleeds past the right edge and the last character gets clipped ("0/1" → "0/").
-        /// Readability comes from the dark plate behind it instead.</summary>
+        /// <summary>Badge text, unstroked: the text texture is sized from glyph extents, so a stroke clips the
+        /// last character. A dark plate provides contrast instead.</summary>
         public CairoFont BadgeFont = CairoFont.WhiteDetailText();
 
         public double[] DefaultFrameColor = { 0.80, 0.80, 0.85, 0.60 };
@@ -64,24 +59,17 @@ namespace canrpgclasses.Client.Gui
 
         public double[] BadgeBackColor = { 0.02, 0.02, 0.03, 0.72 };
 
-        /// <summary>Put the badge in the gutter under the cell instead of its top-left corner - the talent tree's
-        /// rank counter belongs there, where it never covers the icon. Right-aligned to the cell so it stays clear
-        /// of the dependency arrow, which runs down the middle.</summary>
+        /// <summary>Badge in the gutter under the cell, right-aligned to clear the dependency arrow.</summary>
         public bool BadgeBelow;
 
-        /// <summary>Extra static drawing behind the cells, given the Cairo context and a lookup from cell index to
-        /// that cell's rectangle. The talent tree draws its dependency arrows here.
-        ///
-        /// Runs during <see cref="ComposeElements"/>, so <see cref="Cells"/> must already be filled when the
-        /// composer is composed - and re-drawing it means recomposing (which is fine: the arrows only change when
-        /// a talent point is spent).</summary>
+        /// <summary>Static drawing behind the cells (talent arrows). Runs in <see cref="ComposeElements"/>, so
+        /// <see cref="Cells"/> must be filled before composing.</summary>
         public Action<Context, System.Func<int, (double X, double Y, double W, double H)>>? OnComposeBackground;
 
         public Action<int, EnumMouseButton>? OnCellClick;
         public Action<int>? OnCellDoubleClick;
 
-        /// <summary>Called every frame with the hovered cell index (or -1) - this is where the owner drives the
-        /// tooltip.</summary>
+        /// <summary>Called every frame with the hovered cell index (or -1).</summary>
         public Action<int>? OnCellHover;
 
         /// <summary>Shared with the other grid in the same dialog. Null disables dragging entirely.</summary>
@@ -119,8 +107,7 @@ namespace canrpgclasses.Client.Gui
             Bounds.fixedHeight = rows * (cellSize + labelHeight + padding);
         }
 
-        /// <summary>Cell index at a screen position, or -1. Public so a dialog can hit-test the other grid on a
-        /// drop.</summary>
+        /// <summary>Cell index at a screen position, or -1.</summary>
         public int CellAt(int mouseX, int mouseY)
         {
             double stepX = scaled(unscaledCellSize + unscaledPadding);
@@ -146,8 +133,7 @@ namespace canrpgclasses.Client.Gui
             Bounds.CalcWorldBounds();
             double size = scaled(unscaledCellSize);
 
-            // Slot plate: the recessed square every cell sits in. Baked white so a cell can tint it to show its
-            // state (a taken talent reads as blue at a glance, not just by its border).
+            // Slot plate, baked white so each cell can tint it by state.
             BakeCellTexture(ref plateTexture, size, ctx =>
             {
                 ctx.SetSourceRGBA(1, 1, 1, 1);
@@ -156,8 +142,7 @@ namespace canrpgclasses.Client.Gui
                 EmbossRoundRectangleElement(ctx, 0, 0, size, size, true, 2, -1);
             });
 
-            // Backdrop for the corner badge - a hotkey letter or "2/3" drawn straight onto a bright icon is
-            // unreadable without something behind it.
+            // Backdrop for the corner badge.
             BakeCellTexture(ref badgeTexture, size, ctx =>
             {
                 ctx.SetSourceRGBA(1, 1, 1, 1);
@@ -165,8 +150,7 @@ namespace canrpgclasses.Client.Gui
                 ctx.Fill();
             });
 
-            // Hover: a bright outline plus the faintest wash. A solid wash (what this used to be) washed the icon
-            // out and made it harder to tell what you were pointing at.
+            // Hover: bright outline plus a faint wash.
             BakeCellTexture(ref hoverTexture, size, ctx =>
             {
                 ctx.SetSourceRGBA(1, 1, 1, 0.10);
@@ -231,8 +215,7 @@ namespace canrpgclasses.Client.Gui
                 {
                     if (cell.Icon != null && cell.Icon.TextureId != 0)
                     {
-                        // Inset enough that the tinted plate shows as a border around the art - at 2px the icon
-                        // covered the plate and the cell's state was only visible at the outline.
+                        // Inset so the tinted plate shows around the art.
                         double inset = scaled(5);
                         api.Render.Render2DTexture(cell.Icon.TextureId, (float)(x + inset), (float)(y + inset),
                             (float)(size - inset * 2), (float)(size - inset * 2), 50f, ToVec(cell.IconTint));
@@ -261,19 +244,15 @@ namespace canrpgclasses.Client.Gui
 
             OnCellHover?.Invoke(HoverIndex);
 
-            // The dragged icon follows the cursor, drawn by one grid only so it keeps rendering while the cursor is
-            // over the other one - the source by default, or whoever the dialog nominated (a source inside a clip
-            // region cannot draw outside it).
+            // Drag ghost is drawn by one grid only: the source, or the nominated one if the source is clipped.
             if (Drag is { Active: true } drag && ReferenceEquals(drag.GhostRenderer ?? drag.Source, this))
             {
                 if (drag.Released) { drag.Clear(); }
                 else if (drag.Icon != null && drag.Icon.TextureId != 0)
                 {
                     float ghost = (float)scaled(unscaledCellSize * 0.6);
-                    // Up and to the left of the cursor: below-right put the ghost straight over the cell being
-                    // aimed at, hiding the drop target under the thing you're dropping.
-                    // Above the scrollbar handle (200) so the ghost stays visible while dragging past a scrollable
-                    // list, but below the tooltip (500).
+                    // Up-left of the cursor so it doesn't hide the drop target. z between the scrollbar handle
+                    // (200) and the tooltip (500).
                     api.Render.Render2DTexture(drag.Icon.TextureId, api.Input.MouseX - ghost - 8,
                         api.Input.MouseY - ghost - 8, ghost, ghost, 300f);
                 }
@@ -306,8 +285,7 @@ namespace canrpgclasses.Client.Gui
             double padX = scaled(3), padY = scaled(1);
             double w = tex.Width + padX * 2, h = tex.Height + padY * 2;
 
-            // Below the cell it hugs the right edge - never wider than the cell, so it cannot reach into the
-            // neighbouring column, and clear of the dependency arrow that runs down the middle.
+            // Right-aligned within the cell width, clear of the dependency arrow.
             double x = BadgeBelow ? cellX + Math.Max(0, size - w) : cellX + scaled(2);
             double y = BadgeBelow ? cellY + size + scaled(1) : cellY + scaled(2);
 
@@ -316,8 +294,7 @@ namespace canrpgclasses.Client.Gui
             api.Render.Render2DTexture(tex.TextureId, (float)(x + padX), (float)(y + padY), tex.Width, tex.Height, 52f);
         }
 
-        /// <summary>The caption under a cell, wrapped to the cell's width. A spell name is routinely wider than
-        /// its icon, and drawn as one centred line it ran straight over the neighbouring cells' captions.</summary>
+        /// <summary>Caption under a cell, wrapped to the cell width.</summary>
         private void DrawLabel(string text, double cellX, double labelY, double cellWidth, double labelHeight)
         {
             if (!labelCache.TryGetValue(text, out var lines))
@@ -390,8 +367,7 @@ namespace canrpgclasses.Client.Gui
             Drag.Begin(this, cell.Id!, cell.Icon);
         }
 
-        // Delivered to every element in the composer, not just the one under the cursor - which is exactly what a
-        // cross-element drop needs.
+        // Delivered to every element in the composer, which cross-grid drops rely on.
         public override void OnMouseUp(ICoreClientAPI api, MouseEvent args)
         {
             base.OnMouseUp(api, args);

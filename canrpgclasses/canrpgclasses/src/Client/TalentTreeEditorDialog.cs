@@ -11,32 +11,29 @@ using canrpgclasses.Core.Talents;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Admin-only talent-tree editor; the whole tree goes out as one <see cref="TalentTreeEditPacket"/> on Save
-    /// and nothing is applied locally. Code-defined talents are drawn but locked - their behaviour lives in a C#
-    /// hook a JSON entry can't carry, so an overwrite would quietly disable them.
+    /// Admin talent-tree editor; Save sends the whole tree as one <see cref="TalentTreeEditPacket"/>. Code talents
+    /// are locked since a JSON overwrite would drop their C# hook.
     /// </summary>
     public class TalentTreeEditorDialog : CanrpgDialog
     {
         private const string ComposerKey = "canrpgtreeeditor";
 
-        // The grid is only what the editor draws - a tree can hold more, so the size grows to fit what is there.
+        // Minimum grid size; grows to fit the tree.
         private const int MinTiers = 7;
         private const int MinColumns = 4;
         private const double CellW = 132;
-        /// <summary>Characters a cell caption fits. AddSmallButton draws in a fixed font that can't be scaled
-        /// down, so the caption is cut to size instead of being allowed to run past the button.</summary>
+        /// <summary>Caption length limit: AddSmallButton's font can't be scaled down.</summary>
         private const int CellChars = 15;
         private const double CellH = 34;
         private const double RowH = 24;
         private const double PanelW = 300;
-        /// <summary>Height the field panel needs when a talent is selected: seven label+input blocks plus the
-        /// Delete/Save rows and a line of status.</summary>
+        /// <summary>Seven label+input blocks, the Delete/Save rows and a status line.</summary>
         private const double PanelHeight = 7 * (20 + RowH + 8) + 3 * (RowH + 10) + 40;
 
         private string classId = "";
         private int treeIndex;
 
-        /// <summary>The tree being edited: data talents only, since those are the ones a save may replace.</summary>
+        /// <summary>Data talents of the edited tree; only these are replaced on save.</summary>
         private readonly List<TalentModel> working = new();
         /// <summary>Code-defined talents in the same tree, drawn as locked cells.</summary>
         private readonly List<Talent> locked = new();
@@ -46,7 +43,7 @@ namespace canrpgclasses.Client
         private bool customStat;
         /// <summary>Last number typed in the per-rank field, held until a stat is picked to attach it to.</summary>
         private float typedStatValue;
-        /// <summary>A save of ours is in flight - the next content sync is its result.</summary>
+        /// <summary>Our save is in flight; the next content sync is its result.</summary>
         private bool awaitingSync;
         /// <summary>Source of the "copy an existing tree" pair of dropdowns.</summary>
         private string? copyClassId;
@@ -71,9 +68,7 @@ namespace canrpgclasses.Client
 
         private int TreeCount() => Math.Max(1, Mod?.Classes.Get(classId)?.TreeCount ?? 1);
 
-        /// <summary>Re-reads the tree from the registries - the state the server last confirmed. Any unsaved edit
-        /// is dropped on purpose: after a save the registries ARE the truth, and before one there is nothing worth
-        /// keeping that the admin didn't just abandon by switching trees.</summary>
+        /// <summary>Re-reads the tree from the registries, intentionally dropping unsaved edits.</summary>
         private void Reload()
         {
             working.Clear();
@@ -111,11 +106,10 @@ namespace canrpgclasses.Client
                 icon = t.IconName,
                 requires = t.RequiresTalent,
                 grantsSpell = t.GrantsSpellId,
-                // A save rewrites the whole talent, so carry this over or a JSON-authored gate is dropped.
+                // Carry over, or a save drops a JSON-authored gate.
                 requiresAttributes = ToDict(t.RequiresAttributes)
             };
-            // Stats aren't a Talent property (they live in ApplyStats), so they are read back off the content
-            // talent itself - otherwise saving a talent would silently blank whatever stats it had.
+            // Stats live in ApplyStats, not on Talent, so read them from the content talent.
             if (t is ContentTalent ct && ct.Stats.Count > 0)
                 m.stats = ct.Stats.Select(s => new TalentStatModel { stat = s.Stat, perRank = s.PerRank }).ToList();
             return m;
@@ -132,12 +126,10 @@ namespace canrpgclasses.Client
 
         private TalentModel? Selected => selTier < 0 ? null : At(selTier, selColumn);
 
-        /// <summary>Dropdown entry standing for "nothing" - a talent may grant no spell, need no prerequisite and
-        /// set no stat.</summary>
+        /// <summary>Dropdown entry for "none".</summary>
         private const string None = " none";
 
-        /// <summary>Every spell, plus the "none" entry. The label carries the id too, since that is what the
-        /// talent stores and what a content file would name.</summary>
+        /// <summary>Every spell plus "none"; labels include the id.</summary>
         private static List<(string id, string name)> SpellChoices()
         {
             var list = new List<(string, string)> { (None, "(none)") };
@@ -148,8 +140,7 @@ namespace canrpgclasses.Client
             return list;
         }
 
-        /// <summary>Talents that may act as this one's prerequisite: the same tree, minus itself. Cross-tree
-        /// prerequisites aren't offered - a tree is meant to be climbable on its own.</summary>
+        /// <summary>Possible prerequisites: same tree only, minus itself.</summary>
         private List<(string id, string name)> RequirementChoices(TalentModel self)
         {
             var list = new List<(string, string)> { (None, "(none)") };
@@ -189,12 +180,11 @@ namespace canrpgclasses.Client
             double gridY = y + RowH + 24;
             double panelX = gridW + 28;
 
-            // The right panel is taller than a short tree's grid, so the window is sized to whichever side is
-            // longer - otherwise the Save button would sit outside the dialog background.
+            // Size to the taller of grid and panel so Save stays inside the background.
             double contentH = Math.Max(tiers * (CellH + 6), PanelHeight);
             var bgBounds = ElementBounds.Fixed(0, 0, gridW + PanelW + 70, gridY + contentH + 60);
 
-            // Inset plates behind the grid and the panel, the same way the class picker frames its two columns.
+            // Inset plates behind the grid and the panel.
             var gridPlate = ElementBounds.Fixed(-6, gridY - 8, gridW + 6, tiers * (CellH + 6) + 12);
             var panelPlate = ElementBounds.Fixed(panelX - 10, gridY - 8, PanelW + 20, contentH + 12);
 
@@ -237,15 +227,13 @@ namespace canrpgclasses.Client
                     var built = LockedAt(tier, col);
                     int t = tier, c = col; // captured per cell
 
-                    // A locked (code-defined) talent is marked with a leading dot rather than a word, so the
-                    // marker doesn't eat the half of the caption that carries the name.
+                    // Locked talents get a short leading marker to save caption space.
                     string label = model != null
                         ? Shorten(string.IsNullOrEmpty(model.name) ? model.id ?? "?" : model.name!, CellChars)
                         : built != null ? "* " + Shorten(built.DisplayName, CellChars - 2)
                         : "+";
 
-                    // The selected cell is drawn in the heavier style - it is the only visual cue that the panel
-                    // on the right belongs to this cell.
+                    // Heavier style marks the selected cell.
                     var style = (tier == selTier && col == selColumn) ? EnumButtonStyle.MainMenu : EnumButtonStyle.Small;
                     compo.AddSmallButton(label, () => OnCellClicked(t, c), bounds, style, "cell_" + tier + "_" + col);
                 }
@@ -259,7 +247,7 @@ namespace canrpgclasses.Client
             var built = selTier >= 0 ? LockedAt(selTier, selColumn) : null;
             if (built != null)
             {
-                // Room for two lines: a talent name is free text and can be longer than the panel is wide.
+                // Two lines: names can be long.
                 compo.AddStaticText(built.DisplayName, EditorStyle.Heading(),
                     ElementBounds.Fixed(x, row, PanelW, 44));
                 row += 48;
@@ -273,7 +261,7 @@ namespace canrpgclasses.Client
             var m = Selected;
             if (m == null)
             {
-                // Short heading, hint underneath: a heading long enough to wrap would run into the block below it.
+                // Short heading with hint below, so it doesn't wrap into the next block.
                 compo.AddStaticText(selTier < 0 ? "No cell selected" : "Empty cell",
                     EditorStyle.Heading(), ElementBounds.Fixed(x, row, PanelW, 22));
                 row += 24;
@@ -314,8 +302,7 @@ namespace canrpgclasses.Client
                 v => { if (int.TryParse(v, out int r)) m.maxRank = r; }, CairoFont.WhiteDetailText(), "f_rank");
             row += RowH + 8;
 
-            // Spell, prerequisite and stat are all picked from what exists rather than typed: an id that is off
-            // by a character registers a talent that grants nothing, and the mistake only shows up in the log.
+            // Ids are picked from dropdowns: a typo would silently grant nothing.
             Label(compo, x, ref row, "Grants spell (a talent may grant none)");
             var spells = SpellChoices();
             compo.AddDropDown(spells.Select(s => s.id).ToArray(), spells.Select(s => s.name).ToArray(),
@@ -359,14 +346,13 @@ namespace canrpgclasses.Client
             AddSaveRow(compo, x, row);
         }
 
-        /// <summary>"Start from an existing tree": pick any class and one of its trees and copy its layout in as
-        /// a starting point. Shown only with no cell selected, since it replaces the whole working tree.</summary>
+        /// <summary>Copy another tree's layout in. Only shown with no cell selected, as it replaces the tree.</summary>
         private void AddCopySource(GuiComposer compo, double x, ref double row)
         {
             var classes = Mod?.Classes.All.Values.OrderBy(c => c.Id).ToList();
             if (classes == null || classes.Count == 0) return;
 
-            // One block with room for the wrap: two one-line labels here each ran to two lines and collided.
+            // One block with room to wrap.
             row += 6;
             compo.AddStaticText("Or start from an existing tree. Layout, ranks and granted spells are copied; "
                     + "a code talent's behaviour stays in C# and does not come along.",
@@ -395,8 +381,7 @@ namespace canrpgclasses.Client
             row += RowH + 8;
         }
 
-        /// <summary>Save + status, placed at whatever y the panel above it ended on - the panel's height depends
-        /// on what is selected, so a fixed offset would sooner or later be drawn on top of a field.</summary>
+        /// <summary>Save + status below the panel, whose height varies with the selection.</summary>
         private void AddSaveRow(GuiComposer compo, double x, double y)
         {
             compo.AddStaticCustomDraw(ElementBounds.Fixed(x, y + 4, PanelW, 2), EditorStyle.Rule)
@@ -434,8 +419,7 @@ namespace canrpgclasses.Client
                 .SetValue((stat?.perRank ?? 0f).ToString(CultureInfo.InvariantCulture));
         }
 
-        /// <summary>The attribute gate: one attribute and the points it needs. A talent authored in JSON may gate on
-        /// several - the editor then shows the count and keeps its hands off, rather than dropping the extras.</summary>
+        /// <summary>Single-attribute gate. Multi-attribute gates from JSON are shown as a count and left untouched.</summary>
         private void AddAttributeRequirement(GuiComposer compo, TalentModel m, double x, ref double row)
         {
             Label(compo, x, ref row, "Requires attribute (points the character must hold)");
@@ -477,8 +461,7 @@ namespace canrpgclasses.Client
             Compose();
         }
 
-        /// <summary>Same rule as <see cref="SetStatValue"/>: the number never creates the requirement, or a
-        /// retained input would gate every talent on whatever was last typed.</summary>
+        /// <summary>Like <see cref="SetStatValue"/>, never creates the requirement.</summary>
         private void SetAttrRequirementValue(TalentModel m, string value)
         {
             if (m.requiresAttributes is not { Count: 1 }) return;
@@ -505,10 +488,8 @@ namespace canrpgclasses.Client
             m.stats[0].perRank = typedStatValue;
         }
 
-        /// <summary>Remembers the number and applies it to the stat the talent already has. It must NOT create
-        /// one: a retained number input reports its value while the form is being filled in, so creating here
-        /// gave every talent a nameless stat entry - which the server then refused, taking the whole tree with it.
-        /// The entry is created when a stat is actually picked.</summary>
+        /// <summary>Updates an existing stat only: retained inputs report values while the form fills, and a
+        /// nameless stat entry makes the server reject the whole tree.</summary>
         private void SetStatValue(TalentModel m, string value)
         {
             if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float v)) return;
@@ -520,7 +501,7 @@ namespace canrpgclasses.Client
         {
             selTier = tier;
             selColumn = column;
-            // The free-text stat field belongs to the talent it was opened for, not to the next one clicked.
+            // Reset the free-text stat field per talent.
             var picked = At(tier, column)?.stats;
             customStat = picked is { Count: > 0 }
                          && !StatCatalog.Entries.Any(e => e.Key == picked[0].stat);
@@ -562,8 +543,7 @@ namespace canrpgclasses.Client
             return true;
         }
 
-        /// <summary>A free id in this class's namespace. Ids are how spent points are stored, so this is a starting
-        /// point the admin is expected to rename before saving - not a name anyone should keep.</summary>
+        /// <summary>Placeholder free id in this class's namespace, meant to be renamed before saving.</summary>
         private string NextId()
         {
             var mod = Mod;
@@ -577,9 +557,8 @@ namespace canrpgclasses.Client
             return classId + ":custom";
         }
 
-        /// <summary>Copies another tree's talents into the working tree as a starting layout. Ids are re-based on
-        /// this class (a talent id is global), and prerequisites are re-pointed at the copies - a copy that still
-        /// required the original would gate this tree on a talent in someone else's.</summary>
+        /// <summary>Copies another tree's talents; ids are re-based on this class and prerequisites re-pointed
+        /// at the copies.</summary>
         private bool CopyTree()
         {
             var mod = Mod;
@@ -614,7 +593,7 @@ namespace canrpgclasses.Client
                     requiresAttributes = ToDict(t.RequiresAttributes)
                 };
 
-                // Stats only exist as data on a content talent; a code talent's effect is its ApplyStats override.
+                // Only content talents carry stats as data.
                 if (t is ContentTalent ct && ct.Stats.Count > 0)
                     copy.stats = ct.Stats.Select(s => new TalentStatModel { stat = s.Stat, perRank = s.PerRank }).ToList();
                 else if (t is not ContentTalent && string.IsNullOrEmpty(t.GrantsSpellId))
@@ -639,8 +618,7 @@ namespace canrpgclasses.Client
             return true;
         }
 
-        /// <summary>The given id, or the first free variant of it - a talent id is global, so a copy can't reuse
-        /// one that already exists.</summary>
+        /// <summary>The id, or its first free variant (talent ids are global).</summary>
         private string FreeId(string preferred)
         {
             var mod = Mod;
@@ -666,16 +644,14 @@ namespace canrpgclasses.Client
             var mod = Mod;
             if (mod?.ClientChannel == null) return true;
 
-            // A stat row with no name is not a stat - drop it rather than sending something the server will
-            // refuse, which would cost the whole tree, not just that talent.
+            // Drop nameless stat rows; the server would reject the whole tree.
             foreach (var t in working)
             {
                 t.stats?.RemoveAll(s => string.IsNullOrWhiteSpace(s.stat));
                 if (t.stats is { Count: 0 }) t.stats = null;
             }
 
-            // The same checks the server runs, so an obvious mistake is caught before the round trip. The server
-            // still re-checks everything - this is a convenience, not the gate.
+            // Mirrors the server checks to fail early; the server still validates.
             string? refused = ContentEditGuard.Reject(classId, treeIndex, working, mod.Classes, mod.Talents);
             if (refused != null)
             {
@@ -696,8 +672,7 @@ namespace canrpgclasses.Client
             return true;
         }
 
-        /// <summary>The server applied a content edit and the registries have been rebuilt. Only reloads after a
-        /// save of our own - otherwise an edit from another admin would throw away what is being typed here.</summary>
+        /// <summary>Reloads only after our own save, so another admin's edit doesn't wipe the form.</summary>
         public void OnContentChanged()
         {
             if (!IsOpened() || !awaitingSync) return;

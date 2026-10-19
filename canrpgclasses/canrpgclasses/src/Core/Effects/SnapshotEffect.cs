@@ -5,11 +5,8 @@ using canrpgclasses.Core.Spells;
 
 namespace canrpgclasses.Core.Effects
 {
-    /// <summary>
-    /// Base for a DoT or HoT whose per-tick magnitude is fixed at application time from the caster's spell power.
-    /// The snapshot fields must stay public: effectshud serializes public fields and OnStart doesn't re-run on
-    /// deserialize, so anything baked has to survive that way.
-    /// </summary>
+    /// <summary>DoT/HoT with per-tick magnitude fixed from caster spell power at apply time. Snapshot fields must be
+    /// public: effectshud serializes public fields and OnStart doesn't re-run on deserialize.</summary>
     public abstract class SnapshotEffect : Effect, ISnapshotEffect
     {
         public float casterSpellPower;
@@ -21,11 +18,10 @@ namespace canrpgclasses.Core.Effects
             casterSpellPower = casterSpellPowerSnapshot;
         }
 
-        /// <summary>The caster entity, if still present in the world (may be null if they logged out / died).</summary>
+        /// <summary>Null if the caster logged out or is gone.</summary>
         protected Entity? Caster => entity?.World?.GetEntityById(casterId);
 
-        // Re-cast onto a target that already has this effect: take the fresh snapshot from the incoming instance,
-        // then let the base handle the tier/expiry refresh, then re-bake our per-tick value.
+        // Re-cast: take the incoming snapshot, refresh via base, then re-bake.
         public override void OnStack(Effect otherEffect)
         {
             if (otherEffect is SnapshotEffect o)
@@ -43,12 +39,11 @@ namespace canrpgclasses.Core.Effects
         protected abstract void Recompute();
     }
 
-    /// <summary>A snapshot DoT: each tick deals spell power × coeffPerTick as its <see cref="School"/>, attributed
-    /// to the caster so combat text, XP credit and school resists all work. Keeps ticking after the caster logs
-    /// out. <see cref="OnDamaged"/> is the per-tick rider hook for leech or spread.</summary>
+    /// <summary>Snapshot DoT dealing spell power x coeffPerTick as its <see cref="School"/>, attributed to the
+    /// caster (combat text, XP, resists). Keeps ticking after the caster logs out.</summary>
     public abstract class SchoolDamageDotEffect : SnapshotEffect
     {
-        /// <summary>Baked damage per tick. Public so it survives relog (OnStart doesn't re-run on deserialize).</summary>
+        /// <summary>Baked damage per tick; public to survive relog.</summary>
         public float perTick;
 
         protected abstract SpellSchool School { get; }
@@ -56,7 +51,6 @@ namespace canrpgclasses.Core.Effects
 
         protected override void Recompute() => perTick = casterSpellPower * CoeffPerTick;
 
-        /// <summary>Surface the baked per-tick damage in the RPG character sheet (via effectshud's DisplayMagnitude sync).</summary>
         public override float DisplayMagnitude() => perTick;
 
         public override void OnTick()
@@ -74,7 +68,7 @@ namespace canrpgclasses.Core.Effects
             OnDamaged(caster, perTick);
         }
 
-        /// <summary>Hook for a rider on each damaging tick (Consuming Plague heals the caster). No-op by default.</summary>
+        /// <summary>Per-tick rider hook, e.g. leech or spread.</summary>
         protected virtual void OnDamaged(Entity? caster, float dealtThisTick) { }
     }
 }

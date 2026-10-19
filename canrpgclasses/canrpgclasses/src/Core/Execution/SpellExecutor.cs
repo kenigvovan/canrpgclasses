@@ -23,12 +23,11 @@ namespace canrpgclasses.Core.Execution
     public delegate List<Entity> TargetResolver(SpellContext ctx);
     public delegate void DeliveryHandler(SpellContext ctx);
     public delegate void ImpactHandler(SpellContext ctx, Entity target, SpellImpact impact);
+    /// <summary>Checked before a cast is committed. Returns a localized refusal, or null if the impact can land.</summary>
+    public delegate string? ImpactPrecheck(EntityAgent caster, Spell spell, SpellImpact impact, AimContext aim);
 
-    /// <summary>
-    /// Server-side pipeline that turns a <see cref="Spell"/> into effects on the world:
-    /// targeting → delivery → impacts. Each step dispatches to a registered handler, so a content mod can add
-    /// new target, delivery or impact kinds without touching the core.
-    /// </summary>
+    /// <summary>Server pipeline: targeting, delivery, impacts. Each step dispatches to a registered handler so content
+    /// mods can add new kinds.</summary>
     public static class SpellExecutor
     {
         private static readonly Dictionary<TargetType, TargetResolver> targeting = new Dictionary<TargetType, TargetResolver>();
@@ -39,6 +38,19 @@ namespace canrpgclasses.Core.Execution
         public static void RegisterTargeting(TargetType type, TargetResolver resolver) => targeting[type] = resolver;
         public static void RegisterDelivery(DeliveryType type, DeliveryHandler handler) => deliveries[type] = handler;
         public static void RegisterImpact(ImpactAction action, ImpactHandler handler) => impacts[action] = handler;
+
+        private static readonly Dictionary<ImpactAction, ImpactPrecheck> prechecks = new Dictionary<ImpactAction, ImpactPrecheck>();
+        public static void RegisterPrecheck(ImpactAction action, ImpactPrecheck check) => prechecks[action] = check;
+
+        /// <summary>First refusal from the spell's impact prechecks, or null.</summary>
+        public static string? Precheck(EntityAgent caster, Spell spell, AimContext aim)
+        {
+            if (prechecks.Count == 0) return null;
+            foreach (var imp in spell.Impacts)
+                if (prechecks.TryGetValue(imp.Action, out var check) && check(caster, spell, imp, aim) is string msg)
+                    return msg;
+            return null;
+        }
 
         public static void RegisterDefaults()
         {
@@ -77,12 +89,11 @@ namespace canrpgclasses.Core.Execution
             RegisterImpact(ImpactAction.GrantInstantCast, ApplyGrantInstantCast);
         }
 
-        // Damage-absorb shield: a pool soaked by Entity.ReceiveDamage (StunPatches), with an expiry.
+        // Absorb pool soaked in StunPatches.
         public const string AbsorbKey = CombatFlags.Absorb;
         public const string AbsorbUntilKey = CombatFlags.AbsorbUntil;
 
-        // "Empowered next strike" (sinister_strike): stored on the caster's WatchedAttributes and consumed
-        // by EBSpellCaster.DidAttack on the next melee hit. Keys shared with that behavior.
+        // Empowered next strike, stored on the caster and consumed by EBSpellCaster on the next melee hit.
         public const string EmpowerDamageKey = AttrKeys.EmpowerDamage;
         public const string EmpowerMissingDamageKey = AttrKeys.EmpowerMissingDamage;
         public const string EmpowerKnockbackKey = AttrKeys.EmpowerKnockback;
@@ -90,15 +101,12 @@ namespace canrpgclasses.Core.Execution
         public const string EmpowerUntilKey = AttrKeys.EmpowerUntilMs;
         public const string EmpowerSpellKey = AttrKeys.EmpowerSpell;
 
-        // Our own weapon-coating tag, not simplealchemy's "simplepoisoned": we apply the coating on every hit
-        // ourselves, so it behaves the same with or without that mod and nothing double-drains our charges.
+        // Own tag, not simplealchemy's "simplepoisoned", so that mod never double-drains our charges.
         public const string WeaponCoatKey = AttrKeys.WeaponCoat;
 
-        // The empowered strike's bonus school: a physical one folds into the melee swing, a magical one lands as
-        // its own armor-piercing hit.
         public const string EmpowerSchoolKey = AttrKeys.EmpowerSchool;
 
-        /// <summary>Entry point. Server-authoritative; no-op on the client.</summary>
+        /// <summary>No-op on the client.</summary>
         public static void Execute(EntityAgent caster, Spell spell, AimContext aim)
         {
             if (caster?.Api?.Side != EnumAppSide.Server) return;
@@ -113,13 +121,12 @@ namespace canrpgclasses.Core.Execution
 
             ctx.Targets = ResolveTargets(ctx);
 
-            // Combo: a finisher reads (and scales by) the caster's accumulated combo points before delivery.
             if (spell.ComboFinisher) ctx.ComboPoints = ResourceState.Combo(caster);
 
+            SpellSounds.Play(caster.World, spell, SpellSounds.Slot.Release, caster.Pos.XYZ);
             Deliver(ctx);
 
-            // Combo bookkeeping after the impacts land: builders add a point (only if they hit an enemy),
-            // finishers consume all accumulated points.
+            // Builders add a point only if they hit an enemy.
             if (spell.ComboBuilder && HasEnemyTarget(ctx))
                 ResourceState.AddCombo(caster, spell.ComboPointsGenerated);
             else if (spell.ComboFinisher)
@@ -149,9 +156,7 @@ namespace canrpgclasses.Core.Execution
             }
         }
 
-        /// <summary>Spawns the cast's projectile(s). One in the look direction by default; with ProjectileCount>1 it
-        /// fires a flat (horizontal) spread - a frontal fan over ProjectileSpreadDegrees, or a full ring at 360° (Fan
-        /// of Knives). Each projectile resolves the spell's impacts on whatever it hits.</summary>
+        /// <summary>Multiple projectiles fire flat: a frontal fan over ProjectileSpreadDegrees, or a full ring at 360.</summary>
         public static void ProjectileDelivery(SpellContext ctx)
         {
             var caster = ctx.Caster;
@@ -164,14 +169,20 @@ namespace canrpgclasses.Core.Execution
             float spreadDeg = ctx.Spell.Deliver.ProjectileSpreadDegrees;
             bool ring = count > 1 && spreadDeg >= 359f;
 
+            // AI casters fire at their target; players along the look direction.
+            Vec3d? aimDir = AimDirection(ctx.Aim, position);
+            double baseYaw = aimDir != null ? Math.Atan2(aimDir.X, aimDir.Z) : from.Yaw;
+
             for (int i = 0; i < count; i++)
             {
                 double yawOffsetRad =
                     count == 1 ? 0.0 :
-                    ring       ? i * (Math.PI * 2.0 / count) :                                   // even full circle
-                                 (-spreadDeg / 2.0 + spreadDeg * i / (count - 1)) * Math.PI / 180.0; // frontal fan
-                double pitch = count == 1 ? from.Pitch : 0.0; // multi-projectile casts fire flat
-                Vec3d dir = (position.AheadCopy(1.0, pitch, from.Yaw + yawOffsetRad) - position).Normalize();
+                    ring       ? i * (Math.PI * 2.0 / count) :
+                                 (-spreadDeg / 2.0 + spreadDeg * i / (count - 1)) * Math.PI / 180.0;
+                double pitch = count == 1 ? from.Pitch : 0.0;
+                Vec3d dir = count == 1 && aimDir != null
+                    ? aimDir
+                    : (position.AheadCopy(1.0, pitch, baseYaw + yawOffsetRad) - position).Normalize();
                 SpawnProjectile(ctx, world, position, dir, speed);
             }
         }
@@ -185,12 +196,11 @@ namespace canrpgclasses.Core.Execution
             proj.FiredBy = ctx.Caster;
             proj.SpellId = ctx.Spell.Id;
             proj.CasterSpellPower = ctx.SpellPower;
-            // Per-school trail colour (read by the orb's client-side EmitTrail). Packed A,R,G,B like ParticleSpec.
             var tc = Spells.ParticleSpec.ForSchool(ctx.Spell.School);
             proj.WatchedAttributes.SetInt("trailColor", ColorUtil.ToRgba(tc.ColorA, tc.ColorR, tc.ColorG, tc.ColorB));
-            proj.ComboPoints = ctx.ComboPoints; // finisher: the hit scales off the combo spent at launch
+            proj.ComboPoints = ctx.ComboPoints;
             proj.MaxRange = ctx.Spell.Range > 0 ? ctx.Spell.Range : 32f;
-            proj.Damage = 0f; // damage comes from the spell's impacts on hit
+            proj.Damage = 0f; // damage comes from the spell's impacts
 
             proj.Pos.SetPos(position);
             proj.Pos.Motion.Set(dir.X * speed, dir.Y * speed, dir.Z * speed);
@@ -204,10 +214,10 @@ namespace canrpgclasses.Core.Execution
         public static void ApplyImpacts(SpellContext ctx, Entity target)
         {
             var rand = ctx.Caster.World.Rand;
+            bool struck = false;
             foreach (var imp in ctx.Spell.Impacts)
             {
                 if (imp.Chance < 1f && rand.NextDouble() > imp.Chance) continue;
-                // Talent-gated rider (Charge's Warbringer stun): skip unless the caster has the named talent.
                 if (!string.IsNullOrEmpty(imp.RequiresTalentId)
                     && canrpgclasses.Core.Talents.TalentState.Rank(ctx.Caster, imp.RequiresTalentId!) <= 0) continue;
                 if (!impacts.TryGetValue(imp.Action, out var handler)) continue;
@@ -217,19 +227,23 @@ namespace canrpgclasses.Core.Execution
                 else if (imp.AffectAimedEnemy)
                 {
                     tgt = GetAimedEntity(ctx.Caster, ctx.Aim, ctx.Spell.Range > 0 ? ctx.Spell.Range : 16f);
-                    if (tgt != null && IsAlly(ctx.Caster, tgt)) tgt = null; // an enemy-only rider never lands on an ally
+                    if (tgt != null && IsAlly(ctx.Caster, tgt)) tgt = null;
                 }
                 else tgt = target;
-                if (tgt == null) continue; // e.g. an aimed-enemy rider with nothing hostile under the crosshair
+                if (tgt == null) continue;
                 handler(ctx, tgt, imp);
                 EmitImpactFx(ctx, tgt, imp);
+                if (tgt != ctx.Caster) struck = true;
             }
+
+            // Capped so a big AoE doesn't stack into noise.
+            if (struck && ctx.ImpactSounds++ < MaxImpactSounds)
+                SpellSounds.Play(ctx.Caster.World, ctx.Spell, SpellSounds.Slot.Impact, target.Pos.XYZ);
         }
 
-        /// <summary>Fires this impact's opt-in SkillFx accents (Trail/Pillar/Nova/Spark/Rune/Bloom) on the resolved
-        /// target. Lives here, not in the per-action handlers, so an accent can ride ANY action - a Nova on Frost
-        /// Nova's Root, a Bloom on a Heal, a Spark on a DoT's StatusEffect - by just setting the flag on that impact.
-        /// (BoltFx/LandFxRing stay in ApplyDamage/ApplyHeal: they're inherently damage/heal moments.)</summary>
+        private const int MaxImpactSounds = 3;
+
+        /// <summary>Opt-in SkillFx accents, kept out of the per-action handlers so they can ride any action.</summary>
         private static void EmitImpactFx(SpellContext ctx, Entity tgt, SpellImpact imp)
         {
             var world = ctx.Caster.World;
@@ -251,11 +265,10 @@ namespace canrpgclasses.Core.Execution
             switch (ctx.Spell.Target.Affinity)
             {
                 case TargetAffinity.Ally:
-                    // Smart-cast heal/buff: an allied player under the crosshair, else fall back to the caster.
+                    // Smart-cast: aimed ally, else the caster.
                     result.Add(aimed != null && IsAlly(ctx.Caster, aimed) ? aimed : ctx.Caster);
                     break;
                 case TargetAffinity.Enemy:
-                    // Offensive: ignore a friendly pick (don't damage an ally you happened to aim at).
                     if (aimed != null && !IsAlly(ctx.Caster, aimed)) result.Add(aimed);
                     break;
                 default:
@@ -265,13 +278,12 @@ namespace canrpgclasses.Core.Execution
             return result;
         }
 
-        /// <summary>Allies = members of the same canparty group (self always included). A player-owned creature
-        /// (the hunter's wolf) counts as its owner for friend/foe - so it's friendly to its owner and their party
-        /// (a trap/AoE/zone never trips on or hits your own pet). An ownerless mob is never an ally. Side-aware
-        /// (no static hook - safe in singleplayer): server uses <c>Manager.AreAllied</c>, client its party mirror.</summary>
+        /// <summary>Same canparty group; a player-owned pet counts as its owner. Add-on resolvers
+        /// (<see cref="RpgCombatApi.RegisterAllyResolver"/>) are asked first. Side-aware, safe in singleplayer.</summary>
         public static bool IsAlly(Entity caster, Entity target)
         {
             if (target == caster) return true;
+            if (canrpgclassesModSystem.For(caster.Api)?.ResolveAllyOverride(caster, target) is bool decided) return decided;
 
             var cp = EffectivePlayer(caster);
             var tp = EffectivePlayer(target);
@@ -285,8 +297,7 @@ namespace canrpgclasses.Core.Execution
             return mod.Client != null && mod.Client.IsInMyParty(cp.PlayerUID) && mod.Client.IsInMyParty(tp.PlayerUID);
         }
 
-        /// <summary>The player an entity counts as for friend/foe: itself if it's a player, else its owner (a
-        /// player-guarded pet - WA <see cref="AttrKeys.GuardedByPlayerUid"/>), else null (an ownerless mob).</summary>
+        /// <summary>The player itself, or a pet's owner via <see cref="AttrKeys.GuardedByPlayerUid"/>, else null.</summary>
         private static EntityPlayer? EffectivePlayer(Entity? e)
         {
             if (e is EntityPlayer p) return p;
@@ -295,15 +306,27 @@ namespace canrpgclasses.Core.Execution
             return e!.World?.PlayerByUid(uid)?.Entity as EntityPlayer;
         }
 
-        /// <summary>The entity the caster is aiming at: the client-picked target (close range), else a server look-ray pick.</summary>
+        /// <summary>Client-picked target if valid, else a server look-ray pick.</summary>
         public static Entity? GetAimedEntity(EntityAgent caster, AimContext aim, float range)
         {
             var picked = aim?.TargetEntity;
-            // Server authority: the entity id comes from the client - verify range (+2 blocks of latency/movement slack),
-            // otherwise fall back to the server-side look-ray pick.
+            // Client-supplied id: verify range with 2 blocks of latency slack.
             if (picked != null && picked.Alive && caster.Pos.DistanceTo(picked.Pos.XYZ) <= range + 2f)
                 return picked;
+            // An AI caster aims at an explicit target; its body facing is not a crosshair.
+            if (aim != null && aim.AimAtTarget) return null;
             return LookedAtAgent(caster, range);
+        }
+
+        /// <summary>Direction to the AI aim target, or null to keep the look direction.</summary>
+        public static Vec3d? AimDirection(AimContext? aim, Vec3d from)
+        {
+            if (aim == null || !aim.AimAtTarget) return null;
+            var te = aim.TargetEntity;
+            Vec3d? to = te != null ? te.Pos.XYZ.Add(0, te.SelectionBox.Y2 * 0.5, 0) : aim.AimPosition;
+            if (to == null) return null;
+            Vec3d d = to - from;
+            return d.Length() < 1e-6 ? null : d.Normalize();
         }
 
         private static List<Entity> ResolveArea(SpellContext ctx)
@@ -315,8 +338,7 @@ namespace canrpgclasses.Core.Execution
             float ver = range * (t.AreaVerticalRangeMultiplier > 0 ? t.AreaVerticalRangeMultiplier : 1f);
             Vec3d pos = caster.Pos.XYZ;
 
-            // Zone visual (e.g. Hallowed Ground's hallowed ground): a circular particle carpet over the affected disc,
-            // emitted once per cast at floor level - independent of whether any enemies are present.
+            // Carpet is emitted once per cast, even with no targets present.
             t.AreaParticles?.EmitDisc(caster.World, pos, hor);
 
             var result = new List<Entity>();
@@ -359,10 +381,8 @@ namespace canrpgclasses.Core.Execution
         }
 
         // ---- Impacts ----
-        /// <summary>The 1.0-based damage multiplier a spell layers on top of its coefficient (its
-        /// <see cref="Spell.DamageMultiplierStat"/>, or finisherDamage for a finisher). Single source for
-        /// <see cref="FinisherAmount"/> and the empower path, so Death Blow's deferred missing-health part gets the same
-        /// factor. 1 when the spell declares none; <paramref name="mulName"/> reports the stat used (for logging).</summary>
+        /// <summary>1.0-based <see cref="Spell.DamageMultiplierStat"/> (finisherDamage for finishers), shared by
+        /// <see cref="FinisherAmount"/> and the empower path.</summary>
         private static float DamageMultiplier(SpellContext ctx, out string? mulName)
         {
             mulName = ctx.Spell.DamageMultiplierStat ?? (ctx.Spell.ComboFinisher ? StatKeys.FinisherDamage : null);
@@ -371,9 +391,7 @@ namespace canrpgclasses.Core.Execution
             return statMul > 0.01f ? statMul : 1f;
         }
 
-        /// <summary>Fraction of the target's health that is missing (0..1); 0 when it has no health tree. Single
-        /// source for Death Blow's scaling - used at cast time by <see cref="FinisherAmount"/> (direct hits) and at
-        /// swing-landing time by EBSpellCaster.TakeEmpoweredMeleeBonus (empowered strikes).</summary>
+        /// <summary>Missing health fraction 0..1; 0 without a health tree.</summary>
         public static float MissingHealthFraction(Entity target)
         {
             var htree = target?.WatchedAttributes.GetTreeAttribute("health");
@@ -381,25 +399,17 @@ namespace canrpgclasses.Core.Execution
             return max > 0f ? System.Math.Clamp(1f - htree!.GetFloat("currenthealth") / max, 0f, 1f) : 0f;
         }
 
-        /// <summary>SpellPower damage for an impact, including combo-finisher scaling: the impact's coeff plus its
-        /// per-combo-point bonus (ctx.ComboPoints is 0 for non-finishers) × SpellPower, then × the spell's declared
-        /// 1.0-based damage-multiplier stat (<see cref="Spell.DamageMultiplierStat"/>; finishers default to
-        /// finisherDamage, e.g. Deadly Precision). The stat is seeded in EBRpgStats; the guard keeps a zeroed baseline
-        /// from wiping the hit. Shared by ApplyDamage and ApplyEmpowerNextMelee.</summary>
+        /// <summary>SpellPower x (coeff + per-combo bonus + missing-health part) x damage multiplier.</summary>
         private static float FinisherAmount(SpellContext ctx, SpellImpact imp, Entity? target = null)
         {
             float coeff = imp.DamageSpellPowerCoefficient + imp.DamagePerComboPoint * ctx.ComboPoints;
-            // "Death Blow" bonus (warrior Death Blow): fold the target's missing-health fraction into the coefficient, so
-            // the whole hit - including the DamageMultiplier below (Headsman) - scales with how hurt it is.
+            // Missing health goes into the coefficient so the multiplier scales it too.
             if (target != null && imp.DamageMissingHealthCoefficient > 0f)
                 coeff += imp.DamageMissingHealthCoefficient * MissingHealthFraction(target);
             float mul = DamageMultiplier(ctx, out string? mulName);
             float amount = ctx.SpellPower * coeff * mul;
 
-            // Balance troubleshooting: set the "debugDamage" global to 1 (config/core.json or the admin balance
-            // editor - takes effect live) to log every term that feeds a reported hit, instead of
-            // reverse-engineering it from the final number. Gated so the per-hit (and per-AoE-target) stat-term
-            // iteration and format-arg boxing cost nothing in normal play.
+            // "debugDamage" global > 0 logs every term of the hit; gated so it costs nothing in normal play.
             if (canrpgclasses.Core.Config.BalanceConfig.Global("debugDamage", 0f) > 0f)
             {
                 var logger = ctx.Caster.Api.Logger;
@@ -417,7 +427,7 @@ namespace canrpgclasses.Core.Execution
         private static void ApplyDamage(SpellContext ctx, Entity target, SpellImpact imp)
         {
             float baseAmount = FinisherAmount(ctx, imp, target);
-            // "Icebreaker": hit harder when the target is in the control state this impact nominates (Ice Shard: rooted/chilled).
+            // Bonus vs the control state this impact nominates.
             bool shattered = imp.DamageVsControlledMultiplier > 1f && IsControlled(target, imp);
             float amount = shattered ? baseAmount * imp.DamageVsControlledMultiplier : baseAmount;
             if (amount <= 0) return;
@@ -433,28 +443,22 @@ namespace canrpgclasses.Core.Execution
 
             imp.Particles?.Emit(ctx.Caster.World, target);
 
-            // Penitence (priest Discipline): a fraction of the hit also heals shielded party allies.
             if (imp.DamageSplashHealStat != null) ApplyDamageSplashHeal(ctx, amount, imp);
 
-            // Ice Shard consumes the chill it just shattered - a frozen target can only be shattered once.
+            // A controlled target can only be shattered once.
             if (shattered && imp.ConsumeControlOnHit && imp.DamageVsControlEffectId != null)
                 RemoveEffect(target, imp.DamageVsControlEffectId);
 
-            // The delivery bolt: caster → target, so the shot itself is visible (Arc Bolt).
             if (imp.BoltFx) Visuals.SkillFx.Arc(ctx.Caster.World, ctx.Caster, target, ctx.Spell.School);
-            // (Trail/Pillar/Nova/Spark/Rune/Bloom accents fire generically in ApplyImpacts, so they also work on
-            // non-Damage impacts like Freezing Burst's Root and Terrifying Scream's Fear.)
 
-            // Forked Lightning: hop on from the UNSHATTERED base, so a chain can't multiply a one-target rider.
+            // Chain from the unshattered base, so a chain can't multiply a one-target bonus.
             if (imp.ChainJumps > 0) ChainDamage(ctx, imp, target, baseAmount);
 
-            BreakCasterInvisibility(ctx.Caster); // spell damage doesn't go through DidAttack, so reveal here
+            BreakCasterInvisibility(ctx.Caster); // spell damage doesn't go through DidAttack
         }
 
-        /// <summary>Forked Lightning's jumps: from each link, find the nearest not-yet-hit ENEMY within
-        /// <see cref="SpellImpact.ChainRadius"/> and hit it for the previous amplitude × falloff, up to ChainJumps
-        /// times. The damage is the spell's own school (so attribution, resists and combat text match the direct
-        /// hit); riders are deliberately not re-run (see SpellImpact.ChainJumps).</summary>
+        /// <summary>Hops to the nearest unhit enemy within <see cref="SpellImpact.ChainRadius"/>, amount x falloff per
+        /// jump. Riders are deliberately not re-run.</summary>
         private static void ChainDamage(SpellContext ctx, SpellImpact imp, Entity from, float baseAmount)
         {
             var caster = ctx.Caster;
@@ -469,7 +473,7 @@ namespace canrpgclasses.Core.Execution
                 if (amount <= 0f) return;
 
                 var next = NearestChainLink(caster, current, radius, visited,
-                    e => !IsAlly(caster, e)); // enemies only: lightning never arcs to your own party
+                    e => !IsAlly(caster, e));
                 if (next == null) return;
 
                 visited.Add(next.EntityId);
@@ -487,9 +491,7 @@ namespace canrpgclasses.Core.Execution
             }
         }
 
-        /// <summary>Cascading Heal's jumps: from each link, find the most WOUNDED not-yet-healed party ally within
-        /// ChainRadius and heal it for the previous amplitude × falloff. Amounts already carry the caster's
-        /// healingPower (baked by <see cref="ApplyHeal"/> before the chain starts).</summary>
+        /// <summary>Hops to the most wounded unhealed ally; amounts already include healingPower.</summary>
         private static void ChainHeal(SpellContext ctx, SpellImpact imp, Entity from, float baseHeal)
         {
             var caster = ctx.Caster;
@@ -503,7 +505,6 @@ namespace canrpgclasses.Core.Execution
                 heal *= imp.ChainFalloff;
                 if (heal <= 0f) return;
 
-                // "Smart" Cascading Heal: pick who needs it most, not who stands closest.
                 var next = MostWoundedChainLink(caster, current, radius, visited);
                 if (next == null) return;
 
@@ -531,9 +532,7 @@ namespace canrpgclasses.Core.Execution
             return best;
         }
 
-        /// <summary>Most wounded party ally (lowest health fraction) near <paramref name="from"/>, ignoring anyone
-        /// already healed by this chain and anyone at full health. Players (and the caster) only - a chain heal
-        /// shouldn't dump itself into a passing sheep.</summary>
+        /// <summary>Players only, so a chain heal doesn't land on a passing animal.</summary>
         private static Entity? MostWoundedChainLink(Entity caster, Entity from, float radius, HashSet<long> visited)
         {
             var center = from.Pos.XYZ;
@@ -549,10 +548,8 @@ namespace canrpgclasses.Core.Execution
             return best;
         }
 
-        /// <summary>Penitence: heals the caster's party allies (optionally only those carrying an absorb shield) within
-        /// the impact's radius for <paramref name="damageDealt"/> × the caster's DamageSplashHealStat fraction (a
-        /// 0-based ReductionStat - 0 until the Penitence talent sets it, so a spell can carry the rider harmlessly).
-        /// The caster themselves count as an ally, so a shielded priest self-heals too.</summary>
+        /// <summary>Heals allies in radius (optionally shielded only, caster included) for a fraction of the damage.
+        /// The stat is 0 until a talent sets it, so the rider is harmless by default.</summary>
         private static void ApplyDamageSplashHeal(SpellContext ctx, float damageDealt, SpellImpact imp)
         {
             if (damageDealt <= 0f) return;
@@ -571,16 +568,13 @@ namespace canrpgclasses.Core.Execution
             }
         }
 
-        /// <summary>True if the entity currently carries an (unexpired) absorb shield - the AbsorbKey pool the shield
-        /// impact / StunPatches maintain. Used by Penitence to gate its splash heal to shielded allies.</summary>
         private static bool HasActiveShield(Entity e)
         {
             var wa = e.WatchedAttributes;
             return e.World.ElapsedMilliseconds <= wa.GetLong(AbsorbUntilKey, 0) && wa.GetFloat(AbsorbKey, 0f) > 0f;
         }
 
-        /// <summary>Applies a flat heal to an ally and shows the floating heal number on the caster's client (heals
-        /// carry no CauseEntity, so the combat-text hook can't report them - mirror of <see cref="ApplyHeal"/>).</summary>
+        /// <summary>Sends the heal number manually: heals carry no CauseEntity, so the combat-text hook can't.</summary>
         private static void HealAlly(Entity caster, Entity target, float heal)
         {
             if (heal <= 0f) return;
@@ -600,18 +594,11 @@ namespace canrpgclasses.Core.Execution
             }
         }
 
-        /// <summary>Lingering damage zone (Hallowed Ground): centred on the cast point, re-applies AoE damage every
-        /// ZoneTickSeconds and refreshes the particle carpet on a finer ZoneParticleSeconds cadence (so it stays
-        /// solid instead of pulsing once per damage tick), for ZoneDurationSeconds. Use with Target=Caster - the
-        /// zone scans the area itself each tick, so it doesn't follow the caster after the cast. Driven by
-        /// <see cref="ZoneManager"/>'s single shared tick listener (which also cancels it if the caster dies).</summary>
+        /// <summary>Use with Target=Caster; the zone scans its own area each tick via <see cref="ZoneManager"/>.</summary>
         private static void ApplyDamageZone(SpellContext ctx, Entity target, SpellImpact imp)
             => ZoneManager.Add(ctx, imp);
 
-        /// <summary>True if the target is in the control state the <paramref name="imp"/> nominates for its shatter bonus:
-        /// a WA bool flag it names (DamageVsControlFlag, e.g. Freezing Burst's Rooted) OR an effectshud effect it names
-        /// (DamageVsControlEffectId, e.g. the mage's own "canrpg_chilled"). Either match qualifies; a warrior's generic
-        /// walkslow does not trigger Ice Shard because Ice Shard nominates "canrpg_chilled", not "walkslow".</summary>
+        /// <summary>Matches the impact's DamageVsControlFlag (WA bool) or DamageVsControlEffectId (effectshud effect).</summary>
         private static bool IsControlled(Entity target, SpellImpact imp)
         {
             if (imp.DamageVsControlFlag != null && target?.WatchedAttributes?.GetBool(imp.DamageVsControlFlag) == true) return true;
@@ -620,9 +607,7 @@ namespace canrpgclasses.Core.Execution
             return false;
         }
 
-        /// <summary>Server-side: forcibly ends an effectshud effect on the target right now (mirrors the expiry path
-        /// the tick loop uses - OnExpire to undo any stat it set, then remove + sync the removal to clients). Used to
-        /// consume the chill an Ice Shard shatters. No-op if the effect isn't present.</summary>
+        /// <summary>Ends an effect now, mirroring effectshud's expiry path (OnExpire, remove, sync).</summary>
         public static void RemoveEffect(Entity target, string effectId)
         {
             var ebea = target?.GetBehavior<EBEffects>();
@@ -632,9 +617,7 @@ namespace canrpgclasses.Core.Execution
             ebea.SendEffectToClient(null, new System.Collections.Generic.HashSet<string> { effectId });
         }
 
-        /// <summary>True if the target carries at least one of the named effectshud effects. The cast-time half of the
-        /// Instant Mend contract (<see cref="Spell.RequiresTargetEffectIds"/>) - shared with the caster's gate so the
-        /// check that refuses the cast and the one that consumes the HoT can never disagree. Null/empty = true.</summary>
+        /// <summary>Gate for <see cref="Spell.RequiresTargetEffectIds"/>; null/empty = true.</summary>
         public static bool HasAnyEffect(Entity? target, string[]? effectIds)
         {
             if (effectIds == null || effectIds.Length == 0) return true;
@@ -644,8 +627,7 @@ namespace canrpgclasses.Core.Execution
             return false;
         }
 
-        /// <summary>Removes the FIRST of the named effects the target carries (Instant Mend eating one HoT, not all of
-        /// them) - the array's order is the consumption priority. No-op when the list is null or nothing matches.</summary>
+        /// <summary>Removes only the first matching effect; array order is the priority.</summary>
         private static void ConsumeTargetEffects(Entity target, string[]? effectIds)
         {
             if (effectIds == null) return;
@@ -659,16 +641,14 @@ namespace canrpgclasses.Core.Execution
             }
         }
 
-        /// <summary>True if entity <paramref name="e"/> is within <paramref name="hor"/> blocks of <paramref name="center"/>
-        /// on the horizontal plane - turns GetEntitiesAround's square box into a round AoE.</summary>
+        /// <summary>Turns GetEntitiesAround's square box into a round AoE.</summary>
         internal static bool WithinHorizontalRadius(Vec3d center, Entity e, float hor)
         {
             double dx = e.Pos.X - center.X, dz = e.Pos.Z - center.Z;
             return dx * dx + dz * dz <= hor * hor;
         }
 
-        /// <summary>Regroup: instantly clears the caster's cooldowns for the listed spells. Keys may be bare
-        /// local ids or full ids; cooldown keys are the spell id (none of the targeted skills use a shared group).</summary>
+        /// <summary>Keys may be local or full spell ids.</summary>
         private static void ApplyResetCooldowns(SpellContext ctx, Entity target, SpellImpact imp)
         {
             if (imp.ResetCooldownKeys == null) return;
@@ -682,9 +662,7 @@ namespace canrpgclasses.Core.Execution
             imp.Particles?.Emit(ctx.Caster.World, ctx.Caster);
         }
 
-        /// <summary>Ends the caster's break-on-attack invisibility and triggers the Stealth combat gate. Called
-        /// after dealing spell damage (melee is handled by InvisibilityEffect.DidAttack itself) and when the
-        /// player breaks a block (revealing actions, hooked from the server's DidBreakBlock event).</summary>
+        /// <summary>Ends break-on-attack invisibility on revealing actions; melee is handled by InvisibilityEffect itself.</summary>
         public static void BreakCasterInvisibility(Entity caster)
         {
             var ce = caster.GetBehavior<EBEffects>();
@@ -695,47 +673,33 @@ namespace canrpgclasses.Core.Execution
             caster.GetBehavior<canrpgclasses.Core.EB.EBSpellCaster>()?.NotifyStealthBrokenByAttack();
         }
 
-        /// <summary>Stores a bonus for the caster's next melee hit (sinister_strike) instead of dealing damage now.
-        /// EBSpellCaster.DidAttack consumes it: extra damage on the struck target + combo if the spell is a builder.</summary>
+        /// <summary>Arms a bonus for the next melee hit instead of dealing damage now; consumed in EBSpellCaster.</summary>
         private static void ApplyEmpowerNextMelee(SpellContext ctx, Entity target, SpellImpact imp)
         {
             var wa = ctx.Caster.WatchedAttributes;
-            // Same damage formula as ApplyDamage (combo scaling + finisherDamage), but ARMED onto the next melee swing
-            // instead of dealt now - so an EmpowerNextMelee impact can be a builder (sinister_strike, perCombo 0) OR a
-            // combo finisher (eviscerate): the finisher's burst rides a real melee hit instead of a separate,
-            // i-frame-dropped one. ctx.ComboPoints is the spent combo (captured before Deliver), 0 for non-finishers.
+            // Same formula as ApplyDamage, so a finisher's burst can ride a real swing instead of an i-frame-dropped hit.
             float bonus = FinisherAmount(ctx, imp);
             wa.SetFloat(EmpowerDamageKey, bonus);
-            // Death Blow-style deferred bonus: the missing-health part can't be evaluated here (no melee target yet), so
-            // store its MAX magnitude (at 100% missing HP, including the DamageMultiplierStat) and let the landing
-            // swing scale it by the struck target's actual missing fraction. Written UNCONDITIONALLY (0 for normal
-            // empowers) so a fresh arm - e.g. Brutal Strike over a prior Death Blow - overwrites and never leaks a stale
-            // missing part onto the next swing. Only one empower is ever armed (SetFloat overwrites, never stacks).
+            // No target yet, so store the max missing-health part for the landing swing to scale. Written
+            // unconditionally so a fresh arm never leaks a stale part.
             float missingMax = imp.DamageMissingHealthCoefficient > 0f
                 ? ctx.SpellPower * imp.DamageMissingHealthCoefficient * DamageMultiplier(ctx, out _)
                 : 0f;
             wa.SetFloat(EmpowerMissingDamageKey, missingMax);
             wa.SetFloat(EmpowerKnockbackKey, imp.Knockback);
-            wa.SetInt(EmpowerSchoolKey, (int)ctx.Spell.School); // physical school folds into the swing, magical lands as its own hit
+            wa.SetInt(EmpowerSchoolKey, (int)ctx.Spell.School);
             wa.SetInt(EmpowerComboKey, ctx.Spell.ComboBuilder ? ctx.Spell.ComboPointsGenerated : 0);
-            wa.SetString(EmpowerSpellKey, ctx.Spell.Id); // so the consuming strike can find this spell's hit particles
+            wa.SetString(EmpowerSpellKey, ctx.Spell.Id); // lets the consuming strike find this spell's particles
 
-            // The window deadline lives in a transient behavior field (not a persisted WA timestamp) so it can't go
-            // stale across sessions and "expire" every hit. See EBSpellCaster.ArmEmpowerWindow / empowerUntilMs.
             var caster = ctx.Caster.GetBehavior<canrpgclasses.Core.EB.EBSpellCaster>();
-            // Only one empower is armed at a time (the WA bundle above overwrote any prior one) - clear the previous
-            // spell's HUD buff too so e.g. arming Death Blow over a pending Brutal Strike doesn't leave both icons up.
             caster?.ClearEmpowerHudBuffs();
             caster?.ArmEmpowerWindow(imp.EmpowerWindowSeconds);
 
-            // Cosmetic HUD buff with a live countdown of the window (the bonus itself is the WA state above). Per-spell
-            // id → each arming spell shows its own icon; unregistered ids no-op. Removed when the empowered hit lands
-            // (EBSpellCaster.ApplyEmpoweredStrike); otherwise it self-expires with the window.
+            // HUD icon per arming spell; unregistered ids no-op.
             ApplyEffect(ctx.Caster, canrpgclasses.Core.Effects.EmpowerEffectIds.For(ctx.Spell.LocalId), 1, imp.EmpowerWindowSeconds);
         }
 
-        /// <summary>Disarm. Players: knock the active weapon out of hand into another hotbar slot (no ground
-        /// loot - the player sees it move). Mobs (no hotbar): a weakmelee debuff for the duration.</summary>
+        /// <summary>Players: weapon moves to another hotbar slot (no ground loot). Mobs: weakmelee debuff.</summary>
         private static void ApplyDisarm(SpellContext ctx, Entity target, SpellImpact imp)
         {
             if (target == null || target == ctx.Caster) return;
@@ -783,13 +747,11 @@ namespace canrpgclasses.Core.Execution
 
         private static void ApplyHeal(SpellContext ctx, Entity target, SpellImpact imp)
         {
-            // Combo finishers (e.g. Radiant Word spending Holy Power) heal more per spent point.
             float coeff = imp.HealSpellPowerCoefficient + imp.HealPerComboPoint * ctx.ComboPoints;
-            // healingPower: a HEALING-DONE multiplier on the caster (1.0 by default; raised by the healing tree's
-            // mastery - see RpgClassDef.TreeMasteries), so a healing-specced player heals noticeably more.
+            // Healing-done multiplier, 1.0-based.
             float healMul = ctx.Caster.Stats.GetBlended(StatKeys.HealingPower);
             float heal = ctx.SpellPower * coeff * healMul;
-            // Death Blow-heal (Second Breath): add a fraction of the target's missing health - big when hurt, small at full.
+            // Plus a fraction of the target's missing health.
             if (imp.HealMissingHealthFraction > 0f)
             {
                 var htree = target.WatchedAttributes.GetTreeAttribute("health");
@@ -809,8 +771,7 @@ namespace canrpgclasses.Core.Execution
             imp.Particles?.Emit(ctx.Caster.World, target);
             if (imp.LandFxRing) Visuals.SkillFx.RingWave(ctx.Caster.World, target.Pos.XYZ, imp.LandFxRadius, ctx.Spell.School);
 
-            // Floating heal number on the caster's client, over the healed target (heals carry no CauseEntity,
-            // so the CombatTextPatches damage hook can't see them - report it here instead).
+            // Heals carry no CauseEntity, so CombatTextPatches can't report them.
             if (ctx.Caster is EntityPlayer hp && hp.Player is Vintagestory.API.Server.IServerPlayer sp)
             {
                 var mod = canrpgclassesModSystem.For(ctx.Caster.Api);
@@ -825,13 +786,10 @@ namespace canrpgclasses.Core.Execution
                 }, sp);
             }
 
-            // Instant Mend: eat the first heal-over-time the target carries (the array's order is the priority). Done
-            // after the heal so the consumed HoT's own tick can't be lost to a race, and only on a heal that actually
-            // landed - a fizzled cast never spends the druid's ramp-up.
+            // After the heal, and only when it landed, so a fizzled cast never eats a HoT.
             ConsumeTargetEffects(target, imp.ConsumeTargetEffectIds);
 
-            // Cascading Heal: hop on to the most wounded allies nearby. Chains off the spell-power heal only - the
-            // missing-health rider (Second Breath) stays a single-target effect.
+            // Chains off the spell-power heal only; the missing-health part stays single-target.
             if (imp.ChainJumps > 0) ChainHeal(ctx, imp, target, ctx.SpellPower * coeff * healMul);
         }
 
@@ -862,10 +820,7 @@ namespace canrpgclasses.Core.Execution
 
             if (eff is InvisEffect inv) inv.BreakOnAttack = imp.InvisBreaksOnAttack;
 
-            // DoT/HoT power snapshot (priest Soothing Prayer / Shadow Brand / ...): a ticking effect whose per-tick
-            // heal/damage scales off the caster's spell power. The executor can't reach the caster from inside an
-            // effect, so hand it the snapshot (caster id + spell power) now; the effect reads its own coeffPerTick
-            // from config. Stored on the effect instance (survives relog). Harmless for all other effects.
+            // An effect can't reach the caster itself, so hand it the snapshot now.
             if (eff is canrpgclasses.Core.Effects.ISnapshotEffect snap)
                 snap.CaptureCaster(ctx.Caster.EntityId, ctx.SpellPower);
 
@@ -879,39 +834,31 @@ namespace canrpgclasses.Core.Execution
             var caster = ctx.Caster;
             Vec3d dest;
 
-            // Puff at the spot the caster is leaving, before it moves - a "left the body" visual (Shadow Stride's
-            // grey smoke). Reads the caster's box at its current (pre-teleport) position.
+            // Puff at the departure spot, before moving.
             imp.Particles?.Emit(caster.World, caster);
 
             if (imp.TeleportMode == TeleportMode.BehindTarget && target != null && target != caster)
             {
                 Vec3d tp = target.Pos.XYZ;
-                // Behind the TARGET's own facing (same forward convention as DamageModifiers.IsBehind), not the
-                // caster's approach angle - otherwise landing only ends up behind the target when the caster
-                // happened to already be roughly in front of them, and lands to the side/front otherwise.
+                // Behind the target's own facing (as in DamageModifiers.IsBehind), not the caster's approach angle.
                 float yaw = target.Pos.Yaw;
                 Vec3d forward = new Vec3d(Math.Sin(yaw), 0, Math.Cos(yaw));
                 dest = tp - forward * imp.TeleportDistance;
             }
             else
             {
-                dest = ResolveForwardTeleport(caster, imp.TeleportDistance);
+                dest = ResolveForwardTeleport(caster, imp.TeleportDistance, ctx.Aim);
             }
 
             if (imp.TeleportFaceTarget && target != null && target != caster)
             {
-                // Turn to face the target from the landing spot. face points from the landing spot to the
-                // target; Math.Atan2(face.X, face.Z) is the yaw that actually aims the player there once it
-                // goes through TeleportTo. TeleportTo(epos with Yaw) also snaps the owner's own camera in
-                // this VS build, so no separate view-yaw packet is needed.
                 Vec3d face = target.Pos.XYZ - dest;
                 float yaw = (float)Math.Atan2(face.X, face.Z);
                 var epos = caster.Pos.Copy();
                 epos.SetPos(dest.X, dest.Y, dest.Z);
                 epos.Yaw = yaw;
                 caster.TeleportTo(epos);
-                // TeleportTo's yaw is unreliable for the owner's own camera (async chunk-load), so also tell
-                // the owning client to snap its MouseYaw explicitly.
+                // TeleportTo's yaw is unreliable for the owner's camera (async chunk load), so snap MouseYaw too.
                 SendViewYaw(caster, yaw);
             }
             else
@@ -920,10 +867,9 @@ namespace canrpgclasses.Core.Execution
             }
         }
 
-        /// <summary>Collision-safe forward teleport (Flicker): walks from the caster toward its aim in small steps and
-        /// stops at the last position whose body box is free - so you can't blink THROUGH a wall. Lets the blink climb
-        /// up to 2 blocks to clear a low step/obstacle; descents settle via gravity after landing.</summary>
-        private static Vec3d ResolveForwardTeleport(EntityAgent caster, float distance)
+        /// <summary>Steps forward and stops at the last free body position, so a blink can't pass through walls.
+        /// Climbs up to 2 blocks; descents settle by gravity.</summary>
+        private static Vec3d ResolveForwardTeleport(EntityAgent caster, float distance, AimContext? aim = null)
         {
             var world = caster.World;
             var ba = world.BlockAccessor;
@@ -932,11 +878,13 @@ namespace canrpgclasses.Core.Execution
 
             Vec3f view = caster.Pos.GetViewVector();
             Vec3d fwd = new Vec3d(view.X, 0, view.Z);
+            Vec3d? aimDir = AimDirection(aim, caster.Pos.XYZ);
+            if (aimDir != null) fwd.Set(aimDir.X, 0, aimDir.Z);
             if (fwd.Length() < 1e-3) fwd.Set(0, 0, 1);
             fwd.Normalize();
 
             Vec3d start = caster.Pos.XYZ;
-            if (box == null) return start + fwd * distance; // no body box (shouldn't happen for players) - old behaviour
+            if (box == null) return start + fwd * distance;
 
             Vec3d best = start;
             const double step = 0.2;
@@ -949,26 +897,21 @@ namespace canrpgclasses.Core.Execution
                     Vec3d cand = new Vec3d(p.X, start.Y + dy, p.Z);
                     if (!ct.IsColliding(ba, box, cand, false)) { free = cand; break; }
                 }
-                if (free == null) break; // solid at every height ahead -> a wall; stop at the last free spot
+                if (free == null) break; // wall
                 best = free;
             }
             return best;
         }
 
-        /// <summary>Asks the owning client to snap its view yaw (the owner camera is rendered from MouseYaw,
-        /// which the server can't set directly; TeleportTo's yaw doesn't reliably reach it).</summary>
-        private static void SendViewYaw(EntityAgent caster, float yaw)
+        /// <summary>The owner camera renders from MouseYaw, which the server can't set directly.</summary>
+        internal static void SendViewYaw(EntityAgent caster, float yaw)
         {
             if ((caster as EntityPlayer)?.Player is not IServerPlayer sp) return;
             var mod = canrpgclassesModSystem.For(caster.Api);
             mod?.ServerChannel?.SendPacket(new SetViewYawPacket { Yaw = yaw }, sp);
         }
 
-        /// <summary>
-        /// Coats the caster's held weapon with our own "canrpgWeaponCoat" tag. The matching effect
-        /// (poison/walkslow/weakmelee) is applied by us on each melee hit (EBSpellCaster.DidAttack →
-        /// ApplyOwnWeaponCoating), deterministically and independently of simplealchemy.
-        /// </summary>
+        /// <summary>Tags the held weapon; the effect is applied per hit in EBSpellCaster.ApplyOwnWeaponCoating.</summary>
         private static void ApplyCoatWeapon(SpellContext ctx, Entity target, SpellImpact imp)
         {
             if (ctx.Caster is not EntityPlayer player) return;
@@ -986,11 +929,7 @@ namespace canrpgclasses.Core.Execution
             imp.Particles?.Emit(ctx.Caster.World, ctx.Caster);
         }
 
-        /// <summary>
-        /// Charge: launches the caster toward the target with a gap-proportional impulse, so a farther target
-        /// gets a bigger hop. It goes through the engine's knockback channel because a server-side Pos.Motion
-        /// add doesn't move a player. Real movement, not a teleport.
-        /// </summary>
+        /// <summary>Gap-proportional impulse via the knockback channel, since server-side Pos.Motion doesn't move a player.</summary>
         private static void ApplyDash(SpellContext ctx, Entity target, SpellImpact imp)
         {
             var caster = ctx.Caster;
@@ -998,8 +937,7 @@ namespace canrpgclasses.Core.Execution
 
             double dx, dy, dz;
             float range = ctx.Spell.Range > 0 ? ctx.Spell.Range : 16f;
-            // A forward-strength dash (Leaping Charge) always leaps where you face; a disengage always leaps backward.
-            // Only a plain dash (Charge) homes onto the aimed enemy - and never onto an ally (dash forward instead).
+            // Only a plain dash homes onto the aimed enemy, never an ally.
             var aimed = (imp.DashReverse || imp.DashForwardStrength > 0f) ? null : GetAimedEntity(caster, ctx.Aim, range);
             if (aimed != null && aimed != caster && IsAlly(caster, aimed)) aimed = null;
 
@@ -1009,19 +947,18 @@ namespace canrpgclasses.Core.Execution
                 dx = (tp.X - cp.X) / 30.0;
                 dz = (tp.Z - cp.Z) / 30.0;
 
-                // Clamp horizontal magnitude so a very distant target doesn't fling the caster absurdly far.
                 double h = Math.Sqrt(dx * dx + dz * dz);
                 const double maxH = 0.8;
                 if (h > maxH) { dx *= maxH / h; dz *= maxH / h; }
 
-                // Low hop: a big upward kick keeps the caster airborne (no friction) and overshoots.
+                // Keep the hop low: a big upward kick removes ground friction and overshoots.
                 dy = GameMath.Clamp((tp.Y - cp.Y) / 30.0 + 0.1, 0.1, 0.35);
             }
             else
             {
-                // No target: dash along the view direction (or opposite, for a disengage leap). Leaping Charge raises
-                // the horizontal strength + upward arc for a long, high repositioning jump (DashForwardStrength).
                 Vec3f view = caster.Pos.GetViewVector();
+                Vec3d? aimDir = AimDirection(ctx.Aim, cp);
+                if (aimDir != null) view = new Vec3f((float)aimDir.X, (float)aimDir.Y, (float)aimDir.Z);
                 double sign = imp.DashReverse ? -1.0 : 1.0;
                 double fwd = imp.DashForwardStrength > 0f ? imp.DashForwardStrength : 0.5;
                 dx = view.X * fwd * sign;
@@ -1039,8 +976,6 @@ namespace canrpgclasses.Core.Execution
             wa.SetFloat("onHurt", wa.GetFloat("onHurt", 0f) > 0.0015f ? 0.001f : 0.002f);
         }
 
-        /// <summary>Stun impact: routes to the unified control layer (shared incap DR with Fear, motion root, blind,
-        /// mob AI freeze). See <see cref="canrpgclasses.Core.Control.ControlState"/>.</summary>
         private static void ApplyStun(SpellContext ctx, Entity target, SpellImpact imp)
         {
             if (target == null || target == ctx.Caster) return;
@@ -1050,8 +985,6 @@ namespace canrpgclasses.Core.Execution
                 imp.Particles?.Emit(ctx.Caster.World, target);
         }
 
-        /// <summary>Fear impact (priest Terrifying Scream): mobs flee via their AI, a player loses control and wanders
-        /// erratically. Shares the incap DR bracket with Stun. See <see cref="canrpgclasses.Core.Control.ControlState"/>.</summary>
         private static void ApplyFear(SpellContext ctx, Entity target, SpellImpact imp)
         {
             if (target == null || target == ctx.Caster) return;
@@ -1060,8 +993,6 @@ namespace canrpgclasses.Core.Execution
                 imp.Particles?.Emit(ctx.Caster.World, target);
         }
 
-        /// <summary>Silence impact (priest Silence): blocks the target from casting for a duration (its own DR bracket).
-        /// See <see cref="canrpgclasses.Core.Control.ControlState"/>.</summary>
         private static void ApplySilence(SpellContext ctx, Entity target, SpellImpact imp)
         {
             if (target == null || target == ctx.Caster) return;
@@ -1070,10 +1001,9 @@ namespace canrpgclasses.Core.Execution
                 imp.Particles?.Emit(ctx.Caster.World, target);
         }
 
-        /// <summary>Root impact (mage Freezing Burst): the target can't move but can still cast/attack. Own DR bracket.</summary>
         private static void ApplyRoot(SpellContext ctx, Entity target, SpellImpact imp)
         {
-            // Area roots never catch the caster; a self-root (Frozen Shell) opts in explicitly via AffectCaster.
+            // A self-root opts in via AffectCaster.
             if (target == null || (target == ctx.Caster && !imp.AffectCaster)) return;
             float dur = imp.StatusEffectDuration > 0 ? imp.StatusEffectDuration : 4f;
             if (canrpgclasses.Core.Control.ControlState.Apply(target, canrpgclasses.Core.Control.ControlType.Root, dur, ctx.Caster))
@@ -1089,9 +1019,7 @@ namespace canrpgclasses.Core.Execution
                 imp.Particles?.Emit(ctx.Caster.World, target);
         }
 
-        /// <summary>Grant-instant-cast impact (Clear Mind): opens an "instant next cast" window on the caster for
-        /// StatusEffectDuration seconds, and applies StatusEffectId (if set) as a cosmetic HUD marker for that window
-        /// (cleared automatically when the free cast is used - see EBSpellCaster.GrantInstantCast).</summary>
+        /// <summary>StatusEffectId, if set, is a HUD marker cleared when the free cast is used.</summary>
         private static void ApplyGrantInstantCast(SpellContext ctx, Entity target, SpellImpact imp)
         {
             var caster = ctx.Caster;
@@ -1101,10 +1029,8 @@ namespace canrpgclasses.Core.Execution
             if (marker != null) ApplyEffect(caster, marker, 1, window);
         }
 
-        /// <summary>Evasion: for a duration the target (self) gains a chance to fully dodge incoming physical
-        /// attacks. Stores the chance + expiry in WatchedAttributes (synced, set once); the dodge roll happens in
-        /// StunPatches.Prefix_ReceiveDamage, and <see cref="canrpgclasses.Core.EB.EBCombatState"/> clears the flag
-        /// when it expires (and on (re)load) - no fire-and-forget timer to leak or to mis-fire across a restart.</summary>
+        /// <summary>Dodge chance in WatchedAttributes, rolled in StunPatches and expired by
+        /// <see cref="canrpgclasses.Core.EB.EBCombatState"/> rather than a timer.</summary>
         private static void ApplyEvasion(SpellContext ctx, Entity target, SpellImpact imp)
         {
             if (target == null) return;
@@ -1112,21 +1038,18 @@ namespace canrpgclasses.Core.Execution
             var wa = target.WatchedAttributes;
             long until = target.World.ElapsedMilliseconds + (long)(dur * 1000f);
 
-            // Refresh: keep the higher chance / later expiry so re-casting can't weaken an active Evasion.
+            // Re-casting can't weaken an active Evasion.
             bool active = target.World.ElapsedMilliseconds <= wa.GetLong(CombatFlags.EvasionUntil, 0);
             float chance = Math.Max(imp.EvasionChance, active ? wa.GetFloat(CombatFlags.Evasion, 0f) : 0f);
             wa.SetFloat(CombatFlags.Evasion, chance);
             wa.SetLong(CombatFlags.EvasionUntil, Math.Max(until, active ? wa.GetLong(CombatFlags.EvasionUntil, 0) : 0));
 
-            // Cosmetic HUD buff so the player sees Evasion is active + its countdown (the dodge logic is the flag above).
             ApplyEffect(target, canrpgclasses.Core.Effects.EvasionEffectId.Id, 1, dur);
 
             imp.Particles?.Emit(ctx.Caster.World, target);
         }
 
-        /// <summary>Signal Flare: ends invisibility on every enemy within the spell's Range around the caster - flushes
-        /// out stealthed foes. Allies/self are skipped. Reveals all invisibility (not just break-on-attack), so a
-        /// hidden rogue is forced out. Pair with a rising-flare particle on the spell for the visual.</summary>
+        /// <summary>Ends all invisibility (not just break-on-attack) on enemies within Range.</summary>
         private static void ApplyReveal(SpellContext ctx, Entity target, SpellImpact imp)
         {
             var caster = ctx.Caster;
@@ -1138,15 +1061,13 @@ namespace canrpgclasses.Core.Execution
                 if (e.GetBehavior<EBEffects>() is { } ce && ce.TryGetEffect("invisibility", out var eff))
                 {
                     eff.SetExpiryImmediately();
-                    imp.Particles?.Emit(caster.World, e); // puff on whoever was revealed
+                    imp.Particles?.Emit(caster.World, e);
                 }
             }
-            imp.Particles?.Emit(caster.World, caster); // flare burst at the caster
+            imp.Particles?.Emit(caster.World, caster);
         }
 
-        /// <summary>Toggle the caster's active group aura. Sets <c>canrpgActiveAura</c> to this spell's id, or clears
-        /// it if this aura was already active (one aura at a time = a stance). The effect is kept refreshed on nearby
-        /// party allies by <see cref="canrpgclasses.Core.EB.EBAuras"/>, which reads it back from this spell.</summary>
+        /// <summary>One aura at a time; <see cref="canrpgclasses.Core.EB.EBAuras"/> does the actual buffing.</summary>
         private static void ApplyToggleAura(SpellContext ctx, Entity target, SpellImpact imp)
         {
             var wa = ctx.Caster.WatchedAttributes;
@@ -1154,9 +1075,7 @@ namespace canrpgclasses.Core.Execution
             wa.SetString(AttrKeys.ActiveAura, wa.GetString(AttrKeys.ActiveAura, "") == id ? "" : id);
         }
 
-        /// <summary>Applies an effectshud effect to an entity (id + tier + duration), Set-mode. Shared by auras
-        /// (<see cref="canrpgclasses.Core.EB.EBAuras"/> refreshes a short one each tick) and any code that needs a
-        /// plain timed buff without a full SpellContext. No-op if the effect id isn't registered.</summary>
+        /// <summary>Plain timed effect without a SpellContext; no-op if the id isn't registered.</summary>
         public static void ApplyEffect(Entity target, string effectId, int tier, float seconds)
         {
             if (target == null || string.IsNullOrEmpty(effectId)) return;
@@ -1169,8 +1088,7 @@ namespace canrpgclasses.Core.Execution
             EffectsHud.ApplyEffectOnEntity(target, eff);
         }
 
-        /// <summary>Grants a damage-absorb shield on the target (self or ally): a pool that the damage patch
-        /// soaks incoming hits from until it's depleted or expires. Scales with (holy) spell power.</summary>
+        /// <summary>Absorb pool soaked by the damage patch until depleted or expired.</summary>
         private static void ApplyShield(SpellContext ctx, Entity target, SpellImpact imp)
         {
             if (target == null) return;
@@ -1178,24 +1096,19 @@ namespace canrpgclasses.Core.Execution
             if (amount <= 0) return;
 
             var wa = target.WatchedAttributes;
-            // Refresh: take the larger pool and the later deadline, so re-casting a shorter/weaker shield can't
-            // shrink an existing one's remaining amount or duration (mirrors ApplyStun's Math.Max on StunUntil).
+            // Larger pool and later deadline win, so a weaker re-cast can't shrink an existing shield.
             long existingUntil = wa.GetLong(AbsorbUntilKey, 0);
             long now = target.World.ElapsedMilliseconds;
             float existing = now <= existingUntil ? wa.GetFloat(AbsorbKey, 0f) : 0f;
             long newUntil = now + (long)(imp.ShieldDurationSeconds * 1000f);
             wa.SetFloat(AbsorbKey, Math.Max(existing, amount));
             wa.SetLong(AbsorbUntilKey, Math.Max(existingUntil, newUntil));
-            // Cosmetic: the dome renderer can't compare AbsorbUntil (server ElapsedMilliseconds) against the client's
-            // own clock - different counters. Ship the remaining lifetime in seconds; the client arms its own deadline.
+            // Client clock differs from server ElapsedMilliseconds, so send remaining seconds for the dome renderer.
             wa.SetFloat(CombatFlags.AbsorbDuration, (Math.Max(existingUntil, newUntil) - now) / 1000f);
 
-            // Cosmetic (read only by ShieldDomeRenderer): tint the dome by the spell's school (reusing the same
-            // palette as particles/trails), and render frost shields (Frozen Shell / Ice Ward) as an angular ice
-            // crystal instead of a smooth dome.
+            // Dome tint and style for ShieldDomeRenderer; style defaults to ice crystal for frost.
             var sc = Spells.ParticleSpec.ForSchool(ctx.Spell.School);
             wa.SetInt(CombatFlags.AbsorbColor, ColorUtil.ToRgba(sc.ColorA, sc.ColorR, sc.ColorG, sc.ColorB));
-            // Explicit dome style if the impact set one (Frozen Shell vs Ice Ward must look different), else auto by school.
             int style = imp.ShieldDomeStyle >= 0 ? imp.ShieldDomeStyle : (ctx.Spell.School == Spells.SpellSchool.Frost ? 1 : 0);
             wa.SetInt(CombatFlags.AbsorbStyle, style);
 
@@ -1217,14 +1130,13 @@ namespace canrpgclasses.Core.Execution
                     if (imp.CleanseMax > 0 && toRemove.Count >= imp.CleanseMax) break;
                 }
             }
-            foreach (var e in toRemove) e.SetExpiryImmediately(); // removed + client-synced on the next effects tick
+            foreach (var e in toRemove) e.SetExpiryImmediately();
 
             if (toRemove.Count > 0) imp.Particles?.Emit(ctx.Caster.World, target!);
         }
 
-        /// <summary>Taunt: redirects nearby mob AI onto the caster (players are unaffected). It both rewrites the
-        /// task's current target and fakes a 0-damage "hurt by the caster" ping, so vanilla's revenge priority
-        /// holds the mob through its next re-evaluation instead of a proximity scan stealing it back.</summary>
+        /// <summary>Taunt: rewrites the mob's task target and fakes a 0-damage hurt from the caster, so vanilla's
+        /// revenge priority holds through the next re-evaluation.</summary>
         private static void ApplyAggro(SpellContext ctx, Entity target, SpellImpact imp)
         {
             var caster = ctx.Caster;
@@ -1250,15 +1162,11 @@ namespace canrpgclasses.Core.Execution
                 var melee = mgr.GetTask<AiTaskMeleeAttack>();
                 if (melee != null) melee.targetEntity = caster;
 
-                // EntityBehaviorTaskAI's public hook is OnEntityReceiveDamage (it forwards to TaskManager.OnEntityHurt
-                // internally) - 0 damage, so nothing actually happens to the mob's HP. This records the caster as
-                // attackedByEntity, which is enough for HOSTILE mobs.
+                // Sets attackedByEntity via the public hook, which is enough for hostile mobs.
                 float zeroDamage = 0f;
                 taskAI.OnEntityReceiveDamage(fakeHurt, ref zeroDamage);
 
-                // PASSIVE mobs (villagers/traders that only retaliate when hurt) won't target off attackedByEntity
-                // alone - their targeting is gated on the "aggressiveondamage" emotion state, which real damage sets.
-                // Trigger it directly so a taunt provokes them the same way a hit would.
+                // Passive mobs only retaliate in the "aggressiveondamage" emotion state, which real damage sets.
                 e.GetBehavior<EntityBehaviorEmotionStates>()?.TryTriggerState("aggressiveondamage", caster.EntityId);
             }
 

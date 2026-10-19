@@ -19,8 +19,7 @@ namespace canrpgclasses.Core.Spells
         public float AreaVerticalRangeMultiplier = 1f;
         public bool AreaIncludeCaster;
 
-        /// <summary>Ground visual for an Area spell: a particle carpet over the affected disc, emitted once per
-        /// cast no matter how many targets are hit. Null = none.</summary>
+        /// <summary>Area spell ground carpet, emitted once per cast. Null = none.</summary>
         public ParticleSpec? AreaParticles;
     }
 
@@ -68,29 +67,26 @@ namespace canrpgclasses.Core.Spells
         /// <summary>Heals this fraction of the target's MISSING health on top of the spell-power base. 0 = off.</summary>
         public float HealMissingHealthFraction;
 
-        /// <summary>After the heal lands, remove the first of these effects the target carries (Instant Mend eats
-        /// its own heal-over-time). Order is the consumption priority; no-op if the target carries none.</summary>
+        /// <summary>After the heal, remove the first of these effects the target carries (in priority order).</summary>
         public string[]? ConsumeTargetEffectIds;
 
-        // Chain: the effect jumps on from the PREVIOUS target, losing amplitude each hop - damage to the nearest
-        // enemy, heals to the most wounded party ally. The direct hit's riders (shatter, splash, consumption) do
-        // not re-run per jump: a chain must not multiply what it paid for once. 0 = off.
+        // Chain hops from the previous target (damage: nearest enemy, heal: most wounded ally). The direct hit's
+        // riders (shatter, splash, consumption) don't re-run per hop. 0 = off.
         public int ChainJumps;
         /// <summary>Search radius for the next hop, measured from the current link (not the caster).</summary>
         public float ChainRadius = 6f;
         /// <summary>Amplitude multiplier applied per hop (0.7 = each jump lands at 70% of the previous one).</summary>
         public float ChainFalloff = 0.7f;
 
-        // SkillFx.RingWave: an expanding ground ring where the impact lands. Save it for the big moments, or it
-        // stops reading as an accent.
+        // SkillFx.RingWave: expanding ground ring where the impact lands.
         public bool LandFxRing;
         public float LandFxRadius = 1.5f;
 
         /// <summary>SkillFx.Arc: a jagged bolt from caster to target, so the shot itself is visible.</summary>
         public bool BoltFx;
 
-        // More one-shot SkillFx accents on a Damage impact, all fired by ApplyDamage on the struck target:
-        /// <summary>SkillFx.Trail: a mote streaks caster to target - a projectile-less nuke visibly travels.</summary>
+        // One-shot SkillFx accents fired by ApplyDamage on the struck target.
+        /// <summary>SkillFx.Trail: a mote streaks caster to target.</summary>
         public bool TrailFx;
         /// <summary>SkillFx.Pillar: a column strikes down on the target (Sacred Flame).</summary>
         public bool PillarFx;
@@ -110,8 +106,7 @@ namespace canrpgclasses.Core.Spells
         public int StatusEffectAmplifierCap = 1;
         public StatusApplyMode StatusEffectApplyMode = StatusApplyMode.Set;
 
-        // ToggleAura: primary-resource drain per second. EBAuras pays it each tick and toggles the aura off when
-        // the pool can't cover it. 0 = free.
+        // ToggleAura: resource drain per second; the aura drops when the pool can't pay. 0 = free.
         public float AuraUpkeepPerSecond;
 
         // ToggleAura: buff the caster only, never party allies - a personal combat mode (warrior Stances).
@@ -124,28 +119,23 @@ namespace canrpgclasses.Core.Spells
         // HealMissingHealthFraction. 0 = off.
         public float DamageMissingHealthCoefficient;
 
-        // Atonement splash: a share of this hit also heals the caster's party allies in range. The share comes
-        // from the caster's DamageSplashHealStat (0-based), so the rider sits inert until a talent sets it.
-        // DamageSplashRequiresShield limits it to allies carrying an absorb shield. Null stat = off.
+        // Atonement: a share of the hit heals party allies in range. Share = caster's DamageSplashHealStat (0-based),
+        // so it's inert until a talent sets it. Null stat = off.
         public string? DamageSplashHealStat;
         public float DamageSplashHealRadius = 30f;
         public bool DamageSplashRequiresShield = true;
 
-        // Shatter bonus: multiply this hit when the target is in a control state the spell itself nominates -
-        // a WA flag (DamageVsControlFlag) or a carried effect (DamageVsControlEffectId). Both set = either
-        // matches. 1 or 0 = no bonus.
+        // Shatter: multiply the hit if the target has the WA flag or the effect (either matches). 0 or 1 = off.
         public float DamageVsControlledMultiplier;
         public string? DamageVsControlFlag;
         public string? DamageVsControlEffectId;
-        // A hit that triggered the bonus consumes DamageVsControlEffectId, so a target shatters once per
-        // application. A WA-flag control is left intact.
+        // Consume the effect on a shatter so it triggers once per application; WA-flag controls stay.
         public bool ConsumeControlOnHit;
 
         // Fire this impact only if the caster has the talent - lets a talent bolt a rider onto an existing spell.
         public string? RequiresTalentId;
 
-        // Apply to the enemy under the crosshair instead of the resolved target: for a Caster-target spell that
-        // still wants to hit what it aims at (Charge's stun).
+        // Hit the enemy under the crosshair instead of the resolved target (Charge's stun on a Caster-target spell).
         public bool AffectAimedEnemy;
 
         // Teleport
@@ -185,13 +175,11 @@ namespace canrpgclasses.Core.Spells
         // Stun: when true the stun is a Blind/disorient that ENDS the moment the target takes damage.
         public bool StunBreaksOnDamage;
 
-        // Stun (players only): also drives the game's "psychedelic" screen distortion - the mushroom one -
-        // restoring whatever value was there before once the stun ends.
+        // Stun (players only): also drives the vanilla "psychedelic" distortion, restored to its prior value after.
         public bool StunBlindsVision;
         public float StunVisionIntensity = 1f;
 
-        // DamageZone: a lingering ground zone. Damage re-applies every ZoneTickSeconds; the particle carpet
-        // refreshes on its own finer cadence, so it looks continuous instead of pulsing once per damage tick.
+        // DamageZone: damage every ZoneTickSeconds; particles refresh on their own finer cadence so they don't pulse.
         public float ZoneDurationSeconds = 6f;
         public float ZoneTickSeconds = 1f;
         public float ZoneParticleSeconds = 0.4f;
@@ -200,8 +188,7 @@ namespace canrpgclasses.Core.Spells
         public bool ZoneAtAimPoint;
         public float ZoneRadius;
 
-        // A once-per-cast accent at the zone centre - a zone has no single struck target, so the per-target flags
-        // above don't apply. Rune brands a ground sigil, Ring sends out an expanding ring the size of the zone.
+        // Once-per-cast accents at the zone centre (the per-target Fx flags don't apply to zones).
         public bool ZoneLandRune;
         public bool ZoneLandRing;
 
@@ -210,20 +197,17 @@ namespace canrpgclasses.Core.Spells
         public int ZoneStatusTier = 1;
         public float ZoneStatusSeconds = 2f;
 
-        // Trap mode: instead of ticking, the zone sits armed until an enemy steps within ZoneTriggerRadius, then
-        // fires once over the blast disc and is gone. Allies and the caster don't trip it.
+        // Trap mode: armed until an enemy enters ZoneTriggerRadius, then fires once and is gone.
         public bool ZoneIsTrap;
         public float ZoneTriggerRadius = 1.5f;
-        // Optional sound played at the trap when it fires (e.g. an explosion boom). Missing asset = silent, no crash.
+        // Optional sound when the trap fires. Missing asset = silent.
         public string? ZoneTriggerSound;
 
-        // EmpowerNextShot (hunter Split Shot): extra vanilla arrows the bow looses alongside the main one when
-        // the armed shot fires (0 = a single empowered arrow). Spawned by BowPatches on bow release.
+        // EmpowerNextShot: extra vanilla arrows loosed with the armed shot, spawned by BowPatches on release.
         public int ShotExtraArrows;
 
-        // EmpowerNextShot: require the arrow to be drawn to at least this fraction of a full draw (>1 = held past
-        // full), the draw having started after the ability was pressed. A fraction, not seconds, so it follows
-        // the bow's real draw time. 0 = any shot in the window.
+        // EmpowerNextShot: min draw as a fraction of full draw (>1 = held past full), started after arming.
+        // A fraction so it follows the bow's real draw time. 0 = any shot.
         public float ShotRequiresDrawFraction;
 
         // EmpowerNextShot debuffs landed on the arrow's hit, see HunterShots.ConsumeOnArrowHit.
@@ -235,13 +219,17 @@ namespace canrpgclasses.Core.Spells
         // ResetCooldowns (Regroup): spell ids whose cooldown is cleared on the caster.
         public string[]? ResetCooldownKeys;
 
-        // PetCommand (hunter pet orders): which order to issue - "aggressive" / "defensive" / "passive" (mode
-        // switches), "attack" (send the pet at the aimed target), "come" (recall the pet to the owner).
+        // PetCommand: "aggressive" / "defensive" / "passive" / "attack" (aimed target) / "come".
         public string? PetCommand;
 
-        // PlaceTotem (shaman): which totem to plant - "searing" (fire turret), "stream" (group heal pulse),
-        // "earth" (melee-damage buff pulse). Lifetime rides StatusEffectDuration, reach rides ZoneRadius.
+        // PlaceTotem: "searing" / "stream" / "earth". Lifetime = StatusEffectDuration, reach = ZoneRadius.
         public string? TotemKind;
+
+        // OpenPortal: Gate = caster <-> aim point, Waypoint = caster <-> anchor. Tints are 0xRRGGBB, 0 = arcane violet.
+        public canrpgclasses.Core.Portals.PortalKind PortalKind;
+        public int PortalTintA, PortalTintB;
+        // Gate: max height between the two ends. Waypoint: max distance to the anchor (0 = unlimited).
+        public float PortalMaxHeightDiff, PortalMaxDistance;
 
         // Evasion: chance (0..1) to fully dodge an incoming physical attack, lasting StatusEffectDuration seconds.
         public float EvasionChance = 0.5f;
@@ -249,8 +237,7 @@ namespace canrpgclasses.Core.Spells
         /// <summary>Particle burst where the impact lands - on the target, or on the caster for a self-buff.</summary>
         public ParticleSpec? Particles;
 
-        /// <summary>The shape every stealth spell builds. Invisibility has no stacking tiers, so it is always
-        /// amplifier 1; only the duration and the target vary.</summary>
+        /// <summary>Shared invisibility impact; it has no stacking tiers, so amplifier is always 1.</summary>
         public static SpellImpact Invisibility(float duration, bool affectCaster = false) => new SpellImpact
         {
             Action = ImpactAction.StatusEffect,

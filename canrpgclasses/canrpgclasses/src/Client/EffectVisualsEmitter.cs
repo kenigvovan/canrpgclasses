@@ -4,9 +4,8 @@ using canrpgclasses.Core.Visuals;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Client half of the effect-visuals split (see <see cref="EffectVisuals"/>): reads the synced per-entity
-    /// bitmask off nearby entities and spawns their state particles locally. The server publishes only the mask,
-    /// never particles.
+    /// Client half of <see cref="EffectVisuals"/>: reads the synced bitmask off nearby entities and spawns
+    /// state particles locally.
     /// </summary>
     public class EffectVisualsEmitter
     {
@@ -20,8 +19,7 @@ namespace canrpgclasses.Client
         {
             this.capi = capi;
             listenerId = capi.Event.RegisterGameTickListener(OnTick, 250);
-            // Charge orbs need a fast tick: they're re-placed each call and the small per-tick step is what makes
-            // them read as balls FLYING around the body rather than hopping (a 250ms step would visibly jump).
+            // Fast tick so charge orbs orbit smoothly instead of hopping.
             orbitListenerId = capi.Event.RegisterGameTickListener(OnOrbitTick, 60);
         }
 
@@ -30,7 +28,6 @@ namespace canrpgclasses.Client
             var self = capi.World?.Player?.Entity;
             if (self == null) return;
 
-            // (Channel beams are drawn by BeamRenderer - a solid per-frame ribbon mesh, not particles.)
             foreach (var e in capi.World.GetEntitiesAround(self.Pos.XYZ, Range, Range,
                          en => en.Alive && (en.WatchedAttributes?.GetLong(EffectVisuals.MaskAttr, 0) ?? 0) != 0))
             {

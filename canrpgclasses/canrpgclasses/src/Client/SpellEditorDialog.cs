@@ -11,9 +11,8 @@ using canrpgclasses.Core.Spells;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Admin-only spell editor: a spell is a delivery, a target rule and a list of impacts, all data, so one can
-    /// be assembled or copied here. A new KIND of action can't - that is an executor branch in C#, so code spells
-    /// are listed but locked and can only be copied.
+    /// Admin spell editor for data spells (delivery, target rule, impacts). Code spells are locked and can only
+    /// be copied; a new action kind needs an executor branch in C#.
     /// </summary>
     public class SpellEditorDialog : CanrpgDialog
     {
@@ -64,8 +63,7 @@ namespace canrpgclasses.Client
             => Newtonsoft.Json.JsonConvert.DeserializeObject<SpellModel>(
                    Newtonsoft.Json.JsonConvert.SerializeObject(m)) ?? new SpellModel();
 
-        /// <summary>Effect ids already used by registered spells. Effects live in effectshud, not in a registry we
-        /// own, so what the existing content applies is the honest list of what exists.</summary>
+        /// <summary>Effect ids used by registered spells; effectshud has no registry we can list.</summary>
         private static List<string> KnownEffects()
         {
             var ids = new List<string>();
@@ -200,9 +198,11 @@ namespace canrpgclasses.Client
             compo.AddTextInput(Field(x, row, PanelW), v => m.description = v, CairoFont.WhiteDetailText(), "f_desc");
             row += RowH + 8;
 
-            Label(compo, x, ref row, "Icon (optional) / school");
-            compo.AddTextInput(Field(x, row, 190), v => m.icon = Blank(v), CairoFont.WhiteDetailText(), "f_icon");
-            AddEnum<SpellSchool>(compo, Field(x + 198, row, 200), "f_school", m.school,
+            // One row for all three, so the tab keeps its height.
+            Label(compo, x, ref row, "Icon / body animation, e.g. falx (both optional) / school");
+            compo.AddTextInput(Field(x, row, 130), v => m.icon = Blank(v), CairoFont.WhiteDetailText(), "f_icon");
+            compo.AddTextInput(Field(x + 138, row, 120), v => m.animation = Blank(v), CairoFont.WhiteDetailText(), "f_anim");
+            AddEnum<SpellSchool>(compo, Field(x + 266, row, 164), "f_school", m.school,
                 v => { m.school = v; Compose(); });
             row += RowH + 8;
 
@@ -339,8 +339,7 @@ namespace canrpgclasses.Client
             AddFooter(compo, x, row);
         }
 
-        /// <summary>Only the fields the chosen action reads. An impact model carries every field any action could
-        /// want, and showing all of them at once would bury the two that matter for this one.</summary>
+        /// <summary>Shows only the impact fields the chosen action reads.</summary>
         private void AddImpactFields(GuiComposer compo, double x, ref double row, ImpactModel im)
         {
             var action = ParseEnum(im.action, ImpactAction.Damage);
@@ -521,8 +520,7 @@ namespace canrpgclasses.Client
             row += 24;
         }
 
-        /// <summary>A dropdown over an enum's names - the model stores the name, which is what the content files
-        /// use and what <see cref="ContentReport.Enum{T}"/> parses.</summary>
+        /// <summary>Enum dropdown storing the name, as parsed by <see cref="ContentReport.Enum{T}"/>.</summary>
         private static void AddEnum<T>(GuiComposer compo, ElementBounds bounds, string key, string? current,
                                        Action<string> onPicked) where T : struct, Enum
         {
@@ -556,6 +554,7 @@ namespace canrpgclasses.Client
                 SingleComposer.GetTextInput("f_name").SetValue(m.name ?? "");
                 SingleComposer.GetTextInput("f_desc").SetValue(m.description ?? "");
                 SingleComposer.GetTextInput("f_icon").SetValue(m.icon ?? "");
+                SingleComposer.GetTextInput("f_anim").SetValue(m.animation ?? "");
                 SingleComposer.GetNumberInput("f_castsec").SetValue(Num(m.castSeconds));
                 SingleComposer.GetNumberInput("f_ticks").SetValue(m.channelTicks.ToString());
                 SingleComposer.GetNumberInput("f_cost").SetValue(Num(m.resourceCost));
@@ -624,8 +623,7 @@ namespace canrpgclasses.Client
         }
 
         private static string Num(float f) => f.ToString(CultureInfo.InvariantCulture);
-        /// <summary>The attribute gate: one attribute and the points it needs. A spell authored in JSON may gate on
-        /// several - the editor then shows the count and leaves them alone, rather than dropping the extras.</summary>
+        /// <summary>Single-attribute gate. Multi-attribute gates from JSON are shown as a count and left untouched.</summary>
         private void AddAttributeRequirement(GuiComposer compo, SpellModel m, double x, ref double row)
         {
             Label(compo, x, ref row, "Requires attribute (points the caster must hold)");
@@ -678,8 +676,7 @@ namespace canrpgclasses.Client
             Compose();
         }
 
-        /// <summary>The number never creates the requirement, or a retained input would gate every spell on
-        /// whatever was last typed.</summary>
+        /// <summary>Never creates the requirement, so a stale input can't gate other spells.</summary>
         private void SetAttrRequirementValue(SpellModel m, string value)
         {
             var req = m.requires?.attributes;
@@ -744,9 +741,7 @@ namespace canrpgclasses.Client
             return true;
         }
 
-        /// <summary>Copies a registered spell - code spell included - into a fresh draft. Impacts come across as
-        /// data, which is what makes "the same skill under another name with other numbers" a copy, not a rewrite.
-        /// </summary>
+        /// <summary>Copies any registered spell, code spells included, into a fresh data draft.</summary>
         private bool CloneLocked()
         {
             var s = lockedSelection == null ? null : Mod?.Spells.Get(lockedSelection);
@@ -758,6 +753,7 @@ namespace canrpgclasses.Client
                 name = s.DisplayName + " (copy)",
                 description = s.Description,
                 icon = s.IconName,
+                animation = s.AnimationCode,
                 school = s.School.ToString(),
                 tier = s.Tier,
                 range = s.Range,
@@ -791,7 +787,7 @@ namespace canrpgclasses.Client
                     shield = s.RequiresShield,
                     outOfCombat = s.RequiresOutOfCombat,
                     form = s.RequiresForm,
-                    // Not editable here; copying a spell without it would silently drop its attribute gate.
+                    // Not editable here, but must be copied to keep the attribute gate.
                     attributes = s.RequiresAttributes is { Count: > 0 } req
                         ? new Dictionary<string, float>(req) : null
                 },
@@ -879,7 +875,7 @@ namespace canrpgclasses.Client
             string? refused = ContentEditGuard.RejectSpell(draft, mod.Spells);
             if (refused != null) { status = "Not sent: " + refused; Compose(); return true; }
 
-            // A renamed spell is a new record; drop the old one so both don't sit in the store.
+            // A renamed spell is a new record; drop the old one.
             if (editingId != null && !string.Equals(editingId, draft.id, StringComparison.OrdinalIgnoreCase))
                 mod.ClientChannel.SendPacket(new SpellEditPacket { Delete = true, SpellId = editingId });
 

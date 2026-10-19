@@ -7,10 +7,8 @@ using canrpgclasses.Core.Talents;
 
 namespace canrpgclasses.Core.EB
 {
-    /// <summary>
-    /// Applies the current class's intrinsic <see cref="GearAffinity"/> buffs/debuffs, re-evaluated only when
-    /// equipment changes. Player inventories may not exist yet at spawn, so subscription is retried until they load.
-    /// </summary>
+    /// <summary>Applies the class's <see cref="GearAffinity"/> modifiers on equipment change. Inventories may not
+    /// exist at spawn, so subscription is retried.</summary>
     public class EBGearAffinity : EntityBehavior
     {
         public const string Name = "canrpggearaffinity";
@@ -82,7 +80,6 @@ namespace canrpgclasses.Core.EB
             if (plr?.Entity == entity) Reevaluate();
         }
 
-        /// <summary>Public so a class/talent change can force an immediate refresh.</summary>
         public void Refresh() => Reevaluate();
 
         private void Reevaluate()
@@ -90,17 +87,16 @@ namespace canrpgclasses.Core.EB
             if (entity is not EntityAgent agent) return;
             var mod = canrpgclassesModSystem.For(entity.Api);
             var cls = mod?.Classes.Get(TalentState.CurrentClass(entity));
-            if (cls == null) return; // no class → no affinities (the global ones are also gated behind having a class)
+            if (cls == null) return; // global affinities are also gated behind having a class
 
             var plr = ServerPlayer;
             var weapon = plr?.InventoryManager?.ActiveHotbarSlot?.Itemstack?.Collectible;
             var armorInv = plr?.InventoryManager?.GetOwnInventory(CharacterInv);
 
             ApplyAffinities(agent, cls.GearAffinities, weapon, armorInv);
-            ApplyAffinities(agent, Classes.GearAffinity.Global, weapon, armorInv); // class-agnostic (metal armor → magic resist)
+            ApplyAffinities(agent, Classes.GearAffinity.Global, weapon, armorInv);
 
-            // plate_training sets maxhealthExtraPoints, which EntityBehaviorHealth caches - recompute so the
-            // new max HP takes effect and syncs to the client (other stats are read live).
+            // EntityBehaviorHealth caches maxhealthExtraPoints (plate_training); other stats are read live.
             entity.GetBehavior<EntityBehaviorHealth>()?.MarkDirty();
         }
 

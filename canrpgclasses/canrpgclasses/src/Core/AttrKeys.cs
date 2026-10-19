@@ -1,9 +1,7 @@
 namespace canrpgclasses.Core
 {
-    /// <summary>
-    /// This mod's persistent WatchedAttributes keys. The string values key into saved player state: rename the
-    /// C# symbols freely, never the literals, or existing characters lose their class, talents and progress.
-    /// </summary>
+    /// <summary>Persistent WatchedAttributes keys. Never rename the literals: existing saves would lose class,
+    /// talents and progress.</summary>
     public static class AttrKeys
     {
         // ---- Class selection (ClassChange) ----

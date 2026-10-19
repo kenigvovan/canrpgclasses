@@ -60,8 +60,7 @@ namespace canrpgclasses.Shaman.Talents
         }
     }
 
-    // Speeds up the group heal rather than inflating it - healing done is already covered by Purification and the
-    // tree mastery.
+    // Cast speed rather than heal size; healing done already comes from Purification and the mastery.
     [TalentRegistration("shaman:tidal_rhythm")]
     public class TidalRhythmTalent : Talent
     {
@@ -89,7 +88,6 @@ namespace canrpgclasses.Shaman.Talents
             DisplayName = "Nature Warding"; Description = "+{0}% magic resistance per rank."; IconName = "diamond-hard";
             DescArgs = new object[] { (int)System.Math.Round(perRank * 100f) };
         }
-        // Raw HP lives only in the Enhancement tree (Toughness); the caster/healer wards give MAGIC RESISTANCE instead.
         public override void ApplyStats(EntityAgent e, int rank)
             => e.Stats.Set(StatKeys.MagicResist, "canrpgtalent_naturewarding", perRank * rank);
     }

@@ -13,9 +13,8 @@ using EBEffects = effectshud.src.EBEffectsAffected;
 namespace canrpgclasses.Client.Render
 {
     /// <summary>
-    /// Always-on spell hotbar HUD: bound spell slots with cooldown sweeps, the class resource bar, combo pips and
-    /// the cast bar. A renderer rather than a dialog because everything is placed by the fraction-of-screen
-    /// anchors in <see cref="HudLayout"/>, which no retained-mode layout can express.
+    /// Spell hotbar HUD: slots, resource bar, combo pips and cast bar. A renderer, not a dialog, because the
+    /// screen-fraction anchors in <see cref="HudLayout"/> don't fit retained-mode layout.
     /// </summary>
     public class HudSpellHotbarRenderer : IRenderer
     {
@@ -74,10 +73,10 @@ namespace canrpgclasses.Client.Render
             float screenW = capi.Render.FrameWidth;
             float screenH = capi.Render.FrameHeight;
 
-            // The aura stance currently active (synced) - its slot gets a glowing "on" border.
+            // Active aura stance gets a glowing border.
             string activeAura = player.WatchedAttributes.GetString(Core.AttrKeys.ActiveAura, "");
 
-            // Slots are clickable whenever the cursor is free, so the hovered one is highlighted then.
+            // Highlight the hovered slot while the cursor is free.
             (int Bar, int Slot) hovered = layout.EditMode || capi.Input.MouseGrabbed
                 ? (-1, -1)
                 : SlotAt(capi.Input.MouseX, capi.Input.MouseY);
@@ -153,8 +152,7 @@ namespace canrpgclasses.Client.Render
             }
         }
 
-        /// <summary>Bounds of a length/thickness bar centred on the given anchor fraction - shared by the resource
-        /// bar, cast bar and combo block so their drag rects and draw rects always agree.</summary>
+        /// <summary>Bar bounds centred on an anchor; shared by drawing and dragging so they agree.</summary>
         private static (float X, float Y, float W, float H) Block(float screenW, float screenH,
             float anchorX, float anchorY, float length, float thickness, bool vert)
         {
@@ -164,8 +162,7 @@ namespace canrpgclasses.Client.Render
                 : (cx - length / 2f, cy - thickness / 2f, length, thickness);
         }
 
-        /// <summary>The channelled-cast progress bar. Horizontal fills left→right; vertical fills bottom→up (same
-        /// convention as the resource bar).</summary>
+        /// <summary>Cast progress bar; fills left to right, or bottom up when vertical.</summary>
         private void DrawCastBar(HudLayoutConfig cfg, float screenW, float screenH)
         {
             if (castSpellName == null) return;
@@ -183,8 +180,7 @@ namespace canrpgclasses.Client.Render
             draw.TextCentered(castSpellName, barFont, b.X + b.W / 2, b.Y + b.H / 2, new Vec4f(0.95f, 0.95f, 1f, 1f));
         }
 
-        /// <summary>The class resource bar (energy/rage/mana). Horizontal fills left→right; vertical bottom→up.
-        /// Combo points are a separate, independently-placed block - see <see cref="DrawComboPoints"/>.</summary>
+        /// <summary>Class resource bar; combo points are drawn separately by <see cref="DrawComboPoints"/>.</summary>
         private void DrawResources(EntityPlayer player, HudLayoutConfig cfg, float screenW, float screenH)
         {
             var pool = ResourceState.PrimaryPool(player);
@@ -207,9 +203,7 @@ namespace canrpgclasses.Client.Render
 
             draw.TextCentered($"{(int)val}/{(int)max}", barFont, b.X + b.W / 2, b.Y + b.H / 2, new Vec4f(0.95f, 0.95f, 1f, 1f));
 
-            // Druid form pools: a second thin bar under the primary (mana). Bear shows RAGE, Cat shows ENERGY -
-            // mutually exclusive (one form at a time). Both are secondary pools whose value syncs via
-            // WatchedAttributes; the pool defs are read statically (no client registry needed).
+            // Druid form pool under the mana bar: rage in Bear, energy in Cat. Synced via WatchedAttributes.
             if (Core.Talents.TalentState.CurrentClass(player) != Druid.DruidRage.ClassId) return;
 
             string aura = player.WatchedAttributes.GetString(Core.AttrKeys.ActiveAura, "");
@@ -237,9 +231,8 @@ namespace canrpgclasses.Client.Render
             draw.Frame(b.X, sy, b.W, sh, 1f, border);
         }
 
-        /// <summary>Client-side tier of an effectshud effect on the player. The server-authoritative GetEffectTier
-        /// reads the server-only activeEffects dict; on the client the synced state lives in
-        /// onlyClientsActiveEffects, so the HUD must read there. 0 when the effect isn't present.</summary>
+        /// <summary>Effect tier on the client, read from onlyClientsActiveEffects (GetEffectTier is server-only).
+        /// 0 if absent.</summary>
         private static int ClientEffectTier(EntityPlayer player, string effectId)
         {
             var eb = player.GetBehavior<EBEffects>();
@@ -247,8 +240,7 @@ namespace canrpgclasses.Client.Render
             return 0;
         }
 
-        /// <summary>Combo-point pips at their own anchor, independent of wherever the resource bar sits. The priest
-        /// shows Shadow Orbs in the same block, the shaman Storm Charge.</summary>
+        /// <summary>Combo pips at their own anchor; also used for Shadow Orbs and Storm Charge.</summary>
         private void DrawComboPoints(EntityPlayer player, HudLayoutConfig cfg, float screenW, float screenH)
         {
             var cls = ResourceState.CurrentClass(player);
@@ -263,8 +255,7 @@ namespace canrpgclasses.Client.Render
             }
             else if (cls?.Id == "priest")
             {
-                // Shadow Orbs ride the same pip block, but - unlike the always-shown combo pips - only appear once
-                // at least one orb is banked.
+                // Shadow Orbs show only once one is banked.
                 maxN = ShadowOrbs.Cap;
                 filled = Math.Min(maxN, Math.Max(0, ClientEffectTier(player, PriestEffectIds.ShadowOrbs)));
                 if (filled <= 0) return;
@@ -272,8 +263,7 @@ namespace canrpgclasses.Client.Render
             }
             else if (cls?.Id == "shaman")
             {
-                // Storm Charge: hidden until the first stack lands, full pips = the next Arc Bolt / Forked
-                // Lightning / Mending Wave is instant.
+                // Storm Charge: hidden until the first stack; full means the next cast is instant.
                 maxN = Shaman.MaelstromEffect.Cap;
                 filled = Math.Min(maxN, Math.Max(0, ClientEffectTier(player, Shaman.ShamanEffectIds.Maelstrom)));
                 if (filled <= 0) return;
@@ -342,8 +332,7 @@ namespace canrpgclasses.Client.Render
             float remaining = cooldowns.RemainingSeconds(spell.CooldownKey);
             float total = cooldowns.TotalSeconds(spell.CooldownKey);
 
-            // The global cooldown sweeps every GCD-bound slot too. The longer of the two wins, and the sweep's
-            // total comes from whichever one is being drawn.
+            // GCD also sweeps GCD-bound slots; the longer of the two is drawn.
             if (spell.TriggersGlobalCooldown)
             {
                 float gcdRemaining = cooldowns.RemainingSeconds(Spell.GlobalCooldownKey);
@@ -359,9 +348,8 @@ namespace canrpgclasses.Client.Render
             draw.CooldownSweep(x, y, size, 1f - fraction, new Vec4f(0f, 0f, 0f, 0.6f));
         }
 
-        /// <summary>While the HUD settings panel is open: outline every movable block and let the player drag it to
-        /// a new anchor. Blocks are collected into a list rather than switched on by index, so any number of bars
-        /// works. The cursor is free (a dialog is open), so raw mouse state is the right input here.</summary>
+        /// <summary>With the settings panel open: outline movable blocks and drag them. The cursor is free, so raw
+        /// mouse state is used.</summary>
         private void HandleEditDrag(HudLayoutConfig cfg, float screenW, float screenH)
         {
             float mx = capi.Input.MouseX, my = capi.Input.MouseY;

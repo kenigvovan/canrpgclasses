@@ -24,9 +24,8 @@ namespace canrpgclasses.Paladin.Talents
             => e.Stats.Set(StatKeys.MeleeWeaponsDamage, "canrpgtalent_zealot", perRank * rank);
     }
 
-    // Aura talent: while your Vengeful Aura is active, EVERYONE UNDER IT burns melee attackers for a share of the
-    // hit, as Holy. Implemented as a caster stat baked into the applied Might effect by EBAuras
-    // (AuraMightEffect.reflectFraction), so the reflect covers every recipient, not just the paladin.
+    // Caster stat baked into the Might effect by EBAuras (AuraMightEffect.reflectFraction), so the holy reflect
+    // covers everyone under the aura, not just the paladin.
     [TalentRegistration("paladin:retribution_vengeance")]
     public class RetributionVengeanceTalent : Talent
     {

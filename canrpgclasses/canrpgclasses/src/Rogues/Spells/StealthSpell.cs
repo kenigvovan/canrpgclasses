@@ -23,7 +23,6 @@ namespace canrpgclasses.Rogues.Spells
 
             // Out-of-combat approach tool - Slip Away (no gate) is the mid-fight escape.
             RequiresOutOfCombat = true;
-            // Attacking inside this window rewrites the cooldown to the full lockout (EBSpellCaster).
             OpensStealthWindowSeconds = duration;
 
             ConfigureCost(defResource: 0f, defCooldown: 30f); // free utility opener

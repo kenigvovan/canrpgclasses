@@ -4,10 +4,8 @@ using canrpgclasses.Core.Control;
 
 namespace canrpgclasses.Core.EB
 {
-    /// <summary>
-    /// Player-side control enforcement the Harmony patches don't cover: bleeds off residual motion while rooted
-    /// and interrupts hand use when control is taken. Fear doesn't root - its wander needs the motion.
-    /// </summary>
+    /// <summary>CC enforcement the Harmony patches don't cover: zeroes motion while rooted and interrupts hand use.
+    /// Fear doesn't root - its wander needs the motion.</summary>
     public class EBStun : EntityBehavior
     {
         public const string Name = "canrpgstun";

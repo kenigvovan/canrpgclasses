@@ -18,7 +18,11 @@ namespace canrpgclasses.Priest
 
             // Available from level 1; the rest of the kit is unlocked by talents. Warding Word is the
             // class-defining level-1 tool (an absorb, unlike any other class's opener).
-            BaseSpells = new[] { "canrpgclasses:piercing_light", "canrpgclasses:warding_word", "canrpgclasses:soothing_prayer" };
+            BaseSpells = new[]
+            {
+                "canrpgclasses:piercing_light", "canrpgclasses:warding_word", "canrpgclasses:soothing_prayer",
+                "canrpgclasses:guiding_light", "canrpgclasses:summon_ritual"
+            };
 
             string[] heavyArmor = { "plate", "chain", "scale", "brigandine", "lamellar" };
             float vestments = BalanceConfig.Affinity("priest", "sacred_vestments").F("value", 0.10f);
@@ -58,7 +62,7 @@ namespace canrpgclasses.Priest
                 new TreeMastery(2, shadow,                  BalanceConfig.Global("priestShadowDmgPerPoint", 0.015f)),
             };
 
-            // The frailest class: below the hunter (+5, 0.8/lvl); a caster who dies fast if caught.
+            // The frailest class, tied with the mage.
             BaseStats = new()
             {
                 (StatKeys.MaxHealthExtraPoints, BalanceConfig.Global("priestBaseHealth", 4f)),

@@ -5,10 +5,7 @@ using Vintagestory.API.Common;
 
 namespace canrpgclasses.Core.Classes
 {
-    /// <summary>
-    /// A class-wide passive that applies <see cref="Modifiers"/> while the equipped gear matches. All set
-    /// conditions must hold; an unset one is ignored.
-    /// </summary>
+    /// <summary>Class passive applying <see cref="Modifiers"/> while gear matches; all set conditions must hold.</summary>
     public class GearAffinity
     {
         /// <summary>Unique key (per class) - used as the stat-modifier code so it can be set/cleared on its own.</summary>
@@ -42,8 +39,7 @@ namespace canrpgclasses.Core.Classes
         /// <summary>Stat modifiers applied while matching (stat key → blend value).</summary>
         public List<(string Stat, float Value)> Modifiers = new();
 
-        /// <summary>Affinities every classed player gets on top of their own class list, like metal armor giving
-        /// magic resistance. Rebuilt from config on each load, so the numbers stay live.</summary>
+        /// <summary>Affinities every classed player gets on top of their class's own. Rebuilt from config on each load.</summary>
         public static readonly List<GearAffinity> Global = new();
 
         /// <summary>(Re)builds <see cref="Global"/> from the current balance config. Call after BalanceConfig.Load.</summary>
@@ -62,8 +58,7 @@ namespace canrpgclasses.Core.Classes
             });
         }
 
-        /// <summary>Whether the given equipped gear satisfies all set conditions. Side-agnostic - used both by
-        /// the server (to apply stats) and the client (to show which affinities are active).</summary>
+        /// <summary>Side-agnostic: the server applies stats, the client shows which affinities are active.</summary>
         public bool Matches(CollectibleObject? weapon, IInventory? armorInv)
         {
             if (WeaponTools != null && WeaponTools.Length > 0)

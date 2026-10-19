@@ -35,7 +35,7 @@ namespace canrpgclasses.Hunter.Spells
                 ZoneDurationSeconds = b.F("armDuration", 30f),
                 DamageSpellPowerCoefficient = b.F("coeff", 3f),
                 Knockback = b.F("knockback", 0.4f),
-                ZoneTriggerSound = "survival:sounds/effect/mediumexplosion",
+                ZoneTriggerSound = "game:sounds/effect/mediumexplosion",
                 Particles = ParticleSpec.ForSchool(SpellSchool.Fire)
             });
 

@@ -5,11 +5,8 @@ using Vintagestory.API.Server;
 
 namespace canrpgclasses.Core.Config
 {
-    /// <summary>
-    /// Every balance number in the mod, loaded from per-class JSON (plus <c>core.json</c>) with admin overrides
-    /// layered on top. Getters take a default, so missing config leaves behaviour unchanged. All buckets live in
-    /// one immutable <see cref="Store"/> behind a volatile reference - readers always see a coherent snapshot.
-    /// </summary>
+    /// <summary>All balance numbers: per-class JSON plus admin overrides, in one immutable <see cref="Store"/>
+    /// behind a volatile ref so readers always see a coherent snapshot.</summary>
     public static class BalanceConfig
     {
         private sealed class Store
@@ -24,8 +21,7 @@ namespace canrpgclasses.Core.Config
 
             public Store() { }
 
-            /// <summary>Deep copy (outer and inner dictionaries) for copy-on-write edits - published stores
-            /// are never mutated, so an Entry handed out earlier keeps reading a stable snapshot.</summary>
+            /// <summary>Deep copy for copy-on-write edits; published stores are never mutated.</summary>
             public Store(Store src)
             {
                 foreach (var kv in src.spells) spells[kv.Key] = new Dictionary<string, float>(kv.Value);
@@ -37,16 +33,13 @@ namespace canrpgclasses.Core.Config
 
         private static volatile Store current = new Store();
 
-        // The overrides model as loaded/saved by the server (null on a pure client, before LoadOverrides, or
-        // when no file exists). Load() re-applies it on every rebuild, so the client-side Load in singleplayer
-        // cannot strip admin edits from the shared statics.
+        // Server-side overrides, re-applied on every Load so the singleplayer client-side Load can't strip admin
+        // edits from the shared statics. Null on a pure client.
         private static volatile BalanceNumbersModel? serverOverrides;
 
         private static readonly Dictionary<string, float> EmptyMap = new Dictionary<string, float>();
 
-        /// <summary>A read-only view of one config entry's numbers, with per-key defaults. A struct so the
-        /// Spell/Talent/Affinity accessors below (called from per-hit combat hooks) return it by value without a
-        /// heap allocation - it only wraps a reference to the already-built dictionary.</summary>
+        /// <summary>Read-only view of one entry's numbers. A struct so per-hit lookups don't allocate.</summary>
         public readonly struct Entry
         {
             private readonly Dictionary<string, float>? map;
@@ -72,8 +65,7 @@ namespace canrpgclasses.Core.Config
         public static float Global(string key, float def) =>
             current.globals.TryGetValue(key, out var v) ? v : def;
 
-        // ---- enumeration (read-only), for the admin balance editor to list "what exists" without
-        // hardcoding field names per spell/talent - everything here is already a plain dictionary. ----
+        // ---- Enumeration for the admin balance editor ----
 
         public static IEnumerable<string> SpellIds => current.spells.Keys;
         public static IEnumerable<string> TalentIds => current.talents.Keys;
@@ -91,10 +83,8 @@ namespace canrpgclasses.Core.Config
         /// <summary>Which bucket a balance number lives in - carried over the wire by <c>BalanceEditPacket</c>.</summary>
         public enum BalanceCategory { Spell = 0, Talent = 1, Affinity = 2, Global = 3 }
 
-        /// <summary>Live-edits one number (admin balance editor). In-memory only - the caller is responsible for
-        /// persisting (<see cref="SaveOverrides"/>) and rebuilding the spell/talent registries so constructors
-        /// (which read these values once, at construction) pick up the change. Copy-on-write: a rare admin edit
-        /// deep-copies the store, mutates the copy and publishes it, so readers never see a half-edit.</summary>
+        /// <summary>Copy-on-write edit of one number, in memory only. The caller persists (<see cref="SaveOverrides"/>)
+        /// and rebuilds the registries, whose constructors read these values once.</summary>
         public static void Set(BalanceCategory cat, string id, string key, float value)
         {
             var next = new Store(current);
@@ -122,10 +112,8 @@ namespace canrpgclasses.Core.Config
             return m;
         }
 
-        /// <summary>Loads/merges every <c>config/*.json</c> of this mod into a fresh store and publishes it.
-        /// Call once per side from <c>AssetsLoaded</c>, before the spell/talent registries are scanned (their
-        /// constructors read this). If the server has loaded persisted admin overrides, they are re-applied on
-        /// top of the asset defaults on every rebuild.</summary>
+        /// <summary>Merges this mod's <c>config/*.json</c> (plus any server overrides) into a fresh store. Call from
+        /// <c>AssetsLoaded</c> before the registries are scanned, since their constructors read it.</summary>
         public static void Load(ICoreAPI api)
         {
             var next = new Store();
@@ -134,11 +122,10 @@ namespace canrpgclasses.Core.Config
             foreach (var asset in assets)
             {
                 if (!asset.Name.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) continue;
-                // config/content/ holds class/spell/talent definitions, not balance numbers - a different shape
-                // entirely. ContentLoader owns those.
+                // Other config shapes: ContentLoader, RpgAttributes and XpRules own these.
                 if (asset.Location.Path.Contains("/content/", StringComparison.OrdinalIgnoreCase)) continue;
-                // Same for the attribute definitions - a different shape, owned by RpgAttributes.
                 if (asset.Name.StartsWith("attributes", StringComparison.OrdinalIgnoreCase)) continue;
+                if (asset.Name.Equals("xp.json", StringComparison.OrdinalIgnoreCase)) continue;
 
                 BalanceNumbersModel? file;
                 try { file = asset.ToObject<BalanceNumbersModel>(); }
@@ -175,9 +162,8 @@ namespace canrpgclasses.Core.Config
 
         private const string OverridesFile = "canrpgclasses-balance-overrides.json";
 
-        /// <summary>Server-side only, once after assets load. Reads persisted admin edits and rebuilds the whole
-        /// store (not an in-place merge), so a world opened later in the same process doesn't inherit leftover
-        /// overrides.</summary>
+        /// <summary>Server only. Rebuilds the whole store rather than merging, so a later world in the same
+        /// process doesn't inherit leftover overrides.</summary>
         public static void LoadOverrides(ICoreServerAPI api)
         {
             try { serverOverrides = api.LoadModConfig<BalanceNumbersModel>(OverridesFile); }
@@ -203,19 +189,15 @@ namespace canrpgclasses.Core.Config
             foreach (var kv in src) m[kv.Key] = kv.Value;
         }
 
-        /// <summary>Server-side only. Persists the full merged snapshot (asset defaults plus every override
-        /// applied so far) to <see cref="OverridesFile"/> after each admin edit, so it survives a restart.
-        /// Writing the whole snapshot rather than a diff avoids tracking what the shipped defaults were; the
-        /// cost is that a later mod update can't change a shipped default for an untouched key that shares an
-        /// entry with an edited one.</summary>
+        /// <summary>Server only. Persists the full merged snapshot, not a diff; downside: a mod update can't change
+        /// defaults of untouched keys in an entry that was edited.</summary>
         public static void SaveOverrides(ICoreServerAPI api)
         {
             var s = current;
             var snapshot = new BalanceNumbersModel { spells = s.spells, talents = s.talents, affinities = s.affinities, globals = s.globals };
             try { api.StoreModConfig(snapshot, OverridesFile); }
             catch (Exception e) { api.Logger.Warning("[canrpgclasses] failed to save balance overrides: {0}", e.Message); }
-            // Keep the in-memory override model in sync with the live merged state, so the next Load
-            // (e.g. the client side's AssetsLoaded in singleplayer) re-applies exactly what was saved.
+            // So the next Load (e.g. singleplayer client AssetsLoaded) re-applies exactly what was saved.
             serverOverrides = snapshot;
         }
 
@@ -227,9 +209,7 @@ namespace canrpgclasses.Core.Config
             return Newtonsoft.Json.JsonConvert.SerializeObject(net);
         }
 
-        /// <summary>Overwrites the local merged numbers from a server-sent JSON blob (client side).
-        /// Caller must rebuild the spell/talent registries afterward so constructors re-read these.
-        /// The payload is already the server's merged authority - overrides are not re-applied here.</summary>
+        /// <summary>Client side: replace the numbers with the server's merged set. Caller rebuilds the registries.</summary>
         public static void ApplySerialized(string json)
         {
             BalanceNumbersModel? net;
@@ -245,8 +225,7 @@ namespace canrpgclasses.Core.Config
             current = next;
         }
 
-        // Shared shape for the asset config files, the network sync payload, and the persisted overrides file -
-        // all three are "the same 4-bucket numbers", just sourced/consumed differently.
+        // Shared shape of the asset files, the sync payload and the overrides file.
         private class BalanceNumbersModel
         {
             public Dictionary<string, Dictionary<string, float>>? spells { get; set; }

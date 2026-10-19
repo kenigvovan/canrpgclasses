@@ -121,8 +121,7 @@ namespace canrpgclasses.Hunter.Talents
         }
     }
 
-    // Ranked passive: your traps hit harder and their control lasts longer. Read by ZoneManager.Trigger, which
-    // multiplies both the blast damage and the status duration by the trapPower stat (1.0 = unmodified).
+    // ZoneManager.Trigger scales both trap damage and status duration by trapPower.
     [TalentRegistration("hunter:trap_mastery")]
     public class TrapMasteryTalent : Talent
     {
@@ -134,13 +133,12 @@ namespace canrpgclasses.Hunter.Talents
             DisplayName = "Trap Mastery"; Description = "+{0}% trap damage and control duration per rank."; IconName = "spinning-blades";
             DescArgs = new object[] { (int)System.Math.Round(perRank * 100f) };
         }
-        // GetBlended is 1.0-based (unset = 1.0, named values add on top), so Set just the bonus - the engine adds
-        // the baseline 1.0. (Setting 1f + bonus here would double-count and make traps ~2x too strong.)
+        // GetBlended is 1.0-based, so set only the bonus; 1f + bonus would double-count.
         public override void ApplyStats(EntityAgent e, int rank)
             => e.Stats.Set(StatKeys.TrapPower, "canrpgtalent_trapmastery", perRank * rank);
     }
 
-    // Ranked passive: flat damage mitigation (read by StunPatches via the 1.0-based canrpgDamageReduction stat).
+    // Read by StunPatches.
     [TalentRegistration("hunter:tough_hide")]
     public class ToughHideTalent : Talent
     {
@@ -168,8 +166,7 @@ namespace canrpgclasses.Hunter.Talents
         }
     }
 
-    // Skill augment: a damaging trap (Blast Trap) also sets what it catches on fire. Sets a generic flag stat
-    // read by ZoneManager (core stays class-agnostic).
+    // Generic flag stat read by ZoneManager, so core stays class-agnostic.
     [TalentRegistration("hunter:napalm")]
     public class NapalmTalent : Talent
     {

@@ -3,11 +3,10 @@ using Vintagestory.API.Config;
 
 namespace canrpgclasses.Client
 {
-    /// <summary>Renders the character sheet model as VTML for the tab's richtext elements - kept apart from
-    /// <see cref="RpgCharacterSheet"/> so numbers and presentation don't grow into each other.</summary>
+    /// <summary>Renders <see cref="RpgCharacterSheet"/> as VTML for the tab's richtext elements.</summary>
     public static class RpgSheetVtml
     {
-        /// <summary>Class name and level. Unspent talent points read green - the one line to act on.</summary>
+        /// <summary>Class name and level; unspent talent points in green.</summary>
         public static void Header(StringBuilder sb, in SheetHeader h)
         {
             sb.Append(VtmlText.Bold(VtmlText.Gold, h.ClassName)).Append("<br />");

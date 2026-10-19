@@ -18,10 +18,8 @@ namespace canrpgclasses.Core.Net
         [ProtoMember(3)] public string ClassId = "";
     }
 
-    /// <summary>server → client (on join): the vanilla-character-class restrictions as JSON. They live in the
-    /// server's mod-config folder, so the client has no copy of its own; without this the class picker could not
-    /// tell which classes the server would refuse. See
-    /// <see cref="canrpgclasses.Core.Classes.ClassRestrictions"/>.</summary>
+    /// <summary>server → client (on join): <see cref="canrpgclasses.Core.Classes.ClassRestrictions"/> as JSON; they live
+    /// in the server's mod-config, so the client picker has no other copy.</summary>
     [ProtoContract]
     public class ClassRestrictionsPacket
     {

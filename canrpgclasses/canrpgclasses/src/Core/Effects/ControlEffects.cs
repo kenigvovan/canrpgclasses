@@ -2,9 +2,8 @@ using effectshud.src;
 
 namespace canrpgclasses.Core.Effects
 {
-    /// <summary>Cosmetic HUD markers for crowd control. The control itself lives in
-    /// <see cref="canrpgclasses.Core.Control.ControlState"/>; these carry no stats and exist only so a controlled
-    /// player sees an icon and a countdown.</summary>
+    /// <summary>HUD-only CC markers with no stats; the control itself lives in
+    /// <see cref="canrpgclasses.Core.Control.ControlState"/>.</summary>
     public static class ControlEffectIds
     {
         public const string Stunned = "canrpg_cc_stunned";

@@ -10,11 +10,8 @@ using canrpgclasses.Core.Talents;
 
 namespace canrpgclasses.Core.EB
 {
-    /// <summary>
-    /// Server-side talent authority: validates and writes talent ranks (synced via WatchedAttributes)
-    /// and (re)applies all stat-modifier talents. Combat/hook talents read ranks live via
-    /// <see cref="TalentState.Rank"/>. The current class is stored here too; switching class respecs.
-    /// </summary>
+    /// <summary>Server talent authority: writes ranks and applies stat talents. Hook talents read ranks live via
+    /// <see cref="TalentState.Rank"/>. Switching class respecs.</summary>
     public class EBTalents : EntityBehavior
     {
         public const string Name = "canrpgtalents";
@@ -28,15 +25,13 @@ namespace canrpgclasses.Core.EB
         public override void Initialize(EntityProperties properties, JsonObject attributes)
         {
             base.Initialize(properties, attributes);
-            // Re-apply on both sides whenever the synced ranks change, so client-side prediction
-            // (e.g. walkspeed) matches the server. Writes still happen server-side only.
+            // Applied on both sides so client prediction (e.g. walkspeed) matches the server.
             entity.WatchedAttributes.RegisterModifiedListener(TalentState.RanksKey, ApplyStatTalents);
             entity.WatchedAttributes.RegisterModifiedListener("stats", OnStatsModified);
             ApplyStatTalents();
         }
 
-        // Attributes also move outside this pass (a buff, a worn item, an admin edit), and every such change marks
-        // "stats" dirty - so one listener replaces polling. Our own payouts write stats too, hence the guard.
+        // Attributes also change outside this pass (buffs, gear) and mark "stats" dirty; the guard skips our own writes.
         private bool applyingStats;
         private int lastAttributeSignature;
         private bool signatureKnown;
@@ -47,7 +42,7 @@ namespace canrpgclasses.Core.EB
 
             int sig = Attributes.AttributeStats.Signature(entity);
             if (signatureKnown && sig == lastAttributeSignature) return;
-            // Recorded before the pass too, so an entity the pass bails on doesn't re-enter on every stat write.
+            // Recorded before the pass so an entity the pass bails on doesn't re-enter on every stat write.
             lastAttributeSignature = sig;
             signatureKnown = true;
             ApplyStatTalents();
@@ -74,7 +69,7 @@ namespace canrpgclasses.Core.EB
             if (!IsServer) return;
             entity.WatchedAttributes.RemoveAttribute(TalentState.RanksKey);
             entity.WatchedAttributes.MarkPathDirty(TalentState.RanksKey);
-            entity.WatchedAttributes.SetString(EBAuras.ActiveKey, ""); // drop any active aura (esp. on class switch)
+            entity.WatchedAttributes.SetString(EBAuras.ActiveKey, "");
             ApplyStatTalents();
         }
 
@@ -85,10 +80,8 @@ namespace canrpgclasses.Core.EB
             Respec();
         }
 
-        /// <summary>Respec, then re-spend points to match a saved build. Each point goes through the normal
-        /// <see cref="TrySpend"/> validation (tier gates, prerequisites, available points), and we loop greedily so
-        /// lower tiers unlock higher ones regardless of array order. Talents for another class are ignored. If the
-        /// player has fewer points than the build needs, it applies as far as it can.</summary>
+        /// <summary>Respecs, then re-spends via <see cref="TrySpend"/> to match a saved build. Loops greedily so lower
+        /// tiers unlock higher ones regardless of order; applies as far as available points allow.</summary>
         public void ApplyLoadout(string[]? ids, int[]? ranks)
         {
             if (!IsServer || ids == null || ranks == null || ids.Length != ranks.Length) return;
@@ -146,11 +139,9 @@ namespace canrpgclasses.Core.EB
             }
         }
 
-        /// <summary>Public hook: re-apply stat talents (e.g. after the client receives a balance-config sync,
-        /// so client-side prediction uses the server's per-rank numbers).</summary>
+        /// <summary>E.g. after a client balance-config sync, so prediction uses the server's numbers.</summary>
         public void ReapplyStatTalents() => ApplyStatTalents();
 
-        /// <summary>Re-applies every stat talent at its current rank (rank 0 clears that talent's stat source).</summary>
         private void ApplyStatTalents()
         {
             if (applyingStats) return; // our own writes come back through the "stats" listener
@@ -168,8 +159,7 @@ namespace canrpgclasses.Core.EB
                 t.ApplyStats(agent, TalentState.Rank(entity, t.Id));
             }
 
-            // Tree mastery (spec scaling): each point invested in a tree grants a stat, data-driven per class.
-            // A stat is keyed uniquely per (tree, stat) so several masteries - even on the same stat - stack.
+            // Tree mastery: keyed per (tree, stat) so several masteries on the same stat stack.
             var cls = mod.Classes.Get(TalentState.CurrentClass(entity));
             if (cls != null)
             {
@@ -182,8 +172,7 @@ namespace canrpgclasses.Core.EB
                 foreach (var (stat, val) in cls.BaseStats)
                     agent.SetStatIfChanged(stat, ClassBaseSource(stat), val);
 
-                // Per-level stats, "level - 1" as everywhere else. HpPerLevel is the maxhealth shorthand;
-                // StatsPerLevel is how a class hands out attribute points.
+                // Per-level stats use "level - 1" as everywhere else.
                 int levels = Math.Max(0, (entity.GetBehavior<EBProgression>()?.Level ?? 1) - 1);
                 if (cls.HpPerLevel > 0f)
                     agent.SetStatIfChanged(StatKeys.MaxHealthExtraPoints, "canrpglevelhealth", cls.HpPerLevel * levels);
@@ -191,19 +180,15 @@ namespace canrpgclasses.Core.EB
                     agent.SetStatIfChanged(stat, LevelStatSource(stat), perLevel * levels);
             }
 
-            // A class switch must not leave the previous class's grants behind.
             ClearForeignClassStats(agent, mod, cls);
 
-            // Attributes last: their payouts read the totals written above. Runs without a class too - talents
-            // and gear can feed an attribute on their own.
+            // Attributes last: their payouts read the totals written above. Runs without a class too.
             Attributes.AttributeStats.Apply(agent, TalentState.CurrentClass(entity),
                 entity.GetBehavior<EBProgression>()?.Level ?? 1);
             lastAttributeSignature = Attributes.AttributeStats.Signature(entity);
             signatureKnown = true;
 
-            // maxhealthExtraPoints (toughness/guardian) is cached by EntityBehaviorHealth - setting the stat
-            // doesn't recompute MaxHealth on its own, so the new HP never shows (esp. on the client). Other
-            // stats (melee damage, walkspeed…) are read live via GetBlended and need no nudge. Recompute here.
+            // EntityBehaviorHealth caches maxhealthExtraPoints and won't recompute MaxHealth on its own.
             entity.GetBehavior<EntityBehaviorHealth>()?.MarkDirty();
         }
     }

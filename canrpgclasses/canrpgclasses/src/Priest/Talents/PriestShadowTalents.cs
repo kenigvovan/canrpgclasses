@@ -125,8 +125,7 @@ namespace canrpgclasses.Priest.Talents
         }
         public override DamageModifier? DamageModifier => (Entity victim, Entity? attacker, DamageSource source, ref float damage) =>
         {
-            // Only our shadow-school spell damage leeches (SW:Pain / Devouring / Mind Shock). Heals are plain
-            // Internal DamageSources, so this can't re-enter off its own self-heal below.
+            // Only our shadow spell damage leeches. The self-heal is a plain DamageSource, so it can't re-enter here.
             if (damage <= 0f || attacker == null
                 || source is not canrpgclasses.Core.Spells.CanrpgDamageSource cds || cds.School != SpellSchool.Shadow) return;
             int rank = TalentState.Rank(attacker, Id);

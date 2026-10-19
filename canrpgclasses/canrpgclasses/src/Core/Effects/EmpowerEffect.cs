@@ -2,11 +2,8 @@ using effectshud.src;
 
 namespace canrpgclasses.Core.Effects
 {
-    /// <summary>
-    /// Ids for the cosmetic "empowered next strike" HUD buffs - one per arming spell, because effectshud derives
-    /// the type id from the [EffectRegistration] attribute and a shared class could only show one icon. The
-    /// shared <see cref="Prefix"/> is what lets them be stripped in bulk when the empowered hit lands.
-    /// </summary>
+    /// <summary>HUD-only "empowered next strike" buffs, one class per spell since effectshud takes the id from
+    /// [EffectRegistration]. The shared <see cref="Prefix"/> allows bulk strip when the hit lands.</summary>
     public static class EmpowerEffectIds
     {
         public const string Prefix = "canrpg_empower_";
@@ -17,8 +14,7 @@ namespace canrpgclasses.Core.Effects
         public static bool IsEmpowerEffect(string id) => id != null && id.StartsWith(Prefix, System.StringComparison.Ordinal);
     }
 
-    // Cosmetic only - the bonus itself lives in the caster's WatchedAttributes. These carry no stats; they just
-    // surface the window as a HUD buff with a countdown.
+    // No stats; the bonus itself lives in the caster's WatchedAttributes.
     [EffectRegistration(EmpowerEffectIds.ZealotsStrike)]
     public class ZealotsStrikeEmpowerEffect : Effect { }
 
@@ -29,8 +25,7 @@ namespace canrpgclasses.Core.Effects
     [EffectRegistration(EmpowerEffectIds.Prefix + "brutal_strike")] public class BrutalStrikeEmpowerEffect : Effect { }
     [EffectRegistration(EmpowerEffectIds.Prefix + "death_blow")]    public class DeathBlowEmpowerEffect : Effect { }
 
-    // Hunter "next bow shot is empowered" buffs. The bonus lives in WatchedAttributes, armed by HunterShots and
-    // consumed on the arrow's hit.
+    // Hunter next-shot buffs, armed by HunterShots and consumed on the arrow's hit.
     [EffectRegistration(EmpowerEffectIds.Prefix + "measured_shot")]  public class MeasuredShotEmpowerEffect : Effect { }
     [EffectRegistration(EmpowerEffectIds.Prefix + "finishing_shot")] public class FinishingShotEmpowerEffect : Effect { }
     [EffectRegistration(EmpowerEffectIds.Prefix + "careful_shot")]   public class CarefulShotEmpowerEffect : Effect { }

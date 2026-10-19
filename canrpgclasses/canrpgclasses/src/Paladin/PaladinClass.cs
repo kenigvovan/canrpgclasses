@@ -15,9 +15,8 @@ namespace canrpgclasses.Paladin
             TreeNames = new[] { "Holy", "Protection", "Retribution" };
             IconName = "holy-grail";
 
-            // Available from level 1; the rest of the kit is unlocked by talents. The three Auras are the class's
-            // signature level-1 toggles (like the warrior's Stances / hunter's pet - one active at a time), so the
-            // paladin has something to manage and a builder->spender loop is fleshed out from the very start.
+            // Level-1 kit; the rest comes from talents. The three Auras are exclusive toggles, and a Holy Power
+            // builder and spender are in from the start.
             BaseSpells = new[]
             {
                 "canrpgclasses:zealots_strike", "canrpgclasses:blessed_light",

@@ -2,8 +2,7 @@ using canrpgclasses.Core.Spells;
 
 namespace canrpgclasses.Shaman.Spells
 {
-    /// <summary>Lands far harder on a target burning under Ember Shock, and unlike the mage's Ice Shard it does not
-    /// consume the burn - one Ember Shock feeds every Magma Burst for its whole duration.</summary>
+    /// <summary>Bonus vs Ember Shock; unlike Ice Shard it doesn't consume the burn.</summary>
     [SpellRegistration("canrpgclasses:magma_burst")]
     public class MagmaBurstSpell : Spell
     {

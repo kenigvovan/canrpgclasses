@@ -11,9 +11,7 @@ namespace canrpgclasses.Core.Talents
     {
         private readonly Dictionary<string, Talent> talents = new Dictionary<string, Talent>();
 
-        // Precomputed lookups so the per-class / per-tree queries below don't LINQ-scan the whole talent set
-        // (all classes) and allocate a Where-closure on every call. ForClass runs on the per-player resource
-        // tick, so it must be allocation-free. Rebuilt whenever the talent set changes (ScanAssembly).
+        // Precomputed so ForClass (called on the per-player resource tick) stays allocation-free.
         private static readonly Talent[] Empty = Array.Empty<Talent>();
         private Dictionary<string, Talent[]> byClass = new();
         private Dictionary<string, Talent[]> byClassTree = new();
@@ -36,16 +34,13 @@ namespace canrpgclasses.Core.Talents
             logger?.Notification("[canrpgclasses] {0} talent(s) registered", talents.Count);
         }
 
-        /// <summary>Registers one talent built at runtime rather than discovered by attribute - the JSON content
-        /// loader's way in. Registration is by id, so a later call replaces an earlier talent of the same id.
-        /// Call <see cref="RebuildDerived"/> once after a batch.</summary>
+        /// <summary>Registers a runtime-built (JSON) talent, replacing any with the same id. Call <see cref="RebuildDerived"/> after a batch.</summary>
         public void Register(Talent talent)
         {
             if (talent != null && !string.IsNullOrEmpty(talent.Id)) talents[talent.Id] = talent;
         }
 
-        /// <summary>Republishes the combat-hook registries and the per-class caches from the current talent set.
-        /// Separate from the scan so JSON content can be registered in between.</summary>
+        /// <summary>Republishes combat hooks and per-class caches; separate from the scan so JSON content can register first.</summary>
         public void RebuildDerived()
         {
             // Hook talents expose a DamageModifier and/or OnMeleeHit, run by the damage patch and DidAttack.
@@ -80,8 +75,7 @@ namespace canrpgclasses.Core.Talents
         public Talent? Get(string id) => id != null && talents.TryGetValue(id, out var t) ? t : null;
         public bool TryGet(string id, out Talent talent) => talents.TryGetValue(id, out talent!);
 
-        // Returns the cached array directly (not a copy) - callers only read it. foreach over a T[] is
-        // allocation-free, unlike foreach over IEnumerable/IReadOnlyList.
+        // Returns the cached array itself (callers only read); foreach over T[] doesn't allocate.
         public Talent[] ForClass(string classId)
             => classId != null && byClass.TryGetValue(classId, out var list) ? list : Empty;
         public Talent[] ForClassTree(string classId, int treeIndex)

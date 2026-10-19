@@ -16,9 +16,8 @@ namespace canrpgclasses.Druid.Spells
             CastMode = CastMode.Instant;
             BypassesFormLock = true;
             RequiresForm = DruidEffectIds.FelineFormSpellId;
-            // Shared cooldown group acting as a GCD for the cat kit: the abilities cost no mana, so without it they
-            // would be castable every frame, and alternating two of them would bypass any per-spell cooldown.
-            // Abilities with their own cooldown (Stalk) opt out by resetting the group to their own key.
+            // Shared group acts as a GCD: without it, alternating two abilities would bypass per-spell cooldowns.
+            // Stalk opts out by clearing the group.
             Cost.Cooldown.Group = "canrpgclasses:druid_cat_gcd";
         }
     }
@@ -134,13 +133,12 @@ namespace canrpgclasses.Druid.Spells
             DisplayName = "Stalk"; IconName = "cloudy-fork"; Tier = 2;
             Target.Type = TargetType.Caster; Target.Affinity = TargetAffinity.Ally;
             float dur = b.F("stealthDuration", 12f);
-            // The actual invisibility: a break-on-attack invis effect (hides the model + shows the HUD buff). Without
-            // this impact the stealth window opens but nothing hides you. Same effect the rogue's Stealth applies.
+            // The window alone hides nothing; this impact applies the actual invisibility (same as rogue Stealth).
             Impacts.Add(SpellImpact.Invisibility(dur));
-            OpensStealthWindowSeconds = dur;   // re-stealth timer + "attack reveals you, full lockout" gate
-            RequiresOutOfCombat = true;        // an opener, not a mid-fight escape (like the rogue's Stealth)
+            OpensStealthWindowSeconds = dur;   // attacking inside it rewrites the cooldown to the full lockout
+            RequiresOutOfCombat = true;        // an opener, not a mid-fight escape
             DescArgs = new object[] { (int)dur };
-            Cost.Cooldown.Group = ""; // own cooldown (not the shared cat GCD), so Stalk's 8s doesn't lock the rotation
+            Cost.Cooldown.Group = ""; // keep Stalk's cooldown off the shared cat GCD
             ConfigureCost(defResource: 0f, defCooldown: b.F("cooldown", 8f)); // shorter than the stealth so re-prowling is seamless
         }
     }

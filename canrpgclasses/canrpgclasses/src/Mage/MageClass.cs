@@ -16,13 +16,13 @@ namespace canrpgclasses.Mage
             TreeNames = new[] { "Fire", "Frost", "Arcane" };
             IconName = "magic-palm";
 
-            // Available from level 1; the rest of the kit is unlocked by talents. Ice Bolt is the starter nuke,
-            // Flicker the escape, and the three Mage Armors are the class's signature level-1 toggles (like warrior
-            // Stances / priest Shadow Guise - one active at a time).
+            // Level-1 kit; the rest comes from talents. The three guards are exclusive toggles, like warrior stances.
             BaseSpells = new[]
             {
                 "canrpgclasses:ice_bolt", "canrpgclasses:flicker",
-                "canrpgclasses:mystic_guard", "canrpgclasses:frost_guard", "canrpgclasses:molten_guard"
+                "canrpgclasses:mystic_guard", "canrpgclasses:frost_guard", "canrpgclasses:molten_guard",
+                "canrpgclasses:mage_gate", "canrpgclasses:portal_anchor", "canrpgclasses:waypoint",
+                "canrpgclasses:feather_fall"
             };
 
             string[] heavyArmor = { "plate", "chain", "scale", "brigandine", "lamellar" };

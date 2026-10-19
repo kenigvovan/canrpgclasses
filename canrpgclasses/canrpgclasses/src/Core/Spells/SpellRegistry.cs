@@ -5,11 +5,7 @@ using Vintagestory.API.Common;
 
 namespace canrpgclasses.Core.Spells
 {
-    /// <summary>
-    /// Discovers and stores spell instances. One instance per spell type is created at load time and
-    /// shared (spells are immutable config, runtime state lives on entity behaviors).
-    /// Scan pattern mirrors effectshud's <c>ScanAndRegisterEffects</c>.
-    /// </summary>
+    /// <summary>One shared instance per spell type; spells are immutable config, runtime state lives on entity behaviors.</summary>
     public class SpellRegistry
     {
         private readonly Dictionary<string, Spell> spells = new Dictionary<string, Spell>();
@@ -17,9 +13,7 @@ namespace canrpgclasses.Core.Spells
         public IReadOnlyDictionary<string, Spell> All => spells;
         public int Count => spells.Count;
 
-        /// <summary>Stash effect ids of spells whose stash stacks are consumed on a landed melee hit
-        /// (slice_and_dice style: StashEffectId + a MeleeImpact stash trigger). Precomputed at scan so the
-        /// per-swing trigger (EBSpellCaster.DidAttack) doesn't rescan every registered spell on every hit.</summary>
+        /// <summary>Stash effects consumed on a landed melee hit, precomputed so DidAttack doesn't scan every spell per swing.</summary>
         public IReadOnlyList<string> MeleeStashEffectIds => meleeStashEffectIds;
         private volatile List<string> meleeStashEffectIds = new List<string>();
 
@@ -46,20 +40,15 @@ namespace canrpgclasses.Core.Spells
             RebuildDerived();
         }
 
-        /// <summary>Registers one spell built at runtime rather than discovered by attribute - the JSON content
-        /// loader's way in. Registration is by id, so a later call replaces an earlier spell of the same id.
-        /// Call <see cref="RebuildDerived"/> once after a batch.</summary>
+        /// <summary>Registers a runtime-built (JSON) spell, replacing any with the same id. Call <see cref="RebuildDerived"/> after a batch.</summary>
         public void Register(Spell spell)
         {
             if (spell != null && !string.IsNullOrEmpty(spell.Id)) spells[spell.Id] = spell;
         }
 
-        /// <summary>Recomputes the lookups derived from the spell set. Separate from the scan so JSON content can
-        /// be registered in between.</summary>
         public void RebuildDerived()
         {
-            // Rebuild-then-swap so a concurrent per-swing reader never sees a half-built list - the same
-            // volatile-swap pattern as DamageModifiers.
+            // Build then swap, so a concurrent per-swing reader never sees a half-built list.
             var melee = new List<string>();
             foreach (var spell in spells.Values)
             {

@@ -4,10 +4,7 @@ using Vintagestory.API.MathTools;
 
 namespace canrpgclasses.Core.Spells
 {
-    /// <summary>
-    /// Per-spell visual: a particle burst at an impact point, emitted server-side so it reaches every nearby
-    /// client. Self-contained, so a spell file tweaks colour/amount/spread without touching the spawn code.
-    /// </summary>
+    /// <summary>Per-spell particle burst, emitted server-side so every nearby client sees it.</summary>
     public class ParticleSpec
     {
         public int ColorA = 200, ColorR = 255, ColorG = 255, ColorB = 255;
@@ -58,9 +55,7 @@ namespace canrpgclasses.Core.Spells
             world.SpawnParticles(p);
         }
 
-        /// <summary>Emits the burst spread over a horizontal DISC (a circular carpet) centred on <paramref name="center"/>,
-        /// instead of a square box - for round AoE zones (Hallowed Ground). Particles are placed with area-uniform polar
-        /// sampling (r = radius·√u) so they don't bunch up in the middle.</summary>
+        /// <summary>Emits over a horizontal disc for round AoE zones; r = radius*sqrt(u) keeps the spread area-uniform.</summary>
         public void EmitDisc(IWorldAccessor world, Vec3d center, float radius)
         {
             if (world == null || radius <= 0f) return;

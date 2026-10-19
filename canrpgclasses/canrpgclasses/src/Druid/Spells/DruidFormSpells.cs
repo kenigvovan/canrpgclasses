@@ -2,9 +2,8 @@ using canrpgclasses.Core.Spells;
 
 namespace canrpgclasses.Druid.Spells
 {
-    /// <summary>Base for a druid shapeshift toggle: a free, self-only <see cref="ImpactAction.ToggleAura"/> that
-    /// enters/leaves a form (mutually exclusive via the single ActiveAura slot, like the warrior's Stances). Bypasses
-    /// the form-lock so you can always shift back out; a short shared cooldown stops form-flickering.</summary>
+    /// <summary>Shapeshift toggle via <see cref="ImpactAction.ToggleAura"/>; forms are exclusive through the single
+    /// ActiveAura slot. A short shared cooldown stops form-flickering.</summary>
     public abstract class DruidFormSpell : Spell
     {
         protected DruidFormSpell(string effectId, string display, string icon, bool locksActions = true)

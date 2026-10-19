@@ -1,0 +1,8 @@
+{
+	"_comment": "XP multipliers per entity code, applied on top of maxhealth * xpPerHealth. Wildcards work (game:locust-*); the longest matching pattern wins, anything unmatched is worth 1. A server overrides or adds entries in ModConfig/canrpgclasses-xp.json, which is written with these values on first start, without editing the mod. The level-difference falloff (xpLevelGrace, xpLevelFalloffPerLevel, xpLevelMinFactor) lives in core.json globals.",
+
+	"multipliers": {
+		"game:locust-*": 0.25,
+		"game:drifter-*": 0.5
+	}
+}

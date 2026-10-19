@@ -13,11 +13,8 @@ using EffectBase = effectshud.src.Effect;
 
 namespace canrpgclasses.Core.EB
 {
-    /// <summary>
-    /// Server-side aura ticker (paladin stances): keeps an infinite effectshud effect on the caster and nearby
-    /// party allies, removed when they leave range or the aura toggles off. On the first tick after (re)load each
-    /// player wipes leftover aura effects, so logging out under an aura can't leave a phantom buff.
-    /// </summary>
+    /// <summary>Server aura ticker: keeps an infinite effect on the caster and nearby party allies. The first tick
+    /// after load wipes leftover aura effects so a relog can't leave a phantom buff.</summary>
     public class EBAuras : EntityBehavior
     {
         public const string Name = "canrpgauras";
@@ -61,12 +58,11 @@ namespace canrpgclasses.Core.EB
             if (appliedEffectId != null && appliedEffectId != effectId) ClearAll();
             appliedEffectId = effectId;
 
-            // Upkeep: drain the caster's primary resource for the elapsed interval. If the pool can't cover it,
-            // switch the aura off (mirrors ApplyToggleAura: clear the synced flag) and strip everyone's buff.
+            // Upkeep from the primary pool; switch the aura off if it can't be paid.
             if (aura.AuraUpkeepPerSecond > 0f)
             {
                 var pool = ResourceState.PrimaryPool(self);
-                // Talents reduce upkeep, but the cap keeps a stance from ever being free.
+                // Capped so a stance is never free.
                 float reduction = System.Math.Clamp(self.ReductionStat(StatKeys.AuraUpkeepReduction), 0f,
                     BalanceConfig.Global("auraUpkeepReductionCap", 0.9f));
                 float cost = aura.AuraUpkeepPerSecond * TickInterval * (1f - reduction);
@@ -84,11 +80,8 @@ namespace canrpgclasses.Core.EB
 
             var current = new HashSet<long>();
             current.Add(self.EntityId);
-            // Don't trust the in-memory `buffed` set alone - verify the effect is ACTUALLY on the caster. If an apply
-            // silently failed (or a deserialized effect vanished across a relog), `buffed` would claim it's there and
-            // this ticker would never re-apply, leaving a live aura (ActiveAura set, gates working) with no effect
-            // doing the work (no stats, no form model, no lock re-assert). Checking the behavior each tick self-heals
-            // that within 0.5s.
+            // Verify the effect is really on the caster, not just in `buffed`: a failed apply or an effect lost on
+            // relog would otherwise leave a live aura doing nothing.
             bool selfHasEffect = self.GetBehavior<EBEffects>()?.HasEffect(effectId) ?? false;
             if (!buffed.Contains(self.EntityId) || !selfHasEffect) Apply(self, effectId);
 
@@ -98,7 +91,7 @@ namespace canrpgclasses.Core.EB
                 {
                     double dx = e.Pos.X - center.X, dz = e.Pos.Z - center.Z;
                     if (dx * dx + dz * dz > radius * radius) continue;   // round aura, not the square box
-                    if (!SpellExecutor.IsAlly(self, e)) continue;        // party members only
+                    if (!SpellExecutor.IsAlly(self, e)) continue;
                     current.Add(e.EntityId);
                     if (!buffed.Contains(e.EntityId)) Apply(e, effectId);
                 }
@@ -118,19 +111,14 @@ namespace canrpgclasses.Core.EB
             var effMod = entity.Api.ModLoader.GetModSystem<EffectsHud>();
             if (effMod?.effects == null || !effMod.effects.TryGetValue(effectId, out var type))
             {
-                // A missing registration would otherwise no-op silently while the ticker marks the target as buffed.
                 entity.Api.Logger.Warning("[canrpgclasses] EBAuras.Apply: effect '{0}' not in the effectshud registry - aura does nothing", effectId);
                 return;
             }
             if (System.Activator.CreateInstance(type) is not EffectBase eff) return;
-            // Aura-improvement talents (Zealous Faith / Aura of Refuge / Retribution Vengeance): let the effect
-            // bake the caster's stats into itself, so the boosted aura reaches every recipient (the effect runs on the
-            // ally and can't read the caster's talents itself). Baked at apply time - a rank change while the aura is
-            // running takes effect on the next re-application (retoggle / leave-and-reenter range). Adding a new aura
-            // buff = a new stat + BakeFromCaster override; this ticker stays generic.
+            // Baked at apply time; a talent rank change applies on the next re-application.
             (eff as AuraEffectBase)?.BakeFromCaster(entity);
             eff.infinite = true;
-            eff.SetExpiryInGameDays(9999); // far-future + ExpireTick=MaxValue → persists, is sent to the client, HUD "∞"
+            eff.SetExpiryInGameDays(9999); // far-future expiry so it persists, syncs to the client and shows as infinite
             EffectsHud.ApplyEffectOnEntity(target, eff);
         }
 
@@ -140,7 +128,6 @@ namespace canrpgclasses.Core.EB
                 eff?.SetExpiryImmediately();
         }
 
-        /// <summary>Strip our aura effect from everyone we were buffing (aura off / switched / caster despawn).</summary>
         private void ClearAll()
         {
             if (appliedEffectId != null)
@@ -153,16 +140,14 @@ namespace canrpgclasses.Core.EB
             appliedEffectId = null;
         }
 
-        /// <summary>Expire every aura-prefixed effect on one entity (first-tick relog cleanup on self).</summary>
+        /// <summary>Relog cleanup: expire every aura-prefixed effect on the entity.</summary>
         private static void ClearAuraEffects(Entity e)
         {
             var beh = e.GetBehavior<EBEffects>();
             if (beh?.activeEffects == null) return;
             var toExpire = new List<EffectBase>();
             foreach (var kv in beh.activeEffects)
-                // A model-swap form (Spirit Wolf) must SURVIVE relog: expiring it here fires OnExpire -> Restore, which
-                // reverts the model, and the re-apply races that Restore. Leave it be - it re-asserts itself each tick
-                // (SpiritWolfAuraEffect.OnTick) and the aura ticker refreshes it via OnStack.
+                // Keep model-swap forms (Spirit Wolf): expiring fires Restore, which races the re-apply.
                 if (AuraEffectIds.IsAuraEffect(kv.Key) && kv.Value != null && kv.Value is not IModelSwapEffect)
                     toExpire.Add(kv.Value);
             foreach (var ef in toExpire) ef.SetExpiryImmediately();

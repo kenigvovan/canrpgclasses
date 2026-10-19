@@ -40,8 +40,7 @@ namespace canrpgclasses.Hunter.Talents
             => e.Stats.Set(StatKeys.RangedWeaponsDamage, "canrpgtalent_bowexpertise", perRank * rank);
     }
 
-    // Hook talent: bonus damage against distant targets. The distance gate naturally makes this a ranged-only
-    // perk (melee attackers stand on top of their target). Read in the ReceiveDamage pipeline (DamageModifiers).
+    // The distance gate is what makes this ranged-only.
     [TalentRegistration("hunter:deadeye")]
     public class DeadeyeTalent : Talent
     {
@@ -87,9 +86,7 @@ namespace canrpgclasses.Hunter.Talents
         }
     }
 
-    // Hook talent: landing a hit with a real vanilla bow (an arrow) builds a combo point, so the hunter can
-    // feed Finishing Shot by shooting normally, not only via Measured Shot. Excludes our own spell projectiles (they
-    // already grant combo as builders) to avoid double-counting.
+    // Lets plain bow shots feed Finishing Shot. Spell projectiles are excluded since builders already grant combo.
     [TalentRegistration("hunter:bow_combo")]
     public class BowComboTalent : Talent
     {
@@ -102,7 +99,6 @@ namespace canrpgclasses.Hunter.Talents
         {
             if (damage <= 0f || attacker == null || victim == attacker) return;
             if (TalentState.Rank(attacker, Id) <= 0) return;
-            // Only a real thrown/shot projectile that isn't one of our own spell shots (a vanilla arrow).
             if (source.SourceEntity is not EntityProjectile proj || proj is EntitySpellProjectile) return;
             if (SpellExecutor.IsAlly(attacker, victim)) return;
             ResourceState.AddCombo(attacker, 1);
@@ -142,7 +138,7 @@ namespace canrpgclasses.Hunter.Talents
         }
     }
 
-    // Hook talent, gated on vanilla arrows the same way BowComboTalent is.
+    // Vanilla arrows only, same gate as BowComboTalent.
     [TalentRegistration("hunter:precise_aim")]
     public class PreciseAimTalent : Talent
     {
@@ -161,7 +157,6 @@ namespace canrpgclasses.Hunter.Talents
             if (damage <= 0f || attacker == null || victim == attacker) return;
             int rank = TalentState.Rank(attacker, Id);
             if (rank <= 0) return;
-            // Only a real thrown/shot projectile that isn't one of our own spell shots (a vanilla arrow).
             if (source.SourceEntity is not EntityProjectile proj || proj is EntitySpellProjectile) return;
             if (SpellExecutor.IsAlly(attacker, victim)) return;
             if (attacker.World.Rand.NextDouble() < chancePerRank * rank)
@@ -169,7 +164,7 @@ namespace canrpgclasses.Hunter.Talents
         };
     }
 
-    // Skill augment (marker read by HunterShots.ApplyArm): Split Shot looses extra arrows on top of its fan.
+    // Marker read by HunterShots.ApplyArm.
     [TalentRegistration("hunter:bank_shot")]
     public class BankShotTalent : Talent
     {

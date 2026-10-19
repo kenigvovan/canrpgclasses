@@ -6,15 +6,11 @@ using Vintagestory.API.Server;
 
 namespace canrpgclasses.Core.Classes
 {
-    /// <summary>
-    /// Config-driven gate on which RPG class a player may pick, keyed on vanilla class and race. The client gets
-    /// a copy so the picker can grey out refusals; <see cref="ClassChange.TryChange"/> re-checks and stays the
-    /// authority.
-    /// </summary>
+    /// <summary>Config gate on which RPG class a player may pick, by vanilla class and race. The client copy only
+    /// greys out the picker; <see cref="ClassChange.TryChange"/> is the authority.</summary>
     public static class ClassRestrictions
     {
-        /// <summary>Failure reasons handed to <see cref="ClassChange.TryChange"/>; lang key suffixes under
-        /// <c>canrpgclasses:classchange-</c>. Two of them, so the player is told what blocked the pick.</summary>
+        /// <summary>Lang key suffixes under <c>canrpgclasses:classchange-</c>.</summary>
         public const string ReasonClass = "vanilla-restricted";
         public const string ReasonRace = "race-restricted";
 
@@ -28,8 +24,7 @@ namespace canrpgclasses.Core.Classes
         private sealed class Rules
         {
             public bool Enabled;
-            // Either axis can be switched off on its own: a server may want race gating without touching what
-            // the vanilla character classes may become, or the reverse.
+            // Each axis can be switched off on its own.
             public bool VanillaClassRulesEnabled = true;
             public bool RaceRulesEnabled = true;
             public bool AllowWhenVanillaUnknown = true;
@@ -49,8 +44,7 @@ namespace canrpgclasses.Core.Classes
             public HashSet<string> DenyRace = new(StringComparer.OrdinalIgnoreCase);
         }
 
-        // Immutable after publish, swapped atomically - same discipline as BalanceConfig's store, since the
-        // client and server sides of a singleplayer process share these statics.
+        // Immutable after publish and swapped atomically: singleplayer client and server share these statics.
         private static volatile Rules current = new Rules();
 
         public static bool Enabled => current.Enabled;
@@ -59,8 +53,7 @@ namespace canrpgclasses.Core.Classes
         public static string VanillaClassOf(Entity? e) =>
             e?.WatchedAttributes?.GetString(VanillaClassAttr, "") ?? "";
 
-        /// <summary>The player's race - their own PlayerModelLib model code, not the form they are currently
-        /// rendered as. "seraph" (the default model) when that mod isn't installed.</summary>
+        /// <summary>The player's own PlayerModelLib model code (not a shapeshift form); "seraph" without that mod.</summary>
         public static string RaceOf(Entity? e) => Integration.PlayerModelSwap.BaseModelOf(e);
 
         /// <summary>Whether <paramref name="rpgClassId"/> is a legal pick for this player. Works on either
@@ -77,15 +70,12 @@ namespace canrpgclasses.Core.Classes
             // Skipped for a player who hasn't picked a vanilla class yet, when the config allows that.
             bool checkVanilla = r.VanillaClassRulesEnabled && (vanilla.Length > 0 || !r.AllowWhenVanillaUnknown);
 
-            // "What may this vanilla class become" - a specific entry replaces the "*" default entirely.
             if (checkVanilla && !Passes(r.ByVanilla, vanilla, rpgClassId)) { reason = ReasonClass; return false; }
 
-            // "What may this race become". Race is always known (it falls back to the default model), so this
-            // half needs no equivalent of the unknown-vanilla-class escape above.
+            // Race is always known (falls back to the default model), so no unknown escape here.
             if (r.RaceRulesEnabled && !Passes(r.ByRace, race, rpgClassId)) { reason = ReasonRace; return false; }
 
-            // "Who may become this RPG class" - the same two axes stated from the class's side, and gated by the
-            // same two switches.
+            // The same two axes stated from the RPG class's side.
             if (r.ByRpg.TryGetValue(rpgClassId, out var c))
             {
                 if (checkVanilla)
@@ -103,9 +93,8 @@ namespace canrpgclasses.Core.Classes
             return true;
         }
 
-        /// <summary>One allow/deny table: the entry for <paramref name="key"/>, or the <c>"*"</c> default when it
-        /// has none of its own (a specific entry replaces the default rather than stacking, so exceptions work).
-        /// An empty allow list means "no whitelist", not "nothing allowed".</summary>
+        /// <summary>A specific entry replaces the <c>"*"</c> default rather than stacking. An empty allow list
+        /// means no whitelist.</summary>
         private static bool Passes(Dictionary<string, (HashSet<string> Allow, HashSet<string> Deny)> table,
             string key, string rpgClassId)
         {
@@ -115,9 +104,8 @@ namespace canrpgclasses.Core.Classes
             return true;
         }
 
-        /// <summary>Server side, once at startup. Reads (and, when absent, writes a disabled-by-default
-        /// template of) the mod-config file. A broken file leaves the feature off rather than locking players
-        /// out of picking a class at all.</summary>
+        /// <summary>Server startup: reads the config, writing a disabled template if absent. A broken file leaves
+        /// the feature off rather than locking players out.</summary>
         public static void LoadServer(ICoreServerAPI api)
         {
             Model? model = null;
@@ -174,8 +162,7 @@ namespace canrpgclasses.Core.Classes
             current = next;
         }
 
-        /// <summary>Server -> client payload: the live rules as JSON. Sent on join so the class picker can
-        /// grey out what the server would refuse.</summary>
+        /// <summary>Server -> client payload: the live rules as JSON, sent on join.</summary>
         public static string Serialize()
         {
             var r = current;
@@ -200,8 +187,7 @@ namespace canrpgclasses.Core.Classes
             return Newtonsoft.Json.JsonConvert.SerializeObject(m);
         }
 
-        /// <summary>Client side: adopt the server's rules. A malformed payload clears them (the picker then
-        /// shows everything as available and the server refusal is the only gate) rather than throwing.</summary>
+        /// <summary>Client side: adopt the server's rules. A malformed payload clears them; the server still refuses.</summary>
         public static void ApplySerialized(string json)
         {
             Model? m;
@@ -230,8 +216,7 @@ namespace canrpgclasses.Core.Classes
             return set;
         }
 
-        // The file an admin actually edits: off by default, with the syntax explained inline (the mod-config
-        // folder has no other place to document it) and one worked example per rule direction.
+        // Off by default; syntax is documented inline since the mod-config folder has nowhere else for it.
         private static Model Template() => new Model
         {
             _comment = "Which RPG class a player may pick, based on their VANILLA character class and their RACE. Nothing is restricted until enabled=true. The two axes have their own switches on top of that: vanillaClassRulesEnabled and raceRulesEnabled - turn either off to use only the other. Vanilla class codes: commoner, hunter, malefactor, clockmaker, blackguard, tailor (plus whatever other mods add). RPG class ids: druid, hunter, mage, paladin, priest, rogue, shaman, warrior.",
@@ -247,8 +232,7 @@ namespace canrpgclasses.Core.Classes
                 [DefaultKey] = new VanillaRule { allow = new List<string>(), deny = new List<string>() },
                 ["blackguard"] = new VanillaRule { allow = new List<string>(), deny = new List<string> { "priest", "paladin" } }
             },
-            // Paladin (human/dwarf) and druid (human/elf) are the deliberately rare picks; the rest sit with three
-            // or more races, so no class is left with a single home.
+            // Paladin and druid are the deliberately rare picks; every other class has three or more races.
             byRace = new Dictionary<string, VanillaRule>
             {
                 [DefaultKey] = new VanillaRule { allow = new List<string>(), deny = new List<string>() },

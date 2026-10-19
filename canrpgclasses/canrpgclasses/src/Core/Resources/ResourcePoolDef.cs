@@ -1,9 +1,6 @@
 namespace canrpgclasses.Core.Resources
 {
-    /// <summary>
-    /// A class's primary resource pool (energy/rage/mana) - the fuel a spell's <c>Cost.Resource</c> is spent
-    /// from. The live value lives in WatchedAttributes via <see cref="ResourceState"/>.
-    /// </summary>
+    /// <summary>A class resource pool definition; the live value is in <see cref="ResourceState"/>.</summary>
     public class ResourcePoolDef
     {
         /// <summary>Stable id, also the WatchedAttributes/lang suffix, e.g. <c>energy</c>, <c>rage</c>, <c>mana</c>.</summary>

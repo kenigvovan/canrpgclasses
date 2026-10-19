@@ -21,6 +21,8 @@ namespace canrpgclasses
                 .RequiresPrivilege(Privilege.controlserver)
                 .HandleWith(OnListSpells);
 
+            RegisterPortalCommands(api);
+
             api.ChatCommands.Create("canrpgreload")
                 .WithDescription("Re-read the JSON content files and rebuild the registries, reporting any problems")
                 .RequiresPrivilege(Privilege.controlserver)
@@ -92,7 +94,7 @@ namespace canrpgclasses
                     .HandleWith(OnAttrListCommand)
                 .EndSubCommand();
 
-            // Player-usable: name your hunter pet. The name sticks on you and re-applies to every wolf you summon.
+            // Player-usable (no privilege).
             api.ChatCommands.Create("canrpgpet")
                 .WithDescription("Name your hunter pet (empty clears it)")
                 .RequiresPlayer()
@@ -151,8 +153,7 @@ namespace canrpgclasses
             return TextCommandResult.Success(name.Length == 0 ? "Pet name cleared." : $"Pet named \"{name}\".");
         }
 
-        // Resolves the command target: the named online player if given, otherwise the caller. Returns null if a name
-        // was given but no such player is online.
+        // Named online player, else the caller. Null if the named player isn't online.
         private Vintagestory.API.Common.Entities.Entity? ResolveTargetEntity(TextCommandCallingArgs args, int nameArgIndex, out string who)
         {
             string? name = args[nameArgIndex] as string;
@@ -195,8 +196,7 @@ namespace canrpgclasses
             return TextCommandResult.Success($"Class of {who} set to {id} (talents reset).");
         }
 
-        /// <summary>Admin attribute bonus, kept in its own persistent stat source so it survives a relog and never
-        /// fights the class grant or a talent.</summary>
+        /// <summary>Admin bonus in its own persistent stat source, so it survives relog and never fights other sources.</summary>
         private TextCommandResult OnAttrCommand(TextCommandCallingArgs args)
         {
             var def = Core.Attributes.RpgAttributes.Get(args[0] as string ?? "");
@@ -205,7 +205,7 @@ namespace canrpgclasses
             var target = ResolveTargetEntity(args, 2, out string who);
             if (target == null) return TextCommandResult.Error($"Player '{who}' is not online.");
 
-            // Clamped like any authored stat - a typo shouldn't send a stat somewhere nothing else expects.
+            // Clamped like any authored stat.
             const float limit = Core.Content.ContentEditGuard.MaxBaseStatMagnitude;
             float amount = (float)args[1];
             if (float.IsNaN(amount) || float.IsInfinity(amount))
@@ -296,12 +296,13 @@ namespace canrpgclasses
             return TextCommandResult.Success(sb.ToString());
         }
 
-        /// <summary>Re-reads the content files and rebuilds the registries, then hands the author their mistakes
-        /// in chat. Assets themselves are only read at startup by the engine, so this picks up edits to files that
-        /// were already loaded - for a brand-new file the world still has to be reloaded.</summary>
+        /// <summary>Rebuilds the registries and reports problems in chat. The engine only scans assets at startup,
+        /// so a brand-new file still needs a world reload.</summary>
         private TextCommandResult OnReloadContent(TextCommandCallingArgs args)
         {
             if (Api != null) Core.Attributes.RpgAttributes.Load(Api); // attribute gates are baked into content at build time
+            if (Api != null) Core.Progression.XpRules.Load(Api);
+            if (Api != null) Core.Spells.SpellSounds.Load(Api);
             RebuildRegistries(Api?.Logger);
 
             var report = LastContentReport;

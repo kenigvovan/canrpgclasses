@@ -61,9 +61,8 @@ namespace canrpgclasses.Mage
 
         public override void OnStart() => Apply();
 
-        // A fresh Mystic Blast application arrives as a new instance whose Tier the executor already computed
-        // (min(cap, current+1)). Let the base adopt the higher tier + refresh the window, then re-apply the stats
-        // at that tier under our single source key (idempotent) - OnStart doesn't run on a re-application.
+        // The incoming instance already carries min(cap, current+1); OnStart doesn't run on re-application,
+        // so re-apply the stats here.
         public override void OnStack(Effect otherEffect)
         {
             base.OnStack(otherEffect);
@@ -72,8 +71,7 @@ namespace canrpgclasses.Mage
 
         public override void OnExpire() => Clear();
 
-        // On death effectshud calls OnDeath (not OnExpire); clear the stats here too so a mage who dies at max
-        // charges doesn't keep the arcane spell-power / cost stat forever. Mirrors ChilledEffect.
+        // effectshud calls OnDeath, not OnExpire, on death - without this the stats would stick forever.
         public override bool OnDeath() { Clear(); return base.OnDeath(); }
     }
 

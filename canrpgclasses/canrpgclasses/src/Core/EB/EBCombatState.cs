@@ -4,10 +4,8 @@ using Vintagestory.API.Datastructures;
 
 namespace canrpgclasses.Core.EB
 {
-    /// <summary>
-    /// Owns expiry of the timed combat-state flags (evasion, stun, absorb, in-combat). The first tick after a
-    /// load wipes them all: deadlines are in ElapsedMilliseconds, which resets on restart.
-    /// </summary>
+    /// <summary>Expires timed combat-state flags. The first tick after load wipes them all, since deadlines are in
+    /// ElapsedMilliseconds, which resets on restart.</summary>
     public class EBCombatState : EntityBehavior
     {
         public const string Name = "canrpgcombatstate";
@@ -37,9 +35,8 @@ namespace canrpgclasses.Core.EB
             if (!cleanedOnLoad)
             {
                 cleanedOnLoad = true;
-                // A transmute model must be un-stuck, but Spirit Wolf uses the same swap and is a legitimate
-                // persistent form that EBAuras re-applies - restoring it would un-wolf a relogging shaman. Only
-                // transmute sets the flag, so gate on it, captured before the loop below clears it.
+                // Restore the model only for transmute, not Spirit Wolf (same swap, re-applied by EBAuras).
+                // Captured before the loop clears the flag.
                 bool wasPolymorphedOnLoad = wa.HasAttribute(CombatFlags.Polymorphed);
                 foreach (var (flag, until) in Timed) Remove(wa, flag, until);
                 wa.RemoveAttribute(CombatFlags.BreakOnDamageMask);
@@ -48,8 +45,7 @@ namespace canrpgclasses.Core.EB
                 canrpgclasses.Core.Control.ControlState.ClearFear(wa); // wander state isn't a (flag, until) pair
                 if (wasPolymorphedOnLoad)
                     canrpgclasses.Core.Integration.PlayerModelSwap.Restore(entity as EntityPlayer);
-                // Only an active toggle form holds the action lock, so with no aura on load it's an orphan from an
-                // abnormal session end - drop it, or the player can't attack or cast. A live form re-asserts it.
+                // With no active aura the action lock is an orphan from an abnormal session end; a live form re-asserts it.
                 if (string.IsNullOrEmpty(wa.GetString(AttrKeys.ActiveAura, "")))
                     wa.RemoveAttribute(CombatFlags.FormActionLock);
                 return;
@@ -67,11 +63,9 @@ namespace canrpgclasses.Core.EB
                     removedAny = true;
                 }
 
-            // Several Timed entries are CC flags, so keep the aggregate gate in sync when any expired.
             if (removedAny) canrpgclasses.Core.Control.ControlState.RefreshCcGate(wa);
 
-            // The three below own state that isn't a (flag, until) pair, so the generic loop can't undo it: the
-            // blind's screen effect, the fear's wander anchor, and the transmute model.
+            // State that isn't a (flag, until) pair: blind vision, fear wander anchor, transmute model.
             if (wasStunned && !wa.HasAttribute(CombatFlags.Stunned))
                 canrpgclasses.Core.Control.ControlState.RestoreBlindVision(entity);
 

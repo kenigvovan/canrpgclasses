@@ -52,14 +52,13 @@ namespace canrpgclasses.Client
         public bool MaxLevel => XpNext <= 0;
     }
 
-    /// <summary>The character sheet as data - class, level, attributes, derived stats - with no formatting of its
-    /// own: <see cref="RpgSheetVtml"/> marks it up and <see cref="RpgSheetTab"/> draws it.</summary>
+    /// <summary>Character sheet data; <see cref="RpgSheetVtml"/> marks it up and <see cref="RpgSheetTab"/> draws it.</summary>
     public static class RpgCharacterSheet
     {
         /// <summary>Sections, in display order. Fixed set, so the tab can build its elements once.</summary>
         public const int SectionCount = 4;
 
-        // Enum.GetValues allocates a fresh array per call; the sheet loops schools twice per refresh - cache once.
+        // Cached: Enum.GetValues allocates per call.
         private static readonly SpellSchool[] Schools = Enum.GetValues<SpellSchool>();
 
         public static SheetHeader BuildHeader(Entity player)
@@ -79,8 +78,7 @@ namespace canrpgclasses.Client
                 prog?.XpForNextLevel ?? 0);
         }
 
-        /// <summary>Fills a reusable buffer of <see cref="SectionCount"/> sections - the tab keeps one around, so a
-        /// refresh twice a second doesn't allocate four lists every time.</summary>
+        /// <summary>Fills a reusable buffer of <see cref="SectionCount"/> sections to avoid per-refresh allocation.</summary>
         public static void BuildSections(Entity player, List<SheetSection> into)
         {
             while (into.Count < SectionCount) into.Add(new SheetSection());
@@ -102,8 +100,7 @@ namespace canrpgclasses.Client
             {
                 float points = def.Points(player);
                 float effective = def.EffectivePoints(player);
-                // Past a softcap the payouts run off a smaller number than the sheet shows - say so, or the bonus
-                // simply reads as wrong.
+                // Past a softcap payouts use a smaller value than shown; flag it.
                 string shown = Math.Abs(effective - points) < 0.005f
                     ? Mult(points)
                     : Mult(points) + Lang.Get("canrpgclasses:sheet-attribute-softcap", Mult(effective));
@@ -111,7 +108,7 @@ namespace canrpgclasses.Client
                 sec.Rows.Add(new SheetRow(def.DisplayName, shown,
                     points > 0.005f ? SheetTone.Neutral : SheetTone.Inactive, 0, VtmlText.Accent));
 
-                // What the points actually pay for - an attribute nobody can read the effect of is just a number.
+                // What the points pay for.
                 foreach (var (label, value, flat) in Payouts(def, classId, effective))
                     sec.Rows.Add(new SheetRow(label,
                         flat ? Signed(value) : Signed(value * 100f) + "%",
@@ -140,8 +137,7 @@ namespace canrpgclasses.Client
             float pen = player.ReductionStat(StatKeys.MagicPen);
             sec.Rows.Add(new SheetRow(Lang.Get("canrpgclasses:sheet-pen"), Pct(pen) + "%", ToneForFraction(pen)));
 
-            // Per-school penetration (e.g. priest's shadow piercing) only where a talent grants it: unlike resists
-            // and spell power, it is the rare case and a row of seven zeroes would say nothing.
+            // Penetration is rare, so only non-zero schools are listed.
             foreach (SpellSchool s in Schools)
             {
                 var def = DamageSchools.For(s);
@@ -175,8 +171,7 @@ namespace canrpgclasses.Client
             sec.Rows.Add(new SheetRow(Lang.Get("canrpgclasses:sheet-healing"), "x" + Mult(healing), ToneFor(healing, 1f)));
         }
 
-        /// <summary>A row per magical school for a 1.0-based reduction stat, zeroes included: the sheet scrolls, and
-        /// a school missing from the list reads as "unknown" rather than "none".</summary>
+        /// <summary>A row per school for a 1.0-based reduction stat, zeroes included so absence isn't ambiguous.</summary>
         private static void AddPerSchool(Entity player, SheetSection sec,
                                          Func<DamageSchools.Def, string> stat, int indent)
         {
@@ -190,8 +185,7 @@ namespace canrpgclasses.Client
             }
         }
 
-        /// <summary>One entry per payout, except that a whole school family (spell power, resists, penetration)
-        /// collapses into one while its schools pay the same - which is the usual case.</summary>
+        /// <summary>One entry per payout; a school family collapses into one while all its schools pay the same.</summary>
         private static IEnumerable<(string Label, float Value, bool Flat)> Payouts(
             Core.Attributes.AttributeDef def, string classId, float points)
         {
@@ -230,8 +224,7 @@ namespace canrpgclasses.Client
         private static string Pct(float v) => SheetFormat.Pct(v);
         private static string Mult(float v) => SheetFormat.Mult(v);
 
-        /// <summary>The tone a 1.0-based multiplier reads in: above its baseline it's a bonus, below it a penalty,
-        /// at it nothing at all.</summary>
+        /// <summary>Tone of a 1.0-based multiplier relative to its baseline.</summary>
         private static SheetTone ToneFor(float value, float baseline)
             => value > baseline + 0.005f ? SheetTone.Good
              : value < baseline - 0.005f ? SheetTone.Bad

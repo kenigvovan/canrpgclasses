@@ -7,9 +7,8 @@ using Vintagestory.API.Config;
 
 namespace canrpgclasses.Client
 {
-    /// <summary>Our own tab in the vanilla character dialog: class header, experience bar and the sheet in sections.
-    /// The dialog keeps the size of its FIRST tab and never grows for ours, so everything lives in a clipped
-    /// container with a scrollbar, restacked by <see cref="Relayout"/> when a section changes height.</summary>
+    /// <summary>Our tab in the vanilla character dialog. The dialog keeps its first tab's size, so the content
+    /// lives in a scrolled clip container, restacked by <see cref="Relayout"/>.</summary>
     public class RpgSheetTab : ModSystem
     {
         private const string MainComposerKey = "playercharacter";
@@ -28,7 +27,7 @@ namespace canrpgclasses.Client
         private int myTabIndex = -1;
         private int curTab;
 
-        // One composition's worth of elements; `owner` is which composition, so a stale set is never touched.
+        // Elements of one composition; `owner` guards against touching a stale set.
         private GuiComposer? owner;
         private GuiElementRichtext? headerElem;
         private GuiElementRichtext? xpTextElem;
@@ -96,7 +95,7 @@ namespace canrpgclasses.Client
 
             var player = capi.World?.Player?.Entity;
 
-            // Sized by the dialog's first tab, which is narrow - hardcoding a width parks the scrollbar outside it.
+            // The dialog is sized by its narrow first tab; a hardcoded width puts the scrollbar outside.
             var parent = compo.CurParentBounds;
             double panelW = Math.Max(160.0, parent?.fixedWidth > 0 ? parent.fixedWidth : FallbackWidth);
             viewHeight = Math.Max(120.0, (parent?.fixedHeight ?? 420.0) - 34.0);
@@ -113,7 +112,7 @@ namespace canrpgclasses.Client
 
             var container = compo.GetContainer(ContainerKey);
             if (container == null) return;
-            container.unscaledCellSpacing = 0; // we place every element ourselves; the default spacing only skews the total
+            container.unscaledCellSpacing = 0; // elements are placed manually
 
             headerFont = CairoFont.WhiteSmallText().WithLineHeightMultiplier(1.2);
             bodyFont = CairoFont.WhiteDetailText().WithLineHeightMultiplier(1.2);
@@ -182,8 +181,7 @@ namespace canrpgclasses.Client
             contentBounds.CalcWorldBounds();
         }
 
-        /// <summary>Restacks the elements top to bottom: richtext writes its own height, so everything below it
-        /// moves and the scroll range is refreshed.</summary>
+        /// <summary>Restacks elements by their measured richtext heights and refreshes the scroll range.</summary>
         private void Relayout(GuiComposer compo)
         {
             double y = 0.0;
@@ -210,7 +208,7 @@ namespace canrpgclasses.Client
             var bar = compo.GetScrollbar(ScrollbarKey);
             if (bar == null) return;
             bar.SetHeights((float)viewHeight, (float)y);
-            // The bar clamps itself when the content shrinks; follow it, or the sheet stays scrolled past its end.
+            // Follow the bar's clamp when content shrinks.
             OnScroll(bar.CurrentYPosition);
         }
 
@@ -259,7 +257,7 @@ namespace canrpgclasses.Client
             xpBar.SetValues(value, 0f, max);
         }
 
-        /// <summary>Writes new markup only when it differs, so an unchanged sheet costs nothing.</summary>
+        /// <summary>Writes new markup only when it differs.</summary>
         private bool Update(GuiElementRichtext? elem, int slot, string markup, CairoFont font)
         {
             if (elem == null) return false;

@@ -8,10 +8,7 @@ using canrpgclasses.Core.Net;
 
 namespace canrpgclasses.Core.EB
 {
-    /// <summary>
-    /// Per-spell / per-group cooldowns. Server-authoritative, mirrored on the client for HUD display; remaining
-    /// time is persisted so it survives a relog.
-    /// </summary>
+    /// <summary>Per-spell / per-group cooldowns. Server-authoritative, mirrored to the client HUD, persisted across relog.</summary>
     public class EBSpellCooldowns : EntityBehavior
     {
         public const string Name = "canrpgspellcooldowns";
@@ -57,8 +54,7 @@ namespace canrpgclasses.Core.EB
             if (sync && IsServer) SyncOne(key);
         }
 
-        /// <summary>Clears a cooldown (Regroup reset). On the server this pushes a Remaining=0 packet so the
-        /// owner's HUD overlay drops immediately. On the client it just removes the local entry.</summary>
+        /// <summary>Clears a cooldown; on the server also sends Remaining=0 so the HUD overlay drops at once.</summary>
         public void ClearCooldown(string key, bool sync = true)
         {
             bool had = expiryMs.Remove(key);
@@ -125,8 +121,6 @@ namespace canrpgclasses.Core.EB
         {
             if (!IsServer) return (null, null);
             var player = (entity as EntityPlayer)?.Player as IServerPlayer;
-            // For(api) is side-correct by construction: on the server side it always yields the server
-            // instance (whose ServerChannel is set), never the client one.
             return (player, canrpgclassesModSystem.For(entity.Api));
         }
     }

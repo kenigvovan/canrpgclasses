@@ -5,9 +5,8 @@ using Vintagestory.API.Common;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Makes the HUD hotbar clickable. Draws nothing: it exists to catch mouse clicks over the slots before they
-    /// reach the world, and - while opened - to hold the cursor free so the player can aim at a slot at all.
-    /// Clicks are accepted whenever the cursor is free for any reason (this dialog, vanilla's Alt, an open window).
+    /// Invisible dialog that makes the HUD hotbar clickable and, while open, keeps the cursor free. Clicks work
+    /// whenever the cursor is free for any reason.
     /// </summary>
     public class SpellClickInput : GuiDialog
     {
@@ -29,8 +28,7 @@ namespace canrpgclasses.Client
 
         public override string ToggleKeyCombinationCode => null!;
 
-        /// <summary>A Dialog rather than a HUD so that <see cref="PrefersUngrabbedMouse"/> is honoured - only
-        /// dialogs count towards the engine's mouse-grab decision.</summary>
+        /// <summary>A Dialog, not a HUD: only dialogs count toward the engine's mouse-grab decision.</summary>
         public override EnumDialogType DialogType => EnumDialogType.Dialog;
 
         /// <summary>Never takes keyboard focus: movement and the cast hotkeys must keep working.</summary>
@@ -44,7 +42,7 @@ namespace canrpgclasses.Client
         /// <summary>Also while closed: a cursor freed by Alt or by someone else's window should still click slots.</summary>
         public override bool ShouldReceiveMouseEvents() => IsOpened() || !capi.Input.MouseGrabbed;
 
-        // Set while the player themselves asked for a free cursor, so the spell wheel closing does not take it away.
+        // Player-requested free cursor; survives the spell wheel closing.
         private bool pinned;
 
         /// <summary>Frees / re-grabs the cursor without opening a visible window.</summary>
@@ -62,7 +60,7 @@ namespace canrpgclasses.Client
 
         public override void OnMouseDown(MouseEvent args)
         {
-            // The layout panel owns the mouse while it is open - that is where blocks are dragged.
+            // The layout panel owns the mouse while open.
             if (args.Handled || layout.EditMode) return;
             if (args.Button != EnumMouseButton.Left && args.Button != EnumMouseButton.Right) return;
 
@@ -78,8 +76,7 @@ namespace canrpgclasses.Client
             args.Handled = true;
         }
 
-        /// <summary>Takes a skill dropped from the spellbook onto an on-screen bar, and otherwise swallows the
-        /// release so it can't start a block break on the way out.</summary>
+        /// <summary>Accepts spellbook drops onto a bar; otherwise swallows the release so it can't break a block.</summary>
         public override void OnMouseUp(MouseEvent args)
         {
             if (args.Handled || layout.EditMode) return;

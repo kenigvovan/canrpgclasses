@@ -7,10 +7,7 @@ using canrpgclasses.Core.Spells;
 
 namespace canrpgclasses.Shaman
 {
-    /// <summary>
-    /// Server-side driver for the shaman's totems: the <see cref="ImpactAction.PlaceTotem"/> impact.
-    /// One totem at a time - planting a new one drops whatever you had out.
-    /// </summary>
+    /// <summary><see cref="ImpactAction.PlaceTotem"/> handler. One totem per shaman; a new plant removes the old one.</summary>
     public static class ShamanTotemSystem
     {
         public const string TotemEntityCode = "shamantotem";
@@ -46,17 +43,14 @@ namespace canrpgclasses.Shaman
             if (type == null || world.ClassRegistry.CreateEntity(type) is not EntityAgent totem) return;
 
             var wa = totem.WatchedAttributes;
-            wa.SetString(EBShamanTotem.OwnerUidKey, op.PlayerUID); // owner link → IsAlly, and the despawn check
+            wa.SetString(EBShamanTotem.OwnerUidKey, op.PlayerUID);
             wa.SetString(EBShamanTotem.KindKey, imp.TotemKind!);
             wa.SetLong(EBShamanTotem.ExpiryKey, world.ElapsedMilliseconds + (long)(imp.StatusEffectDuration * 1000f));
             wa.SetFloat(EBShamanTotem.RadiusKey, imp.ZoneRadius > 0f ? imp.ZoneRadius : 8f);
-            // Snapshot the caster's power at plant time (like a DoT): the totem pulses at the strength it was
-            // planted with, and the numbers survive a chunk reload rather than re-reading a caster who may be gone.
+            // Snapshot like a DoT so the values survive a chunk reload without re-reading the caster.
             wa.SetFloat(EBShamanTotem.PowerKey, ctx.SpellPower);
             wa.SetFloat(EBShamanTotem.HealPowerKey, caster.Stats.GetBlended(StatKeys.HealingPower));
 
-            // Plant it at the caster's feet, on whatever they're standing on. (Pos is authoritative on the server;
-            // ServerPos is an obsolete alias for it in this VS build.)
             totem.Pos.SetPos(caster.Pos.XYZ);
             totem.World = world;
             world.SpawnEntity(totem);

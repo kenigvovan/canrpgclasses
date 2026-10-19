@@ -12,18 +12,13 @@ namespace canrpgclasses.Core.Classes
         public RpgClassRegistrationAttribute(string classId) { ClassId = classId; }
     }
 
-    /// <summary>
-    /// A playable class: id, display name and its talent-tree names. Talents reference a class by <c>ClassId</c>
-    /// and a tree by index.
-    /// </summary>
+    /// <summary>A playable class. Talents reference it by <c>ClassId</c> and a tree by index.</summary>
     public abstract class RpgClassDef
     {
-        /// <summary>Trees a class gets when it doesn't say otherwise - the three specs every shipped class uses.
-        /// Not a limit: a class may declare any number of <see cref="TreeNames"/>, and everything that walks the
-        /// trees reads the per-class <see cref="TreeCount"/>.</summary>
+        /// <summary>Default tree count, not a limit: callers read the per-class <see cref="TreeCount"/>.</summary>
         public const int DefaultTreeCount = 3;
 
-        // protected, so a data-driven subclass (see Core.Content) can set its id from JSON instead of an attribute.
+        // Protected so a JSON-defined subclass can set its id without the attribute.
         public string Id { get; protected set; } = "";
         public string[] TreeNames { get; protected set; } = new string[DefaultTreeCount];
 
@@ -34,38 +29,30 @@ namespace canrpgclasses.Core.Classes
         /// <summary>Icon stem under <c>canrpgclasses:textures/icons/</c> (.svg/.png) for the class badge. Defaults to the id.</summary>
         public string IconName { get; protected set; } = "";
 
-        /// <summary>This class's primary resource pool (energy/rage/mana). A spell's <c>Cost.Resource</c> is
-        /// spent from it. Null = the class has no resource (cooldown-only).</summary>
+        /// <summary>Primary resource that <c>Cost.Resource</c> spends. Null = cooldown-only class.</summary>
         public ResourcePoolDef? PrimaryResource { get; protected set; }
 
-        /// <summary>Whether this class uses combo points (builder/finisher mechanic). Rogue: true.</summary>
         public bool UsesComboPoints { get; protected set; }
 
-        /// <summary>Spells available from level 1. Everything else is unlocked by talents.</summary>
+        /// <summary>Spells available from level 1; the rest come from talents.</summary>
         public string[] BaseSpells { get; protected set; } = Array.Empty<string>();
 
-        /// <summary>Intrinsic, class-wide gear buffs/debuffs applied while matching equipment is worn/wielded
-        /// (no talent needed). Evaluated by <see cref="canrpgclasses.Core.EB.EBGearAffinity"/>.</summary>
+        /// <summary>Class-wide gear passives, evaluated by <see cref="canrpgclasses.Core.EB.EBGearAffinity"/>.</summary>
         public System.Collections.Generic.List<GearAffinity> GearAffinities { get; protected set; } = new();
 
-        /// <summary>Spec scaling: each point in a tree grants <see cref="TreeMastery.PerPoint"/> of a stat. A tree
-        /// can scale several stats and a stat can be fed by several trees, so specced players are stronger in
-        /// their tree's role. Numbers come from config.</summary>
+        /// <summary>Each point in a tree grants <see cref="TreeMastery.PerPoint"/> of a stat.</summary>
         public System.Collections.Generic.List<TreeMastery> TreeMasteries { get; protected set; } = new();
 
-        /// <summary>Stat bonuses granted just for being this class, independent of talents and gear - what lets a
-        /// paladin start tougher than a mage. Numbers come from config.</summary>
+        /// <summary>Flat stats granted just for being this class.</summary>
         public System.Collections.Generic.List<(string Stat, float Value)> BaseStats { get; protected set; } = new();
 
-        /// <summary>Extra <c>maxhealthExtraPoints</c> per level above 1, re-applied on every level-up.</summary>
+        /// <summary>Extra <c>maxhealthExtraPoints</c> per level above 1.</summary>
         public float HpPerLevel { get; protected set; }
 
-        /// <summary>Any stat granted per level above 1 - the general form of <see cref="HpPerLevel"/>. This is how
-        /// a class hands out attribute points as it levels; re-applied on every level-up.</summary>
+        /// <summary>Any stat per level above 1, e.g. attribute points.</summary>
         public System.Collections.Generic.List<(string Stat, float PerLevel)> StatsPerLevel { get; protected set; } = new();
 
-        /// <summary>Multiplier on what one point of an attribute pays this class ("intelligence is worth 0.2× to a
-        /// warrior"). Overrides the class entry in <c>attributes.json</c> for the attributes it names.</summary>
+        /// <summary>Per-attribute worth for this class; overrides the class entry in <c>attributes.json</c>.</summary>
         public System.Collections.Generic.List<(string Attribute, float Multiplier)> AttributeAffinity { get; protected set; } = new();
 
         private string? _displayName;
@@ -77,8 +64,7 @@ namespace canrpgclasses.Core.Classes
         }
 
         private string? _role;
-        /// <summary>Localized short role/playstyle tag shown in the class picker (e.g. "Ranged burst caster"): lang key
-        /// <c>canrpgclasses:class-&lt;id&gt;-role</c>. Empty when unset.</summary>
+        /// <summary>Short role tag for the class picker, lang key <c>canrpgclasses:class-&lt;id&gt;-role</c>.</summary>
         public string Role
         {
             get => LangText.Get("class-" + Id + "-role", _role) ?? "";
@@ -86,8 +72,7 @@ namespace canrpgclasses.Core.Classes
         }
 
         private string? _description;
-        /// <summary>Localized one-paragraph class description shown in the class-picker preview: lang key
-        /// <c>canrpgclasses:class-&lt;id&gt;-desc</c>. Empty when unset.</summary>
+        /// <summary>Class-picker description, lang key <c>canrpgclasses:class-&lt;id&gt;-desc</c>.</summary>
         public string Description
         {
             get => LangText.Get("class-" + Id + "-desc", _description) ?? "";

@@ -26,8 +26,7 @@ namespace canrpgclasses.Core.Classes
             logger?.Notification("[canrpgclasses] {0} class(es) registered", classes.Count);
         }
 
-        /// <summary>Registers one class built at runtime rather than discovered by attribute - the JSON content
-        /// loader's way in. Registration is by id, so a later call replaces an earlier class of the same id.</summary>
+        /// <summary>Registers a runtime-built (JSON) class, replacing any with the same id.</summary>
         public void Register(RpgClassDef def)
         {
             if (def != null && !string.IsNullOrEmpty(def.Id)) classes[def.Id] = def;

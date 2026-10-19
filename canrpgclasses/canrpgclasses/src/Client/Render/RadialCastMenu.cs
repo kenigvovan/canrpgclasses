@@ -5,8 +5,7 @@ using Vintagestory.API.MathTools;
 namespace canrpgclasses.Client.Render
 {
     /// <summary>
-    /// Shows a skill bar as a ring around the screen centre while its key is held: the mouse direction picks a
-    /// slot and releasing casts it. Any bar can be opened this way, so there are as many wheels as bars.
+    /// Shows a skill bar as a ring while its key is held; mouse direction picks a slot, release casts it.
     /// </summary>
     public class RadialCastMenu : IRenderer
     {

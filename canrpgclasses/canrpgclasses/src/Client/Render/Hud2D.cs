@@ -8,22 +8,18 @@ using Vintagestory.API.MathTools;
 namespace canrpgclasses.Client.Render
 {
     /// <summary>
-    /// 2D primitives for the mod's HUD and world overlay: tinted textured quads in raw framebuffer pixels, with
-    /// the non-rectangle shapes baked once with Cairo. No per-frame Cairo work and no shader. Every texture here
-    /// is owned by this class and must be released.
+    /// 2D HUD primitives as tinted quads in framebuffer pixels; shapes are baked once with Cairo. Owns and
+    /// releases all its textures.
     /// </summary>
     public class Hud2D : IDisposable
     {
-        /// <summary>Frames in the baked cooldown sweep. 64 steps is finer than the eye can follow on a slot-sized
-        /// icon, and the whole set is a few hundred KB of VRAM.</summary>
+        /// <summary>Frames in the baked cooldown sweep.</summary>
         private const int SweepFrames = 64;
 
-        /// <summary>Edge length of every baked shape texture. They are only ever scaled down (a hotbar slot is
-        /// 24-96px), so this is plenty and keeps the bake cheap.</summary>
+        /// <summary>Baked shape size in px; only ever scaled down.</summary>
         private const int BakeSize = 64;
 
-        /// <summary>Text textures live until their string stops being drawn. Damage numbers keep minting new
-        /// strings, so the cache is bounded and swept - see <see cref="SweepTextCache"/>.</summary>
+        /// <summary>Text cache bounds; see <see cref="SweepTextCache"/>.</summary>
         private const int MaxTextCache = 256;
         private const long TextEntryTtlMs = 60_000;
 
@@ -91,8 +87,7 @@ namespace canrpgclasses.Client.Render
             capi.Render.Render2DTexture(circleTex.TextureId, cx - radius, cy - radius, d, d, 50f, color);
         }
 
-        /// <summary>Circle outline centred on (cx, cy). Stroke width scales with the circle, matching the old
-        /// fixed 1.5px look at the pip sizes the HUD actually uses.</summary>
+        /// <summary>Circle outline; stroke width scales with the radius.</summary>
         public void Ring(float cx, float cy, float radius, Vec4f color)
         {
             ringTex ??= Bake(ctx =>
@@ -105,11 +100,8 @@ namespace canrpgclasses.Client.Render
             capi.Render.Render2DTexture(ringTex.TextureId, cx - radius, cy - radius, d, d, 50f, color);
         }
 
-        /// <summary>The cooldown pie: covers the part of the slot that is still on cooldown, receding clockwise
-        /// from 12 o'clock as the cooldown elapses. <paramref name="elapsed"/> is 0 (just started) to 1 (done).
-        ///
-        /// The 64 possible wedges are baked once, so a sweep costs one tinted quad rather than a per-frame
-        /// triangle fan.</summary>
+        /// <summary>Cooldown pie receding clockwise from 12 o'clock; <paramref name="elapsed"/> is 0..1.
+        /// Wedges are pre-baked.</summary>
         public void CooldownSweep(float x, float y, float size, float elapsed, Vec4f color)
         {
             sweepTex ??= BakeSweep();
@@ -124,11 +116,8 @@ namespace canrpgclasses.Client.Render
             capi.Render.Render2DTexture(tex.TextureId, x, y, w, h, 50f, color);
         }
 
-        /// <summary>Draws text at (x, y) - the top-left corner. The glyph texture is cached white and tinted at
-        /// draw time, so the same string in a different colour costs nothing extra.
-        ///
-        /// <paramref name="shadowed"/> repeats the draw four times in black around the text, which is what keeps
-        /// HUD numbers readable against the world.</summary>
+        /// <summary>Text at top-left (x, y); cached white and tinted at draw time. <paramref name="shadowed"/>
+        /// adds a 4-way black outline.</summary>
         public void Text(string text, CairoFont font, float x, float y, Vec4f color, bool shadowed = true)
         {
             if (string.IsNullOrEmpty(text)) return;
@@ -182,8 +171,7 @@ namespace canrpgclasses.Client.Render
             return tex;
         }
 
-        /// <summary>Drops text textures that have gone unused. Without this, floating damage numbers would grow
-        /// the cache without bound - every distinct amount is its own string.</summary>
+        /// <summary>Evicts idle text textures; damage numbers would otherwise grow the cache unbounded.</summary>
         private void SweepTextCache()
         {
             long now = capi.ElapsedMilliseconds;
@@ -194,7 +182,7 @@ namespace canrpgclasses.Client.Render
             foreach (var kv in textCache)
                 if (now - kv.Value.LastUsedMs > TextEntryTtlMs) stale.Add(kv.Key);
 
-            // Over the cap even after dropping the idle ones: evict oldest-first until back under it.
+            // Still over the cap: evict oldest first.
             if (textCache.Count - stale.Count > MaxTextCache)
             {
                 var byAge = new List<KeyValuePair<(string, int, string), CachedText>>(textCache);
@@ -227,11 +215,8 @@ namespace canrpgclasses.Client.Render
 
         public void Unclip() => capi.Render.PopScissor();
 
-        /// <summary>The white source every filled rectangle is stretched and tinted from.
-        ///
-        /// Painted with Cairo rather than uploaded as a raw pixel array: LoadTextureFromRgba handed back id 0 for
-        /// a 1x1 upload, and the shader then sampled an unbound texture - every rectangle came out black, which
-        /// only looked right where the colour happened to be black anyway.</summary>
+        /// <summary>White source for filled rects. Painted with Cairo because LoadTextureFromRgba returns id 0 for
+        /// a 1x1 upload.</summary>
         private int White()
         {
             whiteTex ??= capi.Gui.Icons.GenTexture(4, 4, (ctx, _) =>
@@ -258,7 +243,7 @@ namespace canrpgclasses.Client.Render
             for (int i = 0; i < SweepFrames; i++)
             {
                 double elapsed = i / (double)(SweepFrames - 1);
-                if (elapsed >= 1.0) { frames[i] = null; continue; } // fully elapsed: nothing left to cover
+                if (elapsed >= 1.0) { frames[i] = null; continue; }
                 double from = -Math.PI / 2 + elapsed * Math.PI * 2;
                 double to = -Math.PI / 2 + Math.PI * 2;
                 frames[i] = Bake(ctx =>

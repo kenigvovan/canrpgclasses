@@ -9,9 +9,8 @@ using canrpgclasses.Core.Visuals;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Draws channel beams and shield tethers as camera-facing ribbons: one shared unit quad placed by a
-    /// hand-built model matrix, so no per-frame mesh rebuild. Draws on AfterOIT - see
-    /// <see cref="ShieldDomeRenderer"/> for why.
+    /// Channel beams and shield tethers as camera-facing ribbons from one shared unit quad. AfterOIT stage,
+    /// see <see cref="ShieldDomeRenderer"/>.
     /// </summary>
     public class BeamRenderer : IRenderer
     {
@@ -21,7 +20,7 @@ namespace canrpgclasses.Client
         private readonly float[] model = new float[16];
         private readonly Vec4f colorScratch = new Vec4f();
 
-        // Beam casters appear/disappear on a seconds scale - same throttled spatial scan as the shield dome.
+        // Throttled caster scan, like the shield dome.
         private const long ScanIntervalMs = 150;
         private readonly System.Collections.Generic.List<Entity> beamers = new();
         private readonly System.Collections.Generic.List<Entity> tetherers = new();
@@ -76,8 +75,7 @@ namespace canrpgclasses.Client
                 var target = world.GetEntityById(targetId);
                 if (target == null || !target.Alive) continue;
 
-                // Endpoints, camera-relative. Start a touch below the eyes and a step toward the target, so in
-                // first person your own beam leaves from "your hands", not through the camera plane.
+                // Start below the eyes and toward the target so a first-person beam doesn't cross the camera plane.
                 double ax = caster.Pos.X - camPos.X;
                 double ay = caster.Pos.Y + (caster.LocalEyePos.Y > 0 ? caster.LocalEyePos.Y - 0.25 : caster.SelectionBox.Y2 * 0.7) - camPos.Y;
                 double az = caster.Pos.Z - camPos.Z;
@@ -92,8 +90,7 @@ namespace canrpgclasses.Client
                 ax += ex * t; ay += ey * t; az += ez * t;
                 ex = bx - ax; ey = by - ay; ez = bz - az;
 
-                // Billboard basis: width axis perpendicular to both the beam and the view ray to its midpoint,
-                // so the ribbon always faces the camera edge-on-never.
+                // Width axis perpendicular to the beam and the view ray, so the ribbon faces the camera.
                 double mx = ax + ex * 0.5, my = ay + ey * 0.5, mz = az + ez * 0.5; // midpoint (camera at origin)
                 double sx = ey * mz - ez * my, sy = ez * mx - ex * mz, sz = ex * my - ey * mx; // cross(axis, mid)
                 double slen = Math.Sqrt(sx * sx + sy * sy + sz * sz);
@@ -116,17 +113,16 @@ namespace canrpgclasses.Client
                 var pal = ParticleSpec.ForSchool(school);
                 float pulse = 1f + 0.15f * (float)Math.Sin(now / 90.0);
 
-                // Pass 1: the wide translucent sheath in the school's colour.
+                // Wide translucent sheath in the school colour.
                 DrawRibbon(rpi, prog, ax, ay, az, ex, ey, ez, sx, sy, sz, 0.34f * pulse,
                     pal.ColorR / 255f, pal.ColorG / 255f, pal.ColorB / 255f, 0.35f);
-                // Pass 2: the narrow core - near-black for Shadow, white-hot otherwise.
+                // Narrow core: near-black for Shadow, white otherwise.
                 bool shadow = school == SpellSchool.Shadow;
                 DrawRibbon(rpi, prog, ax, ay, az, ex, ey, ez, sx, sy, sz, 0.11f * pulse,
                     shadow ? 0.09f : 1f, shadow ? 0.03f : 1f, shadow ? 0.13f : 1f, 0.8f);
             }
 
-            // Tethers: a thin STEADY cord from a shielded ally to the protector who cast it (Stone Ward). Same
-            // ribbon recipe as a beam but slim and calm - a lifeline, not a channel. Shares the GL setup above.
+            // Tethers (Stone Ward): thin steady cord from the shielded ally to the caster.
             foreach (var bearer in tetherers)
             {
                 if (!bearer.Alive) continue;
@@ -179,8 +175,7 @@ namespace canrpgclasses.Client
             }
         }
 
-        /// <summary>One quad pass: model matrix column X = full beam axis, column Y = width along the billboard
-        /// side vector, translate = start point. The unit quad (x 0..1, y ±0.5) lands exactly on the beam.</summary>
+        /// <summary>Model matrix: column X = beam axis, column Y = width vector, translate = start.</summary>
         private void DrawRibbon(IRenderAPI rpi, IShaderProgram prog,
             double ax, double ay, double az, double ex, double ey, double ez,
             double sx, double sy, double sz, float width, float r, float g, float b, float alpha)
@@ -197,8 +192,7 @@ namespace canrpgclasses.Client
             rpi.RenderMesh(quad);
         }
 
-        // A unit ribbon quad: x 0..1 along the beam, y -0.5..0.5 across it. Same vertex format as the shield dome
-        // (xyz + white rgba + glow flags) for the flat-colour Wireframe shader.
+        // Unit quad: x 0..1 along the beam, y -0.5..0.5 across. Vertex format matches the shield dome.
         private static MeshData GenUnitQuad()
         {
             var m = new MeshData(4, 6, false, false, true, true);

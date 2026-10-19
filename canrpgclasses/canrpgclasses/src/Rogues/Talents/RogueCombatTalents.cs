@@ -36,8 +36,7 @@ namespace canrpgclasses.Rogues.Talents
         }
     }
 
-    // Hook talent: registers a DamageModifier into the core damage pipeline. Bonus damage per rank when
-    // striking the target from behind (value from config).
+    // Positional DamageModifier: bonus when striking from behind.
     [TalentRegistration("rogue:blindside")]
     public class BlindsideTalent : Talent
     {
@@ -86,8 +85,7 @@ namespace canrpgclasses.Rogues.Talents
         }
     }
 
-    // Hook talent: registers an OnMeleeHit perk into the core melee trigger. Melee hits bleed the target
-    // (longer per rank); duration from BalanceConfig (single source).
+    // OnMeleeHit perk: melee hits bleed the target, longer per rank.
     [TalentRegistration("rogue:jagged_blades")]
     public class JaggedBladesTalent : Talent
     {

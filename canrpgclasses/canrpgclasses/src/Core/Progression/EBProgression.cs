@@ -9,10 +9,7 @@ using canrpgclasses.Core.Config;
 
 namespace canrpgclasses.Core.Progression
 {
-    /// <summary>
-    /// XP and level, one point of talent per level. Both are stored under class-namespaced keys, so switching
-    /// class swaps to that class's own progress rather than carrying one shared level around.
-    /// </summary>
+    /// <summary>XP and level, stored per class so switching class swaps to that class's own progress.</summary>
     public class EBProgression : EntityBehavior
     {
         public const string Name = "canrpgprogression";
@@ -20,11 +17,8 @@ namespace canrpgclasses.Core.Progression
         private string XpKey => Core.AttrKeys.Xp(TalentState.CurrentClass(entity));
         private string LevelKey => Core.AttrKeys.Level(TalentState.CurrentClass(entity));
 
-        // Config-driven, with the shipped defaults inline. Read live rather than cached: these are looked up on
-        // level-up and by the character sheet, not on a hot path, and an admin's edit should apply at once.
-        //
-        // The default of 24 points at cap is about one full tree plus a real dip, so a build commits to a main
-        // tree instead of filling two. Tune alongside tree size.
+        // Read live (not a hot path) so admin edits apply at once. 24 points at cap is one full tree plus a dip;
+        // tune alongside tree size.
         public const int DefaultMaxLevel = 25;
 
         public static int MaxLevel => (int)BalanceConfig.Global("maxLevel", DefaultMaxLevel);
@@ -32,8 +26,7 @@ namespace canrpgclasses.Core.Progression
         /// <summary>XP awarded per point of the victim's max health.</summary>
         public static float XpPerHealth => BalanceConfig.Global("xpPerHealth", 2f);
 
-        /// <summary>The XP curve: <c>xpCurveBase * (level-1) ^ xpCurveExponent</c>. Both ends are config, so a
-        /// server can flatten or steepen levelling without a rebuild.</summary>
+        /// <summary>XP curve: <c>xpCurveBase * (level-1) ^ xpCurveExponent</c>.</summary>
         public static float XpCurveBase => BalanceConfig.Global("xpCurveBase", 20f);
         public static float XpCurveExponent => BalanceConfig.Global("xpCurveExponent", 1.6f);
 

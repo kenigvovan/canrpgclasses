@@ -21,8 +21,7 @@ namespace canrpgclasses.Shaman.Spells
             CastMode = CastMode.Charge;
             CastDuration = b.F("cast", 2.8f);
 
-            // At full Storm Charge this is instant, so a melee shaman can weave an emergency heal into the swing
-            // rotation. The cast spends the stacks.
+            // Instant at full Storm Charge so a melee shaman can weave in an emergency heal.
             ConsumesCasterEffectId = ShamanEffectIds.Maelstrom;
 
             float coeff = b.F("healCoeff", 9.0f);

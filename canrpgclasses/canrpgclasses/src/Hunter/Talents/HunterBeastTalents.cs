@@ -6,10 +6,8 @@ using canrpgclasses.Core.Talents;
 
 namespace canrpgclasses.Hunter.Talents
 {
-    // Hunter tree 2 - Beast Mastery: strengthens the wolf companion (all hunters have one from level 1).
-    // Pet-scaling talents set 1.0-based owner stats (hunterPetHealth / hunterPetDamage) read by
-    // HunterPetSystem: health is baked on summon, damage is read live on each of the pet's hits.
-    // Tiers unlock at 0/4/8/12/16 points spent in this tree.
+    // Hunter tree 2 - Beast Mastery. Pet scaling goes through 1.0-based owner stats: health is baked on
+    // summon, damage is read live on each pet hit.
 
     [TalentRegistration("hunter:learn_tend_beast")]
     public class LearnTendBeastTalent : Talent
@@ -52,8 +50,7 @@ namespace canrpgclasses.Hunter.Talents
             => e.Stats.Set(HunterPetSystem.PetDamageStat, "canrpgtalent_sharpfangs", perRank * rank);
     }
 
-    // Focus REGEN (not max): a bigger focus pool did nothing when focus was never scarce; regen is the lever that
-    // actually eases the shot-spam drain. 1.0-based ResourceRegen multiplier, folded into the regen tick by EBResources.
+    // Regen rather than max focus: regen is what actually eases the shot-spam drain.
     [TalentRegistration("hunter:beast_kinship")]
     public class BeastKinshipTalent : Talent
     {
@@ -80,8 +77,7 @@ namespace canrpgclasses.Hunter.Talents
         }
     }
 
-    // Ranked pet on-hit effect (read by HunterPetSystem.ApplyBeastOnHit): the wolf's bite poisons its target,
-    // applying the "poison" effect at amplifier = rank. No owner stat - the hook reads this talent's rank.
+    // No stats: HunterPetSystem.ApplyBeastOnHit reads the rank as the poison amplifier.
     [TalentRegistration("hunter:venom")]
     public class VenomTalent : Talent
     {
@@ -93,7 +89,7 @@ namespace canrpgclasses.Hunter.Talents
         }
     }
 
-    // Ranked pet lifesteal (HunterPetSystem.ApplyBeastOnHit): the pet heals for a fraction of the damage it deals.
+    // Read by HunterPetSystem.ApplyBeastOnHit.
     [TalentRegistration("hunter:bloodletting")]
     public class BloodlettingTalent : Talent
     {
@@ -108,7 +104,7 @@ namespace canrpgclasses.Hunter.Talents
         }
     }
 
-    // Ranked owner focus-fire (HunterPetSystem hook): you deal bonus damage to whatever your pet is biting.
+    // Read by HunterPetSystem's damage hook.
     [TalentRegistration("hunter:pack_tactics")]
     public class PackTacticsTalent : Talent
     {
@@ -122,7 +118,7 @@ namespace canrpgclasses.Hunter.Talents
         }
     }
 
-    // Ranked pet on-hit effect (HunterPetSystem.ApplyBeastOnHit): "walkslow" at amplifier = rank.
+    // HunterPetSystem.ApplyBeastOnHit reads the rank as the walkslow amplifier.
     [TalentRegistration("hunter:cowing_roar")]
     public class CowingRoarTalent : Talent
     {
@@ -148,7 +144,7 @@ namespace canrpgclasses.Hunter.Talents
             => e.Stats.Set(StatKeys.CooldownReductionFor("summon_pet"), "canrpgtalent_wildcall", perRank * rank);
     }
 
-    // The bond with the beast toughens the hunter too: +max health to the owner (not the pet).
+    // Owner health, not the pet's.
     [TalentRegistration("hunter:kindred_spirit")]
     public class KindredSpiritTalent : Talent
     {
@@ -180,7 +176,7 @@ namespace canrpgclasses.Hunter.Talents
             => e.Stats.Set(HunterPetSystem.PetDamageStat, "canrpgtalent_masterofbeasts", perRank * rank);
     }
 
-    // Skill augment (marker read by HunterPetSystem.ApplyPetTarget): Beast Fury rages longer and hits harder.
+    // Marker read by HunterPetSystem.ApplyPetTarget.
     [TalentRegistration("hunter:wild_chase")]
     public class WildChaseTalent : Talent
     {

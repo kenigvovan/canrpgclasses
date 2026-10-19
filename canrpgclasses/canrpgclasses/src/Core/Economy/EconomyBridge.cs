@@ -5,10 +5,7 @@ using Vintagestory.API.Server;
 
 namespace canrpgclasses.Core.Economy
 {
-    /// <summary>
-    /// Soft dependency on the <c>caneconomy</c> mod, reached entirely by reflection so this mod compiles and runs
-    /// whether or not caneconomy is installed. Accounts are keyed by <see cref="IPlayer.PlayerUID"/>.
-    /// </summary>
+    /// <summary>Soft dependency on <c>caneconomy</c> via reflection. Accounts are keyed by <see cref="IPlayer.PlayerUID"/>.</summary>
     public static class EconomyBridge
     {
         private static bool resolved;
@@ -35,8 +32,7 @@ namespace canrpgclasses.Core.Economy
             catch { return null; }
         }
 
-        /// <summary>Charges <paramref name="amount"/> from the player's account. Returns false (with a reason) if
-        /// caneconomy is unavailable or the balance is insufficient. Checks the balance before withdrawing.</summary>
+        /// <summary>Checks the balance, then withdraws. False with a reason if unavailable or insufficient.</summary>
         public static bool TryCharge(IServerPlayer player, decimal amount, out string error)
         {
             error = "";

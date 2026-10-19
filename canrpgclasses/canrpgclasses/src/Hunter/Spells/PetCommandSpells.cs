@@ -2,8 +2,7 @@ using canrpgclasses.Core.Spells;
 
 namespace canrpgclasses.Hunter.Spells
 {
-    // The hunter's pet-order spells: free, instant "casts" that command the wolf. Base spells (every hunter has
-    // them from level 1), handled by HunterPetSystem's PetCommand impact. No-op with no wolf out.
+    // Free pet orders, handled by HunterPetSystem's PetCommand impact. No-op with no wolf out.
 
     [SpellRegistration("canrpgclasses:pet_aggressive")]
     public class PetAggressiveSpell : Spell

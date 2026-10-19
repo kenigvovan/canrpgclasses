@@ -3,20 +3,14 @@ using Vintagestory.API.Common.Entities;
 
 namespace canrpgclasses.Core.Talents
 {
-    /// <summary>
-    /// Read-only talent state + spend rules (both sides). Ranks live in a synced WatchedAttributes
-    /// sub-tree (talent id → rank); the current class is a synced string. Server (EBTalents) and the
-    /// client UI both use <see cref="CanSpend"/> so validation has a single source of truth.
-    /// </summary>
+    /// <summary>Read-only talent state and spend rules; server and client UI share <see cref="CanSpend"/>.</summary>
     public static class TalentState
     {
         public const string RanksKey = Core.AttrKeys.TalentRanks;
         public const string ClassKey = Core.AttrKeys.CurrentClass;
         public const string DefaultClass = "rogue";
-        /// <summary>Points that must be spent in a tree to unlock each successive tier (tiers at 0/4/8/12/16).
-        /// Kept at 4 so a tier-4 capstone (gate 16) is reachable: a character earns at most 24 points
-        /// (<see cref="canrpgclasses.Core.Progression.EBProgression.MaxLevel"/> 25, 1/level), so 16 in one tree +
-        /// the capstone = 17 ≤ 24, leaving room to splash a second tree.</summary>
+        /// <summary>Points per tier gate. At 4, the tier-4 capstone costs 17 of the max 24 points, leaving room
+        /// to splash a second tree.</summary>
         public const int PointsPerTier = 4;
 
         public static string CurrentClass(Entity e) =>

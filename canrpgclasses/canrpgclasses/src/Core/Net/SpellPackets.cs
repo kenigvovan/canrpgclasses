@@ -22,6 +22,8 @@ namespace canrpgclasses.Core.Net
         [ProtoMember(6)] public double AimX;
         [ProtoMember(7)] public double AimY;
         [ProtoMember(8)] public double AimZ;
+        /// <summary>A pick made before casting, e.g. the Waypoint destination's name.</summary>
+        [ProtoMember(9)] public string? Choice;
     }
 
     /// <summary>server → nearby clients: someone started casting (for animation/fx).</summary>
@@ -57,6 +59,17 @@ namespace canrpgclasses.Core.Net
         [ProtoMember(1)] public string Message = "";
     }
 
+    /// <summary>server → nearby clients: a one-shot spell sound.</summary>
+    [ProtoContract]
+    public class SpellSoundPacket
+    {
+        [ProtoMember(1)] public string Location = "";
+        [ProtoMember(2)] public float Volume;
+        [ProtoMember(3)] public double X;
+        [ProtoMember(4)] public double Y;
+        [ProtoMember(5)] public double Z;
+    }
+
     /// <summary>server → owner: a channeled (CastMode.Charge) cast was interrupted/cancelled - hide the cast bar.</summary>
     [ProtoContract]
     public class SpellCastCancelPacket
@@ -64,9 +77,8 @@ namespace canrpgclasses.Core.Net
         [ProtoMember(1)] public long CasterEntityId;
     }
 
-    /// <summary>server → owner: snap the local player's view yaw (shadow_step → face the target). The
-    /// owner client applies it to MouseYaw from a render-stage renderer; TeleportTo's own yaw is unreliable
-    /// for the owner camera (async chunk-load).</summary>
+    /// <summary>server → owner: snap view yaw. Applied to MouseYaw client-side because TeleportTo's yaw is
+    /// unreliable for the owner camera (async chunk load).</summary>
     [ProtoContract]
     public class SetViewYawPacket
     {
@@ -86,21 +98,18 @@ namespace canrpgclasses.Core.Net
         [ProtoMember(5)] public bool IsHeal;
     }
 
-    /// <summary>server → client (on join): the authoritative balance config as JSON. The client overwrites its
-    /// own <see cref="canrpgclasses.Core.Config.BalanceConfig"/> with these numbers and rebuilds its spell/talent
-    /// registries, so an admin can rebalance by editing only the server's config and clients stay in sync.</summary>
+    /// <summary>server → client (on join): authoritative <see cref="canrpgclasses.Core.Config.BalanceConfig"/> JSON;
+    /// the client overwrites its own and rebuilds its registries.</summary>
     [ProtoContract]
     public class BalanceConfigPacket
     {
         [ProtoMember(1)] public string Json = "";
-        /// <summary>The attribute definitions, which travel with the balance numbers: both are server-owned config
-        /// the client would otherwise read from its own (possibly different) files.</summary>
+        /// <summary>Attribute definitions, also server-owned config.</summary>
         [ProtoMember(2)] public string Attributes = "";
     }
 
-    /// <summary>client → server: an admin's live edit of one balance number from the balance editor GUI. The
-    /// server re-checks the controlserver privilege, applies it via <see cref="canrpgclasses.Core.Config.BalanceConfig.Set"/>,
-    /// persists it, then broadcasts a fresh <see cref="BalanceConfigPacket"/> to everyone.</summary>
+    /// <summary>client → server: admin edit of one balance number. Server re-checks controlserver, applies, persists
+    /// and rebroadcasts <see cref="BalanceConfigPacket"/>.</summary>
     [ProtoContract]
     public class BalanceEditPacket
     {
@@ -110,9 +119,8 @@ namespace canrpgclasses.Core.Net
         [ProtoMember(4)] public float Value;
     }
 
-    /// <summary>server → each party member: the class-resource (energy/mana) fraction of every online member of
-    /// their party, so the canparty party-frames HUD can show a resource bar per member (canparty itself only
-    /// syncs HP). Parallel arrays by index; <see cref="Colors"/> is packed RGBA for the pool's colour.</summary>
+    /// <summary>server → party members: each member's resource fraction for the canparty frames (canparty only syncs HP).
+    /// Parallel arrays; <see cref="Colors"/> is packed RGBA.</summary>
     [ProtoContract]
     public class PartyResourceMsg
     {

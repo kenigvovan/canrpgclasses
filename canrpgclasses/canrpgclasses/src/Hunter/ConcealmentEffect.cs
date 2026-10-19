@@ -4,8 +4,7 @@ using canrpgclasses.Core.Config;
 
 namespace canrpgclasses.Hunter
 {
-    /// <summary>Not invisibility - the hunter blends into the terrain, so creatures only notice them from much
-    /// closer. Lowers the vanilla <c>animalSeekingRange</c> under its own stat key, so it never clobbers the
+    /// <summary>Not invisibility: lowers <c>animalSeekingRange</c> under its own key, so it doesn't clobber the
     /// rogue's Quiet Steps on the same stat.</summary>
     public static class ConcealmentEffectId { public const string Id = "canrpg_concealment"; }
 

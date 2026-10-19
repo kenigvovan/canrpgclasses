@@ -11,8 +11,7 @@ using EBEffects = effectshud.src.EBEffectsAffected;
 
 namespace canrpgclasses.Shaman
 {
-    /// <summary>Effect ids for the shaman. Aura-prefixed ids are driven by <see cref="Core.EB.EBAuras"/> (toggles);
-    /// the rest are ordinary timed effectshud effects applied by the spell pipeline.</summary>
+    /// <summary>Shaman effect ids. Aura-prefixed ids are toggles driven by <see cref="Core.EB.EBAuras"/>.</summary>
     public static class ShamanEffectIds
     {
         public const string SpiritWolf = AuraEffectIds.Prefix + "spirit_wolf"; // toggled travel form (model swap + speed)
@@ -56,8 +55,7 @@ namespace canrpgclasses.Shaman
         }
     }
 
-    /// <summary>Re-applied every pulse by <see cref="EBShamanTotem"/>. Its duration deliberately outlives one pulse
-    /// but not many, so walking out of range drops it by itself.</summary>
+    /// <summary>Re-applied every pulse by <see cref="EBShamanTotem"/>; short duration so leaving range drops it.</summary>
     [EffectRegistration(ShamanEffectIds.TotemEarth)]
     public class TotemEarthEffect : Effect
     {
@@ -68,28 +66,23 @@ namespace canrpgclasses.Shaman
         public override void OnExpire() => entity.Stats.Remove(StatKeys.MeleeWeaponsDamage, ShamanEffectIds.TotemEarth);
     }
 
-    /// <summary>
-    /// Static Shield: each melee hit taken shocks the attacker and burns a charge (charges = effect tier,
-    /// shown as HUD stacks). Never ticks - the snapshot only bakes the per-proc damage.
-    /// </summary>
+    /// <summary>Each melee hit taken shocks the attacker and burns a charge (charges = effect tier).</summary>
     [EffectRegistration(ShamanEffectIds.StaticShield)]
     public class StaticShieldEffect : SnapshotEffect
     {
-        /// <summary>Baked damage per proc. Public so it survives relog (OnStart doesn't re-run on deserialize).</summary>
+        /// <summary>Public so it survives relog.</summary>
         public float perProc;
 
         private readonly float coeff;
         public StaticShieldEffect() { coeff = BalanceConfig.Spell("static_shield").F("coeff", 0.3f); }
 
-        // Improved Shields (Restoration talent) scales the proc; read from the caster (self for Static Shield,
-        // the healer for Stone Ward) at apply time, like every other snapshot.
+        // Improved Shields is read from the caster, which is the healer when applied via Stone Ward.
         protected override void Recompute()
             => perProc = casterSpellPower * coeff * (1f + (Caster ?? entity).ReductionStat(ShamanStatKeys.ShieldPower));
 
         public override float DisplayMagnitude() => perProc;
 
-        // Only real incoming melee swings charge the shield: never a heal, never our own spell/proc damage
-        // (CanrpgDamageSource - so two shielded shamans can't ping-pong, and DoT ticks don't strip charges).
+        // Ignores CanrpgDamageSource so two shielded shamans can't ping-pong and DoT ticks don't eat charges.
         public override void OnShouldEntityReceiveDamage(ref float damage, DamageSource dmgSource)
         {
             if (perProc <= 0f || damage <= 0f || dmgSource == null || dmgSource.Type == EnumDamageType.Heal) return;
@@ -115,15 +108,11 @@ namespace canrpgclasses.Shaman
         }
     }
 
-    /// <summary>
-    /// Spirit Wolf: travel-form toggle aura (speed + wolf model). Declares <see cref="IModelSwapEffect"/>
-    /// so an incoming transmute cancels the form instead of silently failing.
-    /// </summary>
+    /// <summary>Travel form. <see cref="IModelSwapEffect"/> lets an incoming transmute cancel the form.</summary>
     [EffectRegistration(ShamanEffectIds.SpiritWolf)]
     public class SpiritWolfAuraEffect : AuraEffectBase, IModelSwapEffect
     {
-        /// <summary>Registered by the PlayerModelLib content asset config/customplayermodels/canrpgwolf.json.
-        /// Domain-prefixed for the same reason as the sheep (see PlayerModelSwap.TransmuteModelCode).</summary>
+        /// <summary>From config/customplayermodels/canrpgwolf.json; domain-prefixed like PlayerModelSwap.TransmuteModelCode.</summary>
         public const string ModelCode = "canrpgclasses:canrpgwolf";
 
         public float value;
@@ -135,9 +124,7 @@ namespace canrpgclasses.Shaman
             Assert();
         }
 
-        // Re-assert every tick: OnStart doesn't run on relog or on a colliding re-apply (that lands as OnStack), and
-        // PlayerModelLib can reset skinModel to the base model on join - any of which would silently drop the form.
-        // Every step here is idempotent.
+        // Re-assert every tick: OnStart doesn't run on relog or re-apply, and PlayerModelLib can reset the model on join.
         public override void OnTick()
         {
             base.OnTick();

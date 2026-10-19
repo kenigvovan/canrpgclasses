@@ -6,9 +6,8 @@ using canrpgclasses.Core.Net;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Adds a thin class-resource bar per member to canparty's party frames. Only the data is ours: canparty asks
-    /// <see cref="PartyHudExtensions.ProvideMemberBar"/> and draws the bar itself, knowing nothing about classes
-    /// or resources.
+    /// Supplies class-resource bars for canparty's frames via <see cref="PartyHudExtensions.ProvideMemberBar"/>;
+    /// canparty draws them.
     /// </summary>
     public class PartyResourceOverlay : IDisposable
     {

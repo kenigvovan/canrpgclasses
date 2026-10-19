@@ -7,8 +7,7 @@ using canrpgclasses.Core.Spells;
 
 namespace canrpgclasses.Shaman
 {
-    /// <summary>The Shaman - a mail-wearing hybrid defined by totems, chain spells, weapon imbues and reactive
-    /// shields. Trees: Elemental (caster), Enhancement (melee), Restoration (healer); plain mana, no combo.</summary>
+    /// <summary>Mail-wearing hybrid: totems, chain spells, weapon imbues and reactive shields.</summary>
     [RpgClassRegistration("shaman")]
     public class ShamanClass : RpgClassDef
     {
@@ -21,11 +20,11 @@ namespace canrpgclasses.Shaman
             BaseSpells = new[]
             {
                 "canrpgclasses:arc_bolt", "canrpgclasses:earthen_jolt", "canrpgclasses:mending_wave",
-                "canrpgclasses:static_shield", "canrpgclasses:spirit_wolf", "canrpgclasses:snaring_totem"
+                "canrpgclasses:static_shield", "canrpgclasses:spirit_wolf", "canrpgclasses:snaring_totem",
+                "canrpgclasses:water_walking"
             };
 
-            // Only true plate counts as heavy here - mail is the shaman's native gear, unlike the mage/priest, for
-            // whom chain already encumbers.
+            // Only plate counts as heavy; unlike mage/priest, chain is native gear here.
             string[] plateArmor = { "plate", "brigandine", "lamellar" };
             float mail = BalanceConfig.Affinity("shaman", "mail_attunement").F("value", 0.08f);
             float burden = BalanceConfig.Affinity("shaman", "plate_burden").F("value", 0.15f);
@@ -58,8 +57,7 @@ namespace canrpgclasses.Shaman
                 },
             };
 
-            // Elemental owns both nature and fire spells, so it scales both schools per point - otherwise its fire
-            // payoff would fall behind the nature nukes as you invest.
+            // Elemental scales both nature and fire, or its fire spells fall behind as points go in.
             float elemPerPoint = BalanceConfig.Global("shamanElementalPerPoint", 0.015f);
             TreeMasteries = new()
             {
@@ -82,7 +80,7 @@ namespace canrpgclasses.Shaman
                 Max = 100f,
                 RegenPerSec = BalanceConfig.Global("shamanManaRegenPerSec", 5f),
                 StartFull = true,
-                ColorR = 0.2f, ColorG = 0.75f, ColorB = 0.85f // teal (distinct from mage violet / priest gold / paladin blue)
+                ColorR = 0.2f, ColorG = 0.75f, ColorB = 0.85f // teal
             };
             UsesComboPoints = false;
         }

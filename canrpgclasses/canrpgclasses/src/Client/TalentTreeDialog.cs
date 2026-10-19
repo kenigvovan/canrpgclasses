@@ -16,9 +16,8 @@ using canrpgclasses.Core.Talents;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Talent window: the class's three trees as grids of ranked icons with prerequisite arrows, plus the bonus
-    /// summary, affinities and saved builds. A spend sends a <see cref="TalentSpendPacket"/> and the synced-back
-    /// rank triggers the redraw - nothing is applied locally.
+    /// Talent window: trees with prerequisite arrows, bonus summary, affinities and saved builds. Spending sends
+    /// a <see cref="TalentSpendPacket"/>; the synced rank triggers the redraw.
     /// </summary>
     public class TalentTreeDialog : CanrpgDialog
     {
@@ -35,8 +34,7 @@ namespace canrpgclasses.Client
         private static readonly double[] Grey = { 0.45, 0.45, 0.50, 1 };
         private static readonly double[] Dim = { 0.50, 0.50, 0.55, 0.7 };
 
-        // The same four states as a plate tint - muted versions, so the icon still reads on top but the state is
-        // obvious from across the window rather than only at the border.
+        // Same four states as muted plate tints.
         private static readonly double[] PlateGold = { 0.36, 0.28, 0.10, 0.85 };
         private static readonly double[] PlateGreen = { 0.16, 0.30, 0.16, 0.85 };
         private static readonly double[] PlateBlue = { 0.14, 0.20, 0.32, 0.85 };
@@ -44,7 +42,6 @@ namespace canrpgclasses.Client
 
         private static readonly double[] Accent = EditorStyle.Accent;
 
-        // Row colours for the two summary panels live in VtmlText, shared with the character sheet.
         private const string RowLabel = VtmlText.RowLabel;
         private const string Good = VtmlText.Good;
         private const string Bad = VtmlText.Bad;
@@ -55,9 +52,7 @@ namespace canrpgclasses.Client
 
         private readonly TalentLoadouts loadouts;
 
-        /// <summary>Per tree: the talents laid out in cell order, null where the grid has a hole. Sized per class
-        /// (<see cref="RpgClassDef.TreeCount"/>) rather than to a fixed three, so a class - ours or an add-on's -
-        /// can carry a fourth tree and the window simply gets wider.</summary>
+        /// <summary>Per tree: talents in cell order, null for holes. Sized by <see cref="RpgClassDef.TreeCount"/>.</summary>
         private List<Talent?>[] treeCells = Array.Empty<List<Talent?>>();
         private int[] treeCols = Array.Empty<int>();
         private int treeCount = RpgClassDef.DefaultTreeCount;
@@ -70,7 +65,7 @@ namespace canrpgclasses.Client
         public TalentTreeDialog(ICoreClientAPI capi) : base(capi)
         {
             loadouts = canrpgclassesModSystem.ClientInstance?.Loadouts ?? new TalentLoadouts(capi);
-            // The per-tree arrays are (re)built by LayoutTrees once the player's class is known.
+            // Built by LayoutTrees once the class is known.
             listenerId = capi.Event.RegisterGameTickListener(_ => Refresh(), 500);
         }
 
@@ -80,8 +75,7 @@ namespace canrpgclasses.Client
             Compose();
         }
 
-        /// <summary>Ranks only change through the server, so the cheapest reliable trigger is a signature of the
-        /// player's spent ranks. When it moves, the arrows and cell states are stale and the dialog recomposes.</summary>
+        /// <summary>Signature of spent ranks; a change recomposes the dialog.</summary>
         private string RankSignature(Entity player, canrpgclassesModSystem mod, string classId)
         {
             var sb = new StringBuilder();
@@ -128,8 +122,7 @@ namespace canrpgclasses.Client
             y += 68;
             double headerRuleY = y - 6;
 
-            // Trees side by side, each its own grid so a tree's arrows stay inside it, and each on its own inset
-            // panel so three grids don't read as one undifferentiated field of icons.
+            // One grid per tree, side by side, each on its own inset panel.
             var treeBounds = new ElementBounds[treeCount];
             var treeTitleBounds = new ElementBounds[treeCount];
             var treeCountBounds = new ElementBounds[treeCount];
@@ -150,11 +143,9 @@ namespace canrpgclasses.Client
             double treesRuleY = y - 8;
 
             double halfW = treesW / 2 - 10;
-            // Two lines of title: these headings are full sentences ("Gear bonuses (from equipped weapon/armor)")
-            // and wrap, so a one-line slot would let them run over the body text underneath.
+            // Two-line titles: the headings wrap.
             const double panelTitleH = 42;
-            // Room for every row a fully-specced character can show (about fifteen) rather than the handful a
-            // fresh one has - the panel is a fixed block, so anything past its height would simply be cut off.
+            // Fixed height for ~15 rows, what a fully-specced character shows.
             const double panelBodyH = 260;
             var summaryTitleBounds = ElementBounds.Fixed(0, y, halfW, panelTitleH);
             var summaryBounds = ElementBounds.Fixed(4, y + panelTitleH + 2, halfW - 8, panelBodyH);
@@ -182,7 +173,7 @@ namespace canrpgclasses.Client
                     ElementStdBounds.AutosizedMainDialog.WithAlignment(EnumDialogArea.CenterMiddle))
                 .AddShadedDialogBG(ElementBounds.Fixed(0, 0, treesW + 40, y + 75), true, 5.0, 0.75f)
                 .AddDialogTitleBar(Lang.Get("canrpgclasses:ui-talents-title"), () => TryClose())
-                // Content starts below the title bar - at y=30 the first line of the header ran under it.
+                // Below the title bar.
                 .BeginChildElements(ElementBounds.Fixed(20, GuiStyle.TitleBarHeight + 12, treesW, y))
                     .AddDynamicText(HeaderText(cls, classId, level), CairoFont.WhiteMediumText(), headerBounds, "header")
                     .AddStatbar(xpBarBounds, GuiStyle.XPBarColor, "xpbar")
@@ -208,8 +199,7 @@ namespace canrpgclasses.Client
                 .AddInset(summaryPanelBounds, 3, 0.85f)
                 .AddStaticText(Lang.Get("canrpgclasses:ui-sum-title"),
                     CairoFont.WhiteSmallishText().WithColor(Accent), summaryTitleBounds)
-                // Richtext, not dynamic text: these blocks colour each row on its own (a bonus green, a malus red,
-                // an inactive gear set grey), and a dynamic-text element is one colour throughout.
+                // Richtext for per-row colours; dynamic text is single-colour.
                 .AddRichtext("", CairoFont.WhiteDetailText(), summaryBounds, "summary")
 
                 .AddInset(affinityPanelBounds, 3, 0.85f)
@@ -230,8 +220,7 @@ namespace canrpgclasses.Client
                 .AddSmallButton(Lang.Get("canrpgclasses:ui-respec"), Respec, respecBounds)
                 .AddSpellTooltip(ElementBounds.Fixed(0, 0, 1, 1), "tooltip");
 
-            // Cells and arrow drawing must be in place before Compose: the arrows are baked into the grid's
-            // static layer.
+            // Before Compose: arrows are baked into the grid's static layer.
             for (int t = 0; t < treeCount; t++) FillTree(compo, player, mod, cls, classId, t, totalPoints);
 
             SingleComposer = compo.EndChildElements().Compose();
@@ -243,18 +232,14 @@ namespace canrpgclasses.Client
             UpdateSummary(player, mod, classId);
         }
 
-        /// <summary>Places each tree's talents into a rectangular cell grid by (Column, Tier). Rows are sized to
-        /// the deepest talent the class actually defines and shared across all three trees, so they line up and
-        /// there are no empty rows at the bottom.</summary>
+        /// <summary>Lays talents out by (Column, Tier); row count is the class's deepest tier, shared by all trees.</summary>
         private void LayoutTrees(canrpgclassesModSystem mod, string classId, RpgClassDef? cls)
         {
             int maxTier = 0;
             foreach (var t in mod.Talents.ForClass(classId)) if (t.Tier > maxTier) maxTier = t.Tier;
             treeRows = maxTier + 1;
 
-            // A talent whose TreeIndex is past the class's declared trees would otherwise be laid out nowhere and
-            // silently vanish from the window - widen to fit it instead, and let the class definition be the
-            // authority on names only.
+            // Widen to fit a TreeIndex past the declared trees instead of hiding the talent.
             treeCount = Math.Max(1, cls?.TreeCount ?? RpgClassDef.DefaultTreeCount);
             foreach (var t in mod.Talents.ForClass(classId)) if (t.TreeIndex + 1 > treeCount) treeCount = t.TreeIndex + 1;
 
@@ -290,7 +275,7 @@ namespace canrpgclasses.Client
             var icons = mod.Icons;
             var cells = treeCells[tree];
 
-            // The rank counter goes in the gutter under each talent, not on top of its art.
+            // Rank counter in the gutter under each talent.
             grid.BadgeBelow = true;
 
             grid.Cells = cells.Select(t =>
@@ -311,8 +296,7 @@ namespace canrpgclasses.Client
                     IconTint = locked ? Dim : null,
                     FrameColor = maxed ? Gold : canSpend ? Green : rank > 0 ? Blue : Grey,
                     PlateColor = maxed ? PlateGold : canSpend ? PlateGreen : rank > 0 ? PlateBlue : PlateLocked,
-                    // Heavier frame on the two states worth acting on: what you can spend into now, and what is
-                    // already finished.
+                    // Heavier frame for spendable and maxed talents.
                     Emphasize = canSpend || maxed
                 };
             }).ToList();
@@ -320,7 +304,7 @@ namespace canrpgclasses.Client
             grid.OnComposeBackground = (ctx, rect) => DrawArrows(ctx, rect, player, mod, tree);
 
             var tooltip = compo.GetSpellTooltip("tooltip");
-            // The mouse button is unused here, but it cannot be named _ : that would capture the out discard below.
+            // `button` can't be named _: it would capture the out discard below.
             grid.OnCellClick = (index, button) =>
             {
                 var t = index >= 0 && index < cells.Count ? cells[index] : null;
@@ -348,8 +332,7 @@ namespace canrpgclasses.Client
                     SpellTooltip.Name)
             };
 
-            // "Learn a skill" talents read differently from passive stat talents: a cyan banner plus the granted
-            // spell's real numbers, so it's obvious the talent unlocks an ability.
+            // Skill-granting talents get a banner and the granted spell's numbers.
             if (!string.IsNullOrEmpty(talent.GrantsSpellId) && mod.Spells.TryGet(talent.GrantsSpellId!, out var granted)
                 && granted != null)
             {
@@ -386,8 +369,7 @@ namespace canrpgclasses.Client
             tooltip.SetLines(talent.Id + "@" + rank, lines);
         }
 
-        /// <summary>Prerequisite arrows, from each talent that has a RequiresTalent to its dependent. White when
-        /// the prerequisite is satisfied (maxed), grey otherwise, so locked chains read at a glance.</summary>
+        /// <summary>Prerequisite arrows: white when the prerequisite is maxed, grey otherwise.</summary>
         private void DrawArrows(Context ctx, System.Func<int, (double X, double Y, double W, double H)> rect,
             Entity player, canrpgclassesModSystem mod, int tree)
         {
@@ -404,11 +386,8 @@ namespace canrpgclasses.Client
                 var reqT = mod.Talents.Get(talent.RequiresTalent!);
                 if (reqT == null) continue;
 
-                // Only neighbouring cells get an arrow. Several talents in a tree can share one distant
-                // prerequisite (four Feral talents all require Ursine Form, three rows up and two columns over);
-                // routing those produces long runs through the gutters that read as arrows between whatever cells
-                // they happen to pass, which is worse than no arrow at all. The requirement is spelled out in the
-                // talent's tooltip either way.
+                // Only neighbouring cells get an arrow; long routes read as links between unrelated cells.
+                // The tooltip names the requirement anyway.
                 int dRow = Math.Abs(talent.Tier - reqT.Tier);
                 int dCol = Math.Abs(talent.Column - reqT.Column);
                 if (dRow > 1 || dCol > 1 || (dRow == 0 && dCol == 0)) continue;
@@ -438,23 +417,19 @@ namespace canrpgclasses.Client
 
                 if (Math.Abs(rcx - dcx) < 1)
                 {
-                    // Same column: a plain vertical run. Two of these can never share a lane, so nothing to route.
+                    // Same column: a plain vertical run.
                     DrawArrow(ctx, new[] { (rcx, fromY), (dcx, toY) }, color, thickness);
                     continue;
                 }
 
-                // Different column: route orthogonally - down out of the prerequisite, across the gutter between
-                // the rows, then down into the dependent. Diagonals were the whole problem: they cut across cells
-                // and across each other at arbitrary angles, so two links near each other turned into a cross-
-                // hatch. Right-angle runs stay inside the gutters, and where two of them do share a gutter they
-                // overlap as one clean line instead of an X.
+                // Different column: route orthogonally through the gutters so shared runs overlap cleanly
+                // instead of crossing cells diagonally.
                 double gutterY = (fromY + toY) / 2;
                 DrawArrow(ctx, new[] { (rcx, fromY), (rcx, gutterY), (dcx, gutterY), (dcx, toY) }, color, thickness);
             }
         }
 
-        /// <summary>An arrow along a polyline - one segment for a straight run, three for an orthogonal detour.
-        /// Soft outer glow, solid body, brighter core, head on the final segment.</summary>
+        /// <summary>Arrow along a polyline: glow, body and core passes, head on the last segment.</summary>
         private static void DrawArrow(Context ctx, (double X, double Y)[] points, double[] color, double thickness)
         {
             if (points.Length < 2) return;
@@ -474,7 +449,7 @@ namespace canrpgclasses.Client
             if (start.ux == 0 && start.uy == 0) return;
             if (end.ux == 0 && end.uy == 0) return;
 
-            // Inset the ends so tail and head sit in the gutter, clear of the cell frames.
+            // Inset the ends clear of the cell frames.
             var path = ((double X, double Y)[])points.Clone();
             path[0] = (a.X + start.ux * 3, a.Y + start.uy * 3);
             path[^1] = (b.X - end.ux * 4, b.Y - end.uy * 4);
@@ -483,8 +458,7 @@ namespace canrpgclasses.Client
             {
                 ctx.SetSourceRGBA(c[0], c[1], c[2], c[3] * alphaMul);
                 ctx.LineWidth = w;
-                // Round joins and caps: a right-angle corner drawn with the default mitre looks notched, and each
-                // of the three passes below would notch it differently.
+                // Round joins: the default mitre notches right-angle corners.
                 ctx.LineJoin = LineJoin.Round;
                 ctx.LineCap = LineCap.Round;
                 ctx.MoveTo(path[0].X, path[0].Y);
@@ -560,7 +534,7 @@ namespace canrpgclasses.Client
             }
             SingleComposer.GetRichtext("summary")?.SetNewText(sb.ToString(), bodyFont);
 
-            // "[x]" / "[ ]" rather than a filled/hollow dot: the game font has no such glyphs.
+            // "[x]" / "[ ]": the game font has no dot glyphs.
             sb.Clear();
             foreach (var (line, active) in TalentBonusSummary.GearAffinities(capi, cls))
             {

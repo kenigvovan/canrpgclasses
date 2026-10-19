@@ -8,9 +8,8 @@ using canrpgclasses.Hunter;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// The hunter's pet panel: rename the wolf, watch its health and issue every pet order from buttons instead
-    /// of the hotbar. Orders go out as ordinary cast requests. Health and mode are pushed into the existing
-    /// elements on a tick; only losing or summoning a pet rebuilds the dialog.
+    /// Hunter pet panel: rename, health and pet orders (sent as ordinary casts). Only losing or summoning a pet
+    /// rebuilds the dialog.
     /// </summary>
     public class PetPanelDialog : CanrpgDialog
     {
@@ -63,10 +62,8 @@ namespace canrpgclasses.Client
             SingleComposer.GetToggleButton("stay")?.SetValue(
                 pet.WatchedAttributes.GetBool(HunterPetSystem.PetStayKey, false));
 
-            // Adopt the owner's stored pet name only when THAT value changes (rename confirmed by the server or
-            // another source) - not simply whenever the box is unfocused. Mirroring while unfocused had a frame
-            // race: pressing Rename defocuses the input, and the mirror wiped the typed text one frame before the
-            // button fired, so every rename sent "".
+            // Mirror the stored name only when it changes: pressing Rename defocuses the input a frame before
+            // the button fires, so mirroring on unfocus would wipe the typed text.
             var owner = capi.World?.Player?.Entity;
             string synced = owner?.WatchedAttributes.GetString(HunterPetSystem.PetNameKey, "") ?? "";
             if (synced != lastSyncedName)

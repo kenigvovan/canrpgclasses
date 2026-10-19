@@ -2,6 +2,7 @@
 	"_comment": "Balance numbers for the Shaman class. Single source of truth: spells/talents read these at load, and the templated lang descriptions are filled from the same values. Keys map to fields in the matching spell/talent C# class; a missing key falls back to the code default. Spell keys are global by local id; talent/affinity keys are namespaced by this filename (shaman:*). Milestone 1 (base kit) only - Elemental/Enhancement/Restoration spells and talents are added by their own milestones. Heal coefficients are on the same scale as the paladin/priest heals (healCoeff 5-10), NOT the damage scale.",
 
 	"spells": {
+		"water_walking": { "resource": 15, "cooldown": 5, "duration": 600 },
 		"arc_bolt": { "resource": 20, "cooldown": 0, "cast": 2.0, "coeff": 2.0, "stormstrikeMultiplier": 1.2 },
 		"earthen_jolt": { "resource": 25, "cooldown": 6, "coeff": 1.5 },
 		"mending_wave": { "resource": 40, "cooldown": 0, "cast": 2.8, "healCoeff": 9 },

@@ -24,10 +24,8 @@ namespace canrpgclasses.Paladin.Talents
             => e.Stats.Set(StatKeys.MaxHealthExtraPoints, "canrpgtalent_pal_toughness", perRank * rank);
     }
 
-    // Aura talent: while any of your (now base) Auras is active, YOU and EVERYONE UNDER IT take less damage. A flat
-    // mitigation lever the thin Protection tree lacked. Implemented as a caster stat baked into the applied aura
-    // effect by EBAuras (AuraEffectBase.sanctuaryDr), so the DR reaches every recipient, not just the paladin.
-    // Feeds the shared DamageReduction stat (capped with everything else at 50% in StunPatches).
+    // Caster stat baked into the aura effect by EBAuras (AuraEffectBase.sanctuaryDr), so the DR reaches everyone
+    // under any of the paladin's Auras. Shares the 50% DR cap in StunPatches.
     [TalentRegistration("paladin:aura_of_refuge")]
     public class AuraOfSanctuaryTalent : Talent
     {
@@ -108,9 +106,8 @@ namespace canrpgclasses.Paladin.Talents
             => e.Stats.Set(StatKeys.MaxHealthExtraPoints, "canrpgtalent_guardian", perRank * rank);
     }
 
-    // Ranked passive: flat damage mitigation - the tank's mitigation lever, and depth in tier 3 so the path to
-    // the capstone isn't forced through Guardian alone. Read by StunPatches.Prefix_ReceiveDamage via the
-    // 1.0-based canrpgDamageReduction stat (seeded in EBRpgStats).
+    // Second tier-3 option so the path to the capstone isn't forced through Guardian. Read by
+    // StunPatches.Prefix_ReceiveDamage via the 1.0-based canrpgDamageReduction stat.
     [TalentRegistration("paladin:stalwart")]
     public class StalwartTalent : Talent
     {

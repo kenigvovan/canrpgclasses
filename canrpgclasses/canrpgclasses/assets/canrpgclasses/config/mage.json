@@ -1,5 +1,5 @@
 {
-	"_comment": "Balance numbers for the Mage class. Single source of truth: spells/talents read these at load, and the templated lang descriptions are filled from the same values. Keys map to fields in the matching spell/talent C# class; a missing key falls back to the code default. Spell keys are global by local id; talent/affinity keys are namespaced by this filename (mage:*). Ticking DoT/zone effects tick once per second (coeffPerTick is per-second; duration = number of ticks). Ground zones (flamestrike/blizzard) are centred UNDER the caster (no cast-point targeting).",
+	"_comment": "Balance numbers for the Mage class. Single source of truth: spells/talents read these at load, and the templated lang descriptions are filled from the same values. Keys map to fields in the matching spell/talent C# class; a missing key falls back to the code default. Spell keys are global by local id; talent/affinity keys are namespaced by this filename (mage:*). Ticking DoT/zone effects tick once per second (coeffPerTick is per-second; duration = number of ticks). Ground zones (flamestrike/blizzard) are centred UNDER the caster (no cast-point targeting). waypoint.enabled = 1 turns on the Waypoint portal and Portal Anchor (off by default); waypoint.maxDistance 0 = unlimited. waypoint.anchorMode: 0 = each player sets a personal Portal Anchor, 1 = only admin points (/canrpgportal add), picked from a list, 2 = both.",
 
 	"spells": {
 		"ice_bolt": { "resource": 20, "cooldown": 0, "cast": 1.8, "coeff": 1.8, "projVelocity": 1.2, "slowAmp": 2, "slowCap": 3, "slowDuration": 2 },
@@ -7,6 +7,10 @@
 		"mystic_guard": { "resource": 0, "cooldown": 1.5, "resourceRegen": 0.30 },
 		"frost_guard": { "resource": 0, "cooldown": 1.5, "damageReduction": 0.10 },
 		"molten_guard": { "resource": 0, "cooldown": 1.5, "spellPower": 0.10 },
+		"mage_gate": { "resource": 30, "cooldown": 45, "range": 30, "duration": 15, "maxHeightDiff": 6 },
+		"waypoint": { "enabled": 1, "anchorMode": 0, "resource": 60, "cooldown": 1800, "cast": 10, "duration": 30, "maxDistance": 0 },
+		"portal_anchor": { "resource": 0, "cooldown": 60 },
+		"feather_fall": { "resource": 15, "cooldown": 20, "duration": 20, "maxFallSpeed": 0.08 },
 
 		"fire_bolt": { "resource": 30, "cooldown": 0, "cast": 2.2, "coeff": 2.5, "projVelocity": 1.2 },
 		"cinder_blast": { "resource": 45, "cooldown": 12, "cast": 3.0, "coeff": 3.5, "projVelocity": 1.1, "duration": 8, "coeffPerTick": 0.3, "stunChance": 0.15, "stunDuration": 2 },

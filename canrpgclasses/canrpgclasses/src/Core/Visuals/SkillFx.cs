@@ -7,15 +7,11 @@ using Vintagestory.API.Server;
 
 namespace canrpgclasses.Core.Visuals
 {
-    /// <summary>
-    /// Server-side one-shot skill visuals: broadcasts a small packet per event and each client builds the
-    /// particles locally. This is the "between two points" layer (chain hops, retaliation arcs) that the
-    /// burst-only <see cref="ParticleSpec"/> can't do. No-op on the client or before the channel exists.
-    /// </summary>
+    /// <summary>Server-side one-shot visuals between two points, one small packet per event; clients build the
+    /// particles. No-op on the client.</summary>
     public static class SkillFx
     {
-        /// <summary>How far the effect is broadcast; matches the cast-bar broadcast so anything you can watch
-        /// being cast, you can also see land.</summary>
+        /// <summary>Matches the cast-bar broadcast radius.</summary>
         public const float BroadcastRadius = 64f;
 
         public static void Arc(IWorldAccessor world, Entity a, Entity b, SpellSchool school)
@@ -30,7 +26,7 @@ namespace canrpgclasses.Core.Visuals
         public static void RingWave(IWorldAccessor world, Vec3d center, float radius, SpellSchool school)
             => Send(world, SkillFxKind.RingWave, center, center, school, radius);
 
-        /// <summary>A mote streaks caster → target: a direct, projectile-less nuke becomes visibly delivered.</summary>
+        /// <summary>A mote streaks caster → target.</summary>
         public static void Trail(IWorldAccessor world, Entity a, Entity b, SpellSchool school)
             => Send(world, SkillFxKind.Trail, Anchor(a), Anchor(b), school, 0f);
 
@@ -46,8 +42,7 @@ namespace canrpgclasses.Core.Visuals
         public static void Bloom(IWorldAccessor world, Entity at, SpellSchool school)
             => Send(world, SkillFxKind.Bloom, Anchor(at), Anchor(at), school, 0f);
 
-        /// <summary>A sharp burst flying off the target, away from the caster. A carries the target, B the source,
-        /// so the client draws the spray along source → target.</summary>
+        /// <summary>A burst flying off the target, away from the source.</summary>
         public static void Spark(IWorldAccessor world, Entity target, Entity source, SpellSchool school)
             => Send(world, SkillFxKind.Spark, Anchor(target), Anchor(source), school, 0f);
 
@@ -59,8 +54,7 @@ namespace canrpgclasses.Core.Visuals
         public static void Rune(IWorldAccessor world, Vec3d at, float radius, SpellSchool school)
             => Send(world, SkillFxKind.Rune, at, at, school, radius);
 
-        /// <summary>Chest height - where a bolt visually connects to a body (feet for a ring, but rings pass
-        /// their own center).</summary>
+        /// <summary>Chest height, where a bolt visually connects to a body.</summary>
         private static Vec3d Anchor(Entity e)
         {
             var pos = e.Pos.XYZ;

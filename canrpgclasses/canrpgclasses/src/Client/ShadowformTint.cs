@@ -5,9 +5,8 @@ using Vintagestory.API.Common.Entities;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Client-only: tints any entity in Shadow Guise dark violet via <see cref="Entity.RenderColor"/>. Runs as a
-    /// tick, not a one-shot on toggle: the engine's hurt-flash rewrites RenderColor, so the tint must be
-    /// re-asserted.
+    /// Tints entities in Shadow Guise via <see cref="Entity.RenderColor"/>. Re-applied on a tick because the
+    /// hurt-flash overwrites RenderColor.
     /// </summary>
     public class ShadowformTint
     {
@@ -15,8 +14,7 @@ namespace canrpgclasses.Client
         private long listenerId;
         private HashSet<long> tinted = new();
 
-        // Dark violet, packed as the ARGB int the entity shader decodes (A<<24 | R<<16 | G<<8 | B). Below-255
-        // channels multiply the model darker; the low red/green + higher blue reads as shadow.
+        // Dark violet as packed ARGB; channels below 255 multiply the model darker.
         private const int Tint = (255 << 24) | (95 << 16) | (45 << 8) | 135;
         private const string ShadowformAura = "canrpgclasses:shadow_guise";
 

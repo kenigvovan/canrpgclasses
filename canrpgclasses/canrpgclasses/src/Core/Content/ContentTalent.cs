@@ -5,17 +5,13 @@ using Vintagestory.API.Common;
 
 namespace canrpgclasses.Core.Content
 {
-    /// <summary>A talent defined in JSON. Covers the two data-driven flavours: "learn" talents, which grant a
-    /// spell, and stat talents, which set one or more stats per rank. Hook talents - the ones that run code on a
-    /// hit or a swing - still need C#, because there is no data shape for behaviour.</summary>
+    /// <summary>A JSON talent: grants a spell and/or sets stats per rank. Hook talents still need C#.</summary>
     public class ContentTalent : Talent
     {
         private readonly (string Stat, float PerRank)[] stats;
         private readonly string statKey;
 
-        /// <summary>The stats this talent sets, per rank. Exposed because the tree editor has to show them: they
-        /// are the one part of a talent that lives in <see cref="ApplyStats"/> rather than in a property, and an
-        /// editor that couldn't read them back would blank them on the next save.</summary>
+        /// <summary>Per-rank stats, exposed so the tree editor can read them back instead of blanking them on save.</summary>
         public IReadOnlyList<(string Stat, float PerRank)> Stats => stats;
 
         public ContentTalent(string id, TalentModel m, ContentReport report)

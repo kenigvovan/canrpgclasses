@@ -3,9 +3,8 @@ using Vintagestory.API.Client;
 namespace canrpgclasses.Client.Gui
 {
     /// <summary>
-    /// Shared drag between two <see cref="GuiElementIconGrid"/>s in one dialog; vanilla has no generic
-    /// drag&amp;drop. The release is deferred to the next render pass because the composer delivers mouse-up to
-    /// every element in an undefined order - the source must not clear the drag before the target sees it.
+    /// Drag between <see cref="GuiElementIconGrid"/>s in one dialog. Release is deferred a render pass since
+    /// the composer delivers mouse-up to elements in undefined order.
     /// </summary>
     public class IconDragState
     {
@@ -19,9 +18,8 @@ namespace canrpgclasses.Client.Gui
         /// <see cref="GhostRenderer"/> names someone else.</summary>
         public object? Source;
 
-        /// <summary>Grid that draws the cursor ghost, when it must not be the source: a grid inside a
-        /// <c>BeginClip</c> region is scissored to it, so its ghost vanishes when the cursor leaves the list.
-        /// Configuration, not per-drag state, so <see cref="Clear"/> leaves it alone.</summary>
+        /// <summary>Overrides the ghost drawer when the source sits in a <c>BeginClip</c> region and would be
+        /// scissored. Configuration, so <see cref="Clear"/> keeps it.</summary>
         public object? GhostRenderer;
 
         /// <summary>A target already handled the drop this frame; ignore further drop attempts.</summary>

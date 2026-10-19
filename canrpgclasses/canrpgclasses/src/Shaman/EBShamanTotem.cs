@@ -7,16 +7,12 @@ using canrpgclasses.Core.Spells;
 
 namespace canrpgclasses.Shaman
 {
-    /// <summary>
-    /// Server behavior on a planted totem: 1s tick runs the pulse and expires it on lifetime end or owner logoff.
-    /// Everything it needs is snapshotted into WatchedAttributes at plant time, so the pulse is a pure read.
-    /// </summary>
+    /// <summary>Server-side totem pulse (1s). Caster stats are snapshotted into WatchedAttributes at plant time.</summary>
     public class EBShamanTotem : EntityBehavior
     {
         public const string Name = "canrpgshamantotem";
 
-        // Owner link: the vanilla key SpellExecutor.IsAlly reads to treat the totem as its owner's ally (so a
-        // healing totem never mistakes the party for enemies, and Forked Lightning never arcs into it).
+        // SpellExecutor.IsAlly reads this key, so the totem counts as its owner's ally.
         public const string OwnerUidKey = AttrKeys.GuardedByPlayerUid;
 
         public const string KindKey = "canrpgTotemKind";
@@ -63,8 +59,7 @@ namespace canrpgclasses.Shaman
             }
         }
 
-        /// <summary>Burns the nearest enemy in reach, attributed to the owner so kills credit the shaman's XP and
-        /// the hit takes fire resists like any of their spells.</summary>
+        /// <summary>Attributed to the owner so kills credit the shaman's XP.</summary>
         private void PulseSearing(EntityAgent owner, float radius, float power)
         {
             var foe = NearestEnemy(owner, radius);
@@ -96,8 +91,7 @@ namespace canrpgclasses.Shaman
             }
         }
 
-        /// <summary>The buff outlasts one pulse but not many, so leaving the reach drops it without any of the range
-        /// bookkeeping the paladin auras need.</summary>
+        /// <summary>The buff barely outlasts one pulse, so leaving the radius drops it without range bookkeeping.</summary>
         private void PulseEarth(EntityAgent owner, float radius)
         {
             float dur = BalanceConfig.Global("totemEarthBuffSeconds", 3f);

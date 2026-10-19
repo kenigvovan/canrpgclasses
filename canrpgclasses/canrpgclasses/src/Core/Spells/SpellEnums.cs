@@ -7,10 +7,8 @@ namespace canrpgclasses.Core.Spells
         Modifier
     }
 
-    /// <summary>
-    /// Magic schools - the mod's own damage classification; resists, talents and immunities key off it.
-    /// <see cref="DamageSchools"/> maps it to an engine damage type only for armor and built-in mechanics.
-    /// </summary>
+    /// <summary>The mod's own damage classification for resists and talents; <see cref="DamageSchools"/> maps it
+    /// to an engine type for armor and vanilla mechanics.</summary>
     public enum SpellSchool
     {
         PhysicalMelee,
@@ -107,8 +105,7 @@ namespace canrpgclasses.Core.Spells
         /// <summary>Grant the target a flat amount of its class primary resource. Handled by the Warrior module,
         /// so it is a no-op for a class without it.</summary>
         GainResource,
-        /// <summary>Make the target flee: mobs run their flee task, a player loses control and wanders. Goes
-        /// through <see cref="canrpgclasses.Core.Control.ControlState"/>, sharing DR with Stun.</summary>
+        /// <summary>Mobs flee, players lose control and wander. Shares DR with Stun via <see cref="canrpgclasses.Core.Control.ControlState"/>.</summary>
         Fear,
         /// <summary>Block the target from casting. Control layer, own DR bracket.</summary>
         Silence,
@@ -119,9 +116,15 @@ namespace canrpgclasses.Core.Spells
         /// <summary>Let the caster's next Charge cast ignore its cast time. StatusEffectId, if set, is the HUD
         /// marker for the window.</summary>
         GrantInstantCast,
-        /// <summary>Plant a shaman totem: a stationary killable summon pulsing an effect around itself. Separate
-        /// from <see cref="Spawn"/>, whose one handler already belongs to the hunter's pet.</summary>
-        PlaceTotem
+        /// <summary>Plant a killable shaman totem that pulses an effect. Separate from <see cref="Spawn"/>, which the hunter pet owns.</summary>
+        PlaceTotem,
+        /// <summary>Open a portal pair (<see cref="SpellImpact.PortalKind"/>); lifetime rides StatusEffectDuration.
+        /// Handled by <c>PortalSpells</c>.</summary>
+        OpenPortal,
+        /// <summary>Remember the caster's spot as the anchor a Waypoint portal leads to.</summary>
+        SetPortalAnchor,
+        /// <summary>Offer a party member (picked by uid in AimContext.Choice) a portal to the caster.</summary>
+        SummonAlly
     }
 
     public enum TriggerType

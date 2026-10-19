@@ -2,10 +2,7 @@ using System.Collections.Generic;
 
 namespace canrpgclasses.Core.Content
 {
-    /// <summary>
-    /// The shape of a content file: plain deserialization targets, nothing used at runtime.
-    /// <see cref="ContentLoader"/> turns them into real spell/talent/class instances.
-    /// </summary>
+    /// <summary>Content file shape; <see cref="ContentLoader"/> turns these into real instances.</summary>
     public class ContentFileModel
     {
         public List<ClassModel>? classes { get; set; }
@@ -109,6 +106,8 @@ namespace canrpgclasses.Core.Content
         public string? name { get; set; }
         public string? description { get; set; }
         public string? icon { get; set; }
+        /// <summary>Body animation code played on the caster when the spell is used, e.g. falx. Left out: none.</summary>
+        public string? animation { get; set; }
 
         /// <summary>One of the SpellSchool names, e.g. Fire, Frost, Holy, Nature, PhysicalMelee.</summary>
         public string? school { get; set; }

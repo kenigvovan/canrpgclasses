@@ -3,11 +3,8 @@ using Vintagestory.API.Common;
 
 namespace canrpgclasses.Core.Spells
 {
-    /// <summary>
-    /// Maps a <see cref="SpellSchool"/> to the engine damage type. Worn armor only reduces Blunt/Slashing/Piercing,
-    /// so magical schools become <see cref="EnumDamageType.Injury"/> - armor-piercing, with no elemental baggage.
-    /// Fire and Frost keep their real type so vanilla burning and cold still apply.
-    /// </summary>
+    /// <summary>Maps a <see cref="SpellSchool"/> to the engine damage type. Magic becomes <see cref="EnumDamageType.Injury"/>
+    /// since armor only reduces physical types; Fire and Frost keep theirs so vanilla burning/cold still apply.</summary>
     public static class DamageSchools
     {
         public sealed class Def

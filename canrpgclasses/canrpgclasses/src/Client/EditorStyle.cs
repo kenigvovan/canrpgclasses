@@ -4,9 +4,7 @@ using Vintagestory.API.Client;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// The look the content editors share with the rest of the mod's windows: the same gold/accent/muted palette
-    /// and the same hairline rule between blocks as the class picker and the talent tree, so an admin window
-    /// doesn't read as a different mod.
+    /// Shared palette and separators so the content editors match the rest of the mod's windows.
     /// </summary>
     public static class EditorStyle
     {
@@ -24,13 +22,11 @@ namespace canrpgclasses.Client
         public static CairoFont Status(bool problem)
             => CairoFont.WhiteDetailText().WithColor(problem ? Warn : Gold);
 
-        /// <summary>A hairline separator between blocks, drawn along the top edge of its bounds. For an element
-        /// composed into a shared surface (the static elements of a composer), whose coordinates are absolute.</summary>
+        /// <summary>Hairline along the top edge, for static elements (absolute coordinates).</summary>
         public static void Rule(Context ctx, ImageSurface surface, ElementBounds bounds)
             => Line(ctx, bounds.drawX, bounds.drawY, bounds.OuterWidth);
 
-        /// <summary>The same hairline for an element that owns its surface - an interactive custom-draw gets a
-        /// surface the size of its bounds, where the origin is (0, 0) and absolute coordinates would miss it.</summary>
+        /// <summary>Same hairline for interactive custom-draws, whose surface origin is (0, 0).</summary>
         public static void RuleLocal(Context ctx, ImageSurface surface, ElementBounds bounds)
             => Line(ctx, 0, 1, bounds.OuterWidth);
 

@@ -2,19 +2,13 @@ using Vintagestory.API.Config;
 
 namespace canrpgclasses.Core
 {
-    /// <summary>
-    /// Lang-first text resolution. User-facing names/descriptions live in the lang files
-    /// (assets/canrpgclasses/lang/*.json); a registered translation always wins. The code-side
-    /// string is just a dev default/fallback, and a humanized id is the last resort.
-    /// </summary>
+    /// <summary>Lang-first text: a lang-file translation always wins, the code string is only a fallback.</summary>
     public static class LangText
     {
         public static string? Get(string key, string? fallback)
         {
             string full = "canrpgclasses:" + key;
-            // GetUnformatted, not Get: VS's Lang.Get runs string.Format on the value, which throws on our
-            // "{0}" description templates (no args passed here). We substitute the numbers ourselves later
-            // (Spell/Talent.DescArgs, GearAffinity.ResolvedDescription).
+            // GetUnformatted: Lang.Get runs string.Format and throws on our "{0}" templates, which DescArgs fill later.
             return Lang.HasTranslation(full) ? Lang.GetUnformatted(full) : fallback;
         }
 

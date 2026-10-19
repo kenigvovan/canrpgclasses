@@ -8,21 +8,17 @@ using Vintagestory.API.Common;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Client half of the one-shot skill visuals (<see cref="canrpgclasses.Core.Visuals.SkillFx"/>): builds the
-    /// geometry locally from a <see cref="SkillFxPacket"/>. No persistent tick - delayed restrike passes capture
-    /// their endpoints up front, so a dying entity can't invalidate them.
+    /// Client half of <see cref="canrpgclasses.Core.Visuals.SkillFx"/>: builds one-shot visuals from a
+    /// <see cref="SkillFxPacket"/>. Delayed passes capture endpoints up front.
     /// </summary>
     public class SkillFxClient
     {
         private readonly ICoreClientAPI capi;
 
-        /// <summary>Beyond this many blocks from the camera the effect is dropped outright - it would be a few
-        /// pixels anyway. Slightly beyond the server's broadcast radius so the edge never pops.</summary>
+        /// <summary>Drop distance, slightly beyond the server's broadcast radius.</summary>
         private const double MaxViewDistSq = 80.0 * 80.0;
 
-        // Spam guard for the particle primitives (Ribbon/RingWave): a sliding one-second particle budget; past it,
-        // new particle effects are dropped for the rest of the second. Lightning arcs are a cheap mesh (BoltRenderer)
-        // and bypass this entirely.
+        // Per-second particle budget; over it, particle effects are dropped. Arcs are a mesh and bypass it.
         private const int HardBudgetPerSec = 1600;
         private int particlesThisWindow;
         private long windowStartMs;
@@ -56,8 +52,7 @@ namespace canrpgclasses.Client
             switch ((SkillFxKind)packet.Kind)
             {
                 case SkillFxKind.Arc:
-                    // A solid jagged lightning MESH (BoltRenderer), not particles - crisp and continuous. Nature's
-                    // green palette reads as vines, so lightning arcs go electric blue; other schools keep theirs.
+                    // Nature arcs go electric blue; its green reads as vines.
                     int boltColor = school == SpellSchool.Nature
                         ? ColorUtil.ToRgba(255, 110, 190, 255)
                         : SchoolColor(school);
@@ -65,7 +60,7 @@ namespace canrpgclasses.Client
                     break;
                 case SkillFxKind.Ribbon:
                     if (overBudget) break;
-                    // Staggered thirds: the ribbon visibly RUNS from the healed link to the next one.
+                    // Staggered thirds so the ribbon runs from one link to the next.
                     EmitRibbon(a, b, 0f, 0.34f);
                     capi.Event.RegisterCallback(_ => EmitRibbon(a, b, 0.34f, 0.67f), 120);
                     capi.Event.RegisterCallback(_ => EmitRibbon(a, b, 0.67f, 1.0f), 240);
@@ -113,7 +108,7 @@ namespace canrpgclasses.Client
             if (len < 0.05) return;
             int n = (int)GameMath.Clamp(len / 0.4, 5, 20);
 
-            // The whole curve arcs upward: control point above the midpoint, higher for longer hops.
+            // Control point above the midpoint, higher for longer hops.
             double lift = 1.0 + len * 0.1;
             Vec3d mid = new Vec3d(a.X + axis.X * 0.5, a.Y + axis.Y * 0.5 + lift, a.Z + axis.Z * 0.5);
 
@@ -125,7 +120,7 @@ namespace canrpgclasses.Client
             {
                 double t = (double)i / n;
                 if (t < from || t > to) continue;
-                // Quadratic bezier a→mid→b.
+                // Quadratic bezier a-mid-b.
                 double it = 1.0 - t;
                 Vec3d at = new Vec3d(
                     it * it * a.X + 2 * it * t * mid.X + t * t * b.X,
@@ -148,11 +143,10 @@ namespace canrpgclasses.Client
             const int count = 40;
             const float life = 0.6f;
             particlesThisWindow += count;
-            // Heals get the heal palette regardless of school; damage rings keep their school colour.
             int color = school == SpellSchool.Holy || school == SpellSchool.Nature
                 ? HealColor() : SchoolColor(school);
             const double r0 = 0.3;
-            float speed = (float)((radius - r0) / life); // the ring expands itself - no ticks needed
+            float speed = (float)((radius - r0) / life); // expands by velocity, no ticks
 
             for (int i = 0; i < count; i++)
             {
@@ -170,7 +164,7 @@ namespace canrpgclasses.Client
             }
         }
 
-        // ---- Trail: a mote streaks a→b over ~0.2s (a direct nuke visibly travelling) ----
+        // ---- Trail: a mote streaks a to b over ~0.2s ----
 
         private void EmitTrail(Vec3d a, Vec3d b, SpellSchool school)
         {
@@ -180,7 +174,6 @@ namespace canrpgclasses.Client
             {
                 double t = (double)i / steps;
                 Vec3d at = new Vec3d(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t, a.Z + (b.Z - a.Z) * t);
-                // Stagger each step ~40ms later so the cluster reads as one mote flying, not a whole line at once.
                 int delayMs = i * 40;
                 if (delayMs == 0) SpawnTrailPuff(at, color);
                 else capi.Event.RegisterCallback(_ => SpawnTrailPuff(at, color), delayMs);
@@ -206,7 +199,6 @@ namespace canrpgclasses.Client
             {
                 double y = foot.Y + height * i / rungs;
                 Vec3d at = new Vec3d(foot.X, y, foot.Z);
-                // A tight vertical shaft: small horizontal jitter, slow downward drift so it reads as "struck from above".
                 Spawn(at, color, 0.22f, 0.4f, 0.5f, -0.4f, 0.12f);
             }
         }
@@ -229,7 +221,6 @@ namespace canrpgclasses.Client
             {
                 double ang = Math.PI * 2.0 * i / count;
                 double dx = Math.Cos(ang), dz = Math.Sin(ang);
-                // Slight vertical fan (±) so the burst reads as a mid-air shell, not a flat ground ring.
                 float vy = (float)((i % 3 - 1) * 0.6);
                 Vec3d at = new Vec3d(center.X + dx * r0, center.Y, center.Z + dz * r0);
                 var p = new SimpleParticleProperties(1, 1, color, at, at,
@@ -251,7 +242,6 @@ namespace canrpgclasses.Client
             const int count = 14;
             for (int i = 0; i < count; i++)
             {
-                // Cluster around the chest point; each petal rises with a little outward drift.
                 Vec3d p = at.AddCopy(
                     (capi.World.Rand.NextDouble() - 0.5) * 0.5,
                     (capi.World.Rand.NextDouble() - 0.2) * 0.4,
@@ -278,7 +268,6 @@ namespace canrpgclasses.Client
             var rnd = world.Rand;
             for (int i = 0; i < count; i++)
             {
-                // Cone around the impact direction: main push along dir plus random scatter.
                 Vec3f vel = new Vec3f(
                     (float)(dir.X * speed + (rnd.NextDouble() - 0.5) * 2.5),
                     (float)(dir.Y * speed + (rnd.NextDouble() - 0.5) * 2.5 + 1.0),
@@ -303,14 +292,14 @@ namespace canrpgclasses.Client
             const float life = 0.55f;
             particlesThisWindow += ring + 8;
             double y = foot.Y + 0.06;
-            // Outer circle: fixed radius, near-static, long life so it reads as a mark on the floor.
+            // Outer circle.
             for (int i = 0; i < ring; i++)
             {
                 double ang = Math.PI * 2.0 * i / ring;
                 Vec3d at = new Vec3d(foot.X + Math.Cos(ang) * radius, y, foot.Z + Math.Sin(ang) * radius);
                 Spawn(at, color, 0.16f, 0.26f, life, 0.02f, 0.01f);
             }
-            // Inner cross so it reads as a sigil, not just a circle.
+            // Inner cross.
             for (int i = 0; i < 8; i++)
             {
                 double f = (i - 3.5) / 3.5 * radius;
@@ -327,7 +316,7 @@ namespace canrpgclasses.Client
                 life, 0f, minSize, maxSize, EnumParticleModel.Quad);
             p.MinPos.Set(at);
             p.AddPos.Set(0, 0, 0);
-            p.VertexFlags = 255; // self-lit: readable at night and against foliage
+            p.VertexFlags = 255; // self-lit
             capi.World.SpawnParticles(p);
         }
 
@@ -343,8 +332,7 @@ namespace canrpgclasses.Client
             return ColorUtil.ToRgba(s.ColorA, s.ColorR, s.ColorG, s.ColorB);
         }
 
-        /// <summary>Colour for a damage accent: Nature's green palette reads as vines, so nature effects go electric
-        /// blue (matching the Arc bolt); every other school keeps its own colour.</summary>
+        /// <summary>School colour, except Nature which uses electric blue like the Arc bolt.</summary>
         private static int DamageColor(SpellSchool school)
             => school == SpellSchool.Nature
                 ? ColorUtil.ToRgba(255, 110, 190, 255)

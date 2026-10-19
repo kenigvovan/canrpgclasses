@@ -3,9 +3,7 @@ using canrpgclasses.Core.Resources;
 
 namespace canrpgclasses.Core.Content
 {
-    /// <summary>A playable class defined in JSON. <see cref="RpgClassDef"/> is already pure data, so this is a
-    /// straight copy; gear affinities are the one part left to C# add-ons, since matching gear needs more than a
-    /// list of numbers.</summary>
+    /// <summary>A playable class defined in JSON. Gear affinities stay C#-only, since matching gear needs more than data.</summary>
     public class ContentClassDef : RpgClassDef
     {
         public ContentClassDef(string id, ClassModel m, ContentReport report)

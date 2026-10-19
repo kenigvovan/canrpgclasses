@@ -6,11 +6,8 @@ using canrpgclasses.Core.Spells;
 
 namespace canrpgclasses.Core.Effects
 {
-    /// <summary>
-    /// The paladin aura effects. Each carries its own stat key so it never clobbers a shared effectshud buff -
-    /// Sprint and Zealot's Aura coexist on <c>walkspeed</c>. EBAuras applies them infinite and removes them on
-    /// leaving range; the shared <see cref="Prefix"/> lets them be wiped in bulk on load.
-    /// </summary>
+    /// <summary>Paladin aura effects. Own stat keys so they don't clobber shared effectshud buffs (Sprint and
+    /// Zealot's Aura both use <c>walkspeed</c>); the shared <see cref="Prefix"/> allows bulk wipe on load.</summary>
     public static class AuraEffectIds
     {
         public const string Prefix = "canrpgaura_";
@@ -21,16 +18,14 @@ namespace canrpgclasses.Core.Effects
         public static bool IsAuraEffect(string id) => id != null && id.StartsWith(Prefix, System.StringComparison.Ordinal);
     }
 
-    /// <summary>Base for the party-aura effects, carrying the "Aura of Refuge" rider - flat DR while under any of
-    /// the caster's auras. The effect runs on the ally and can't read the caster's talents itself, so EBAuras
-    /// bakes the value in at apply time. Subclasses overriding OnStart/OnExpire must call base.</summary>
+    /// <summary>Base aura effect with the Aura of Refuge DR rider, baked from the caster by EBAuras since the ally
+    /// can't read the caster's talents. Overrides of OnStart/OnExpire must call base.</summary>
     public abstract class AuraEffectBase : Effect
     {
         public float sanctuaryDr;
         private string SanctKey => effectTypeId + "_safe_ground";
 
-        /// <summary>Bakes the caster's aura-improving stats in before the effect is applied to a recipient. Each
-        /// subclass pulls what it cares about; the fields are public so the baked values survive relog.</summary>
+        /// <summary>Bakes caster stats in before apply; fields are public so they survive relog.</summary>
         public virtual void BakeFromCaster(Entity caster) => sanctuaryDr = caster.ReductionStat(StatKeys.AuraSanctuaryDr);
 
         public override void OnStart() { if (sanctuaryDr > 0f) entity.Stats.Set(StatKeys.DamageReduction, SanctKey, sanctuaryDr); }
@@ -42,16 +37,14 @@ namespace canrpgclasses.Core.Effects
     public class AuraMightEffect : AuraEffectBase
     {
         public float value;
-        /// <summary>Retribution Vengeance rider (baked by EBAuras from the caster's stat): bearers reflect this
-        /// fraction of incoming melee hits back at the attacker as Holy damage.</summary>
+        /// <summary>Vengeance rider: fraction of incoming melee reflected to the attacker as Holy.</summary>
         public float reflectFraction;
         public AuraMightEffect() { value = BalanceConfig.Spell("vengeful_aura").F("value", 0.15f); }
         public override void BakeFromCaster(Entity caster) { base.BakeFromCaster(caster); reflectFraction = caster.ReductionStat(StatKeys.AuraReflectFraction); }
         public override void OnStart()  { base.OnStart(); entity.Stats.Set(StatKeys.MeleeWeaponsDamage, AuraEffectIds.Might, value); }
         public override void OnExpire() { base.OnExpire(); entity.Stats.Remove(StatKeys.MeleeWeaponsDamage, AuraEffectIds.Might); }
 
-        // Reflect only real melee swings, never our own spell or reflect damage - two reflecting bearers must not
-        // ping-pong - and never heals.
+        // Skip our own spell/reflect damage so two reflecting bearers don't ping-pong.
         public override void OnShouldEntityReceiveDamage(ref float damage, DamageSource dmgSource)
         {
             if (reflectFraction <= 0f || damage <= 0f || dmgSource == null || dmgSource.Type == EnumDamageType.Heal) return;

@@ -7,16 +7,14 @@ using canrpgclasses.Core.Talents;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Edits the HUD layout for the player's current class - each class keeps its own. Controls write straight
-    /// into the live config, so the HUD moves as you drag. Anchors are edited as thousandths because vanilla's
-    /// slider is integer-valued.
+    /// Edits the current class's HUD layout live. Anchors are edited as thousandths because vanilla's slider is
+    /// integer-valued.
     /// </summary>
     public class HudSettingsDialog : CanrpgDialog
     {
         private const string ComposerKey = "canrpghudsettings";
 
-        /// <summary>Anchor sliders run 0..1000 for a 0.0..1.0 fraction - one step is a tenth of a percent of the
-        /// screen, finer than anyone can aim with the mouse.</summary>
+        /// <summary>Anchor sliders run 0..1000 for a 0..1 screen fraction.</summary>
         private const int AnchorSteps = 1000;
 
         private readonly HudLayout layout;
@@ -64,21 +62,20 @@ namespace canrpgclasses.Client
 
             var compo = capi.Gui.CreateCompo(ComposerKey,
                     ElementStdBounds.AutosizedMainDialog.WithAlignment(EnumDialogArea.CenterMiddle))
-                .AddShadedDialogBG(ElementBounds.Fixed(0, 0, colW * 2 + 30 + 40, 760), true, 5.0, 0.75f)
+                .AddShadedDialogBG(ElementBounds.Fixed(0, 0, colW * 2 + 30 + 40, 790), true, 5.0, 0.75f)
                 .AddDialogTitleBar("HUD Layout", () => TryClose())
-                .BeginChildElements(ElementBounds.Fixed(20, 30, colW * 2 + 30, 720));
+                .BeginChildElements(ElementBounds.Fixed(20, 30, colW * 2 + 30, 750));
 
             var font = CairoFont.WhiteSmallText();
 
-            // Rows are laid out by hand rather than with BelowCopy chains: the two columns advance independently
-            // and each section needs its own header spacing.
+            // Manual row layout: the two columns advance independently.
             void Header(double x, string text)
             {
                 compo.AddStaticText(text, CairoFont.WhiteSmallishText(), ElementBounds.Fixed(x, y, colW, rowH));
                 y += rowH;
             }
 
-            // Ranges and current values are applied after Compose (SetSlider) - the element does not exist yet here.
+            // Slider values are set after Compose; the elements don't exist yet here.
             void Slider(double x, string key, string label, Action<int> apply)
             {
                 compo.AddStaticText(label, font, ElementBounds.Fixed(x, y + 3, labelW, rowH));
@@ -153,7 +150,7 @@ namespace canrpgclasses.Client
 
             double bottom = Math.Max(leftBottom, y) + 10;
 
-            // Input mode and its helper are global, so they sit under both columns rather than in either.
+            // Input mode is global, so it spans both columns.
             compo.AddStaticText(Lang.Get("canrpgclasses:ui-input-mode"), CairoFont.WhiteSmallishText(),
                 ElementBounds.Fixed(leftX, bottom, colW, rowH));
             compo.AddDropDown(ModeCodes, ModeNames(), (int)layout.Mode, OnModeSelected,
@@ -162,6 +159,12 @@ namespace canrpgclasses.Client
                 ElementBounds.Fixed(rightX, bottom + 3, labelW, rowH));
             compo.AddSwitch(on => { layout.DimUnavailable = on; },
                 ElementBounds.Fixed(rightX + labelW, bottom, 30, rowH), "dimswitch");
+            bottom += rowH + gap;
+
+            compo.AddStaticText(Lang.Get("canrpgclasses:ui-skill-sound"), font,
+                ElementBounds.Fixed(leftX, bottom + 3, labelW, rowH));
+            compo.AddSlider(v => { layout.SkillSoundVolume = v / 100f; return true; },
+                ElementBounds.Fixed(leftX + labelW, bottom, sliderW, rowH), "skillsound");
             bottom += rowH + gap;
 
             compo.AddDynamicText(ModeHint(), CairoFont.WhiteDetailText(),
@@ -176,7 +179,7 @@ namespace canrpgclasses.Client
                 ElementBounds.Fixed(leftX + 420, bottom, 200, rowH));
             bottom += rowH + gap;
 
-            // Profile export/import: the name box feeds both, and keys travel only when asked.
+            // Profile export/import; keys are included only when asked.
             compo.AddTextInput(ElementBounds.Fixed(leftX, bottom, 200, rowH), v => profileName = v,
                 CairoFont.WhiteSmallText(), "profilename");
             compo.AddSmallButton(Lang.Get("canrpgclasses:ui-profile-export"), ExportProfile,
@@ -215,6 +218,7 @@ namespace canrpgclasses.Client
             SetSlider("comboY", (int)Math.Round(cfg.ComboAnchorY * AnchorSteps), 0, AnchorSteps);
             SetSlider("comboR", (int)cfg.ComboPipRadius, 3, 16);
             SetSlider("comboGap", (int)cfg.ComboPipSpacing, 10, 48);
+            SetSlider("skillsound", (int)Math.Round(layout.SkillSoundVolume * 100f), 0, 100);
 
             SingleComposer.GetSwitch("slotVert").SetValue(shown.Vertical);
             SingleComposer.GetSwitch("slotShow").SetValue(shown.Visible);

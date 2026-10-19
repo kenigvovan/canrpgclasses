@@ -17,8 +17,7 @@ namespace canrpgclasses.Client.Gui
             return composer;
         }
 
-        /// <summary>Null when the composer has no grid under that key - dialogs compose different elements
-        /// depending on state, so asking for one that isn't there is normal.</summary>
+        /// <summary>Null when no grid exists under that key, which is normal.</summary>
         public static GuiElementIconGrid? GetIconGrid(this GuiComposer composer, string key)
             => composer.GetElement(key) as GuiElementIconGrid;
     }

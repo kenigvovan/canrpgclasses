@@ -12,18 +12,16 @@ using canrpgclasses.Core.Talents;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Client-side spell hotbar state: the player's skill bars (where they sit and what is on them) and turning a
-    /// press or click into a <see cref="SpellRequestPacket"/>. Slots left empty are auto-filled from the spells
-    /// the player can currently use.
+    /// Client-side skill bars and turning presses into <see cref="SpellRequestPacket"/>s. Empty slots are
+    /// auto-filled from usable spells.
     /// </summary>
     public class SpellHotbar
     {
-        /// <summary>Slots per bar, and bars per set. Both are hard caps: the hotkeys for every (bar, slot) pair
-        /// are registered once at startup, so the pool has to be known up front.</summary>
+        /// <summary>Hard caps: hotkeys for every (bar, slot) are registered once at startup.</summary>
         public const int MaxSlots = 9;
         public const int MaxBars = 3;
 
-        /// <summary>Hotkey code per bar and slot. Bar 1 keeps the original codes so existing rebinds survive.</summary>
+        /// <summary>Hotkey code per bar and slot. Bar 1 keeps the original codes so rebinds survive.</summary>
         public static readonly string[][] HotkeyCodes = BuildHotkeyCodes();
 
         private static string[][] BuildHotkeyCodes()
@@ -49,8 +47,7 @@ namespace canrpgclasses.Client
         private readonly HudLayout layout;
         private HotbarConfig config = new HotbarConfig();
 
-        // Slot contents depend only on class, talent-granted spells and the active set's bars - none of which
-        // change per frame. Rebuild only when a cheap signature of those changes, or when a local edit sets dirty.
+        // Rebuild only when the input signature changes or a local edit sets dirty.
         private readonly HashSet<string> usedBuf = new();
         private int lastSig;
         private bool dirty = true;
@@ -101,7 +98,7 @@ namespace canrpgclasses.Client
             SwitchSet(((cs.ActiveSet + delta) % n + n) % n);
         }
 
-        /// <summary>A new set copies the current bar geometry, so adding one does not mean placing bars again.</summary>
+        /// <summary>A new set copies the current bar geometry.</summary>
         public void AddSet()
         {
             var cs = ClassEntry();
@@ -133,8 +130,7 @@ namespace canrpgclasses.Client
             dirty = true;
         }
 
-        /// <summary>Pushes this set's bar placement onto every other set of the class - bar positions belong to a
-        /// set, and this is how a player keeps them identical everywhere.</summary>
+        /// <summary>Copies this set's bar placement to every other set of the class.</summary>
         public void CopyLayoutToOtherSets()
         {
             var cs = ClassEntry();
@@ -164,8 +160,7 @@ namespace canrpgclasses.Client
             SaveConfig();
         }
 
-        /// <summary>Swaps to the set tied to the aura the player just entered, and back to the last manually
-        /// chosen set when it ends. Not persisted - the manual choice stays the saved one.</summary>
+        /// <summary>Swaps to the aura's set and back when it ends. Not persisted; the manual choice stays saved.</summary>
         private void ApplyAuraSet(Entity player)
         {
             var cs = ClassEntry();
@@ -203,8 +198,7 @@ namespace canrpgclasses.Client
             return b != null && slot >= 0 && slot < b.Slots.Length ? b.Slots[slot] : null;
         }
 
-        /// <summary>What the slot shows and casts right now: its binding, a sequence's current pick, or an
-        /// auto-filled spell.</summary>
+        /// <summary>What the slot shows and casts right now.</summary>
         public string? Resolved(int bar, int slot)
         {
             var b = BarAt(bar);
@@ -219,7 +213,7 @@ namespace canrpgclasses.Client
             return mod.Spells.TryGet(id!, out var spell) ? spell : null;
         }
 
-        /// <summary>Adds a bar, placed a row above the last one so it does not land on top of it.</summary>
+        /// <summary>Adds a bar a row above the last one.</summary>
         public int AddBar()
         {
             var bars = Active().Bars;
@@ -288,8 +282,7 @@ namespace canrpgclasses.Client
 
         // ---- refresh ----
 
-        /// <summary>Recomputes what each slot shows. Called every frame from the HUD, but only rebuilds when the
-        /// inputs actually change.</summary>
+        /// <summary>Called every frame; rebuilds only when inputs change.</summary>
         public void RefreshSlots()
         {
             var player = capi.World?.Player?.Entity;
@@ -309,7 +302,7 @@ namespace canrpgclasses.Client
                 Rebuild();
             }
 
-            // Cooldowns move without any of the above changing, so a sequence slot re-picks on its own tick.
+            // Cooldowns aren't in the signature, so sequences re-pick on their own tick.
             if (hasSequences) ResolveSequences(player);
         }
 
@@ -392,8 +385,7 @@ namespace canrpgclasses.Client
             }
         }
 
-        /// <summary>Client-side "can I press this now": off cooldown (its own and the GCD) and enough resource.
-        /// Advisory only - the server still decides.</summary>
+        /// <summary>Advisory castability check (cooldown, GCD, resource); the server decides.</summary>
         public bool IsCastable(EntityPlayer player, string? spellId)
         {
             var mod = canrpgclassesModSystem.ClientInstance;
@@ -415,7 +407,7 @@ namespace canrpgclasses.Client
             return true;
         }
 
-        // A cheap fingerprint of everything the fill depends on: class, talent ranks, and the active set's bars.
+        // Fingerprint of class, talent ranks and the active set's bars.
         private int ComputeSig(Entity player)
         {
             unchecked
@@ -437,16 +429,14 @@ namespace canrpgclasses.Client
             }
         }
 
-        /// <summary>Spells the player can use right now: class base + talent-granted + the held item's bound spell.
-        /// Same rule the server enforces - see <see cref="canrpgclasses.Core.Spells.SpellAccess"/>.</summary>
+        /// <summary>Usable spells, same rule as <see cref="canrpgclasses.Core.Spells.SpellAccess"/> on the server.</summary>
         public List<string> AvailableSpells()
         {
             var player = capi.World?.Player?.Entity;
             var mod = canrpgclassesModSystem.ClientInstance;
             var list = SpellAccess.Available(player, mod);
 
-            // Debug fallback: nothing unlocked yet - list the registry's active spells so the hotbar and
-            // spellbook aren't empty while testing.
+            // Debug fallback when nothing is unlocked.
             if (list.Count == 0 && mod != null)
             {
                 foreach (var spell in mod.Spells.All.Values)
@@ -463,8 +453,7 @@ namespace canrpgclasses.Client
             var b = BarAt(bar);
             if (b == null || slot < 0 || slot >= b.Slots.Length) return;
 
-            // Re-pick now: the buffered choice can be a tick old, and that tick is where a just-finished
-            // cooldown would be missed.
+            // Re-pick now: the buffered choice may be a tick old.
             var player = capi.World?.Player?.Entity;
             string? binding = b.Slots[slot];
             if (player != null && !string.IsNullOrEmpty(binding) && binding!.IndexOf(SequenceSeparator) >= 0)
@@ -474,19 +463,34 @@ namespace canrpgclasses.Client
             if (!string.IsNullOrEmpty(id)) Cast(id!);
         }
 
-        /// <summary>Sends a cast request for an arbitrary spell id, aimed at whatever the player is looking at.
-        /// Shared by the hotbar keys, the click handler and the right-click item-cast patch.</summary>
-        public void Cast(string id)
+        /// <summary>Casts a spell id at whatever the player is looking at.</summary>
+        public void Cast(string id, string? choice = null)
         {
             if (string.IsNullOrEmpty(id)) return;
 
             var mod = canrpgclassesModSystem.ClientInstance;
             if (mod?.ClientChannel == null) return;
 
+            // Pick first (Waypoint destination, summon target); the picker calls back here with the choice.
+            if (choice == null && mod.Spells.TryGet(id, out var spell))
+            {
+                if (spell.PicksPortalDestination && Core.Portals.PortalAnchors.Mode != Core.Portals.AnchorMode.Personal)
+                {
+                    mod.ShowPortalPicker(id);
+                    return;
+                }
+                if (spell.PicksPartyMember)
+                {
+                    mod.ShowPartyPicker(id);
+                    return;
+                }
+            }
+
             var packet = new SpellRequestPacket
             {
                 Action = (int)SpellRequestAction.Cast,
-                SpellId = id
+                SpellId = id,
+                Choice = choice
             };
 
             var player = capi.World?.Player;
@@ -533,8 +537,7 @@ namespace canrpgclasses.Client
             Normalize();
         }
 
-        /// <summary>Repairs deserialized data and migrates the pre-bars format: the old single slot row becomes
-        /// bar 1, taking its placement from the HUD layout's legacy fields.</summary>
+        /// <summary>Repairs loaded data and migrates the legacy single row into bar 1.</summary>
         private void Normalize()
         {
             foreach (var kv in config.PerClass)
@@ -592,8 +595,7 @@ namespace canrpgclasses.Client
         }
     }
 
-    /// <summary>One skill bar: where it is drawn and what is on it. Geometry and contents live together so a bar
-    /// is a single thing to move, copy and export.</summary>
+    /// <summary>One skill bar: placement and contents.</summary>
     public class Bar
     {
         public float AnchorX = 0.5f;   // centre X (0 = left, 1 = right)
@@ -609,7 +611,7 @@ namespace canrpgclasses.Client
         /// <summary>Player-chosen spell per slot (null = auto-filled). Its length is the bar's slot count.</summary>
         public string?[] Slots = new string?[4];
 
-        /// <summary>What each slot shows this frame - bindings resolved against sequences and auto-fill.</summary>
+        /// <summary>Resolved slot contents for this frame.</summary>
         [JsonIgnore]
         public string?[] Resolved = new string?[4];
 

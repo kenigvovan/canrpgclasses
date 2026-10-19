@@ -5,10 +5,7 @@ using Vintagestory.GameContent;
 
 namespace canrpgclasses.Hunter
 {
-    /// <summary>The hunter wolf's melee task, gated by its command mode the same way as <see cref="AiTaskPetSeek"/>:
-    /// full auto in Aggressive, order/assist-window-only in Defensive, never in Passive. It also treats the commanded
-    /// foe as always targetable (mirrors PetAI), so the vanilla melee re-scan keeps biting a player or ordered target
-    /// the pet was sent at, instead of only landing the single revenge-ping bite and then disengaging.</summary>
+    /// <summary>Mode-gated melee, like <see cref="AiTaskPetSeek"/>.</summary>
     public class AiTaskPetMelee : AiTaskMeleeAttack
     {
         public AiTaskPetMelee(EntityAgent entity, JsonObject taskConfig, JsonObject aiConfig)
@@ -18,8 +15,8 @@ namespace canrpgclasses.Hunter
 
         public override bool IsTargetableEntity(Entity e, float range)
         {
-            // Always allow the commanded foe (even a player, which the vanilla code filter rejects) so the wolf keeps
-            // striking the target it was ordered onto rather than dropping it after the first hit.
+            // Always allow the commanded foe (even a player, which the vanilla filter rejects), or the wolf
+            // drops it after the first bite.
             if (e != null && e == HunterPetSystem.ForcedTargetOf(entity)) return CanSense(e, range);
             return base.IsTargetableEntity(e, range);
         }

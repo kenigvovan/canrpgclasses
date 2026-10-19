@@ -6,9 +6,8 @@ using canrpgclasses.Core.Net;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Admin panel (controlserver only): pick an online player and grant/set/remove XP and level. Sends
-    /// <see cref="AdminProgressionPacket"/>; the server validates the privilege and applies it to the target.
-    /// Opened with O or <c>/canrpgadmin</c>. English-only, like the debug commands.
+    /// Admin panel (controlserver): edit an online player's XP and level via <see cref="AdminProgressionPacket"/>.
+    /// English-only, like the debug commands.
     /// </summary>
     public class AdminDialog : CanrpgDialog
     {
@@ -22,8 +21,7 @@ namespace canrpgclasses.Client
 
         public AdminDialog(ICoreClientAPI capi) : base(capi)
         {
-            // The online-player list changes while the panel sits open; a slow poll keeps it current without
-            // rebuilding anything the rest of the time.
+            // Slow poll to keep the online-player list current.
             listenerId = capi.Event.RegisterGameTickListener(_ => RefreshPlayers(), 2000);
         }
 

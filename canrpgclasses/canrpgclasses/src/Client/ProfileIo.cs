@@ -3,9 +3,7 @@ using Vintagestory.API.Client;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Exports and imports the client's whole hotbar setup as one file: bars with their placement and contents,
-    /// the HUD blocks, the input mode and, optionally, the cast keys. Written to the game's ModConfig folder, so
-    /// a profile can simply be sent to someone else.
+    /// Exports/imports the whole hotbar and HUD setup (optionally cast keys) as one file in ModConfig.
     /// </summary>
     public static class ProfileIo
     {

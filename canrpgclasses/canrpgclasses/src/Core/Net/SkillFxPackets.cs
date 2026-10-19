@@ -2,10 +2,8 @@ using ProtoBuf;
 
 namespace canrpgclasses.Core.Net
 {
-    /// <summary>The one-shot skill visuals the server can ask nearby clients to play (see
-    /// <see cref="canrpgclasses.Core.Visuals.SkillFx"/>). The client generates all geometry and particles locally
-    /// from the two endpoints, so a single small packet per skill EVENT (a chain hop, a shield proc, a heal
-    /// landing) is the whole network cost.</summary>
+    /// <summary>One-shot visuals for <see cref="canrpgclasses.Core.Visuals.SkillFx"/>; clients build all geometry from
+    /// the endpoints, so each event costs one small packet.</summary>
     public enum SkillFxKind : byte
     {
         /// <summary>Jagged flickering lightning A→B: a damage hop (chain lightning, shield retaliation).</summary>
@@ -14,8 +12,7 @@ namespace canrpgclasses.Core.Net
         Ribbon = 1,
         /// <summary>Ground ring expanding from a point: an AoE/heal landing.</summary>
         RingWave = 2,
-        /// <summary>Reserved for the continuous channel beam - that one is driven by watched-attribute state,
-        /// not by this packet (a beam outlives any single packet).</summary>
+        /// <summary>Reserved: the channel beam is driven by watched-attribute state, not this packet.</summary>
         Beam = 3,
         /// <summary>A mote streaks A→B over ~0.2s: makes a direct, projectile-less nuke visibly travel (Mystic Blast).</summary>
         Trail = 4,

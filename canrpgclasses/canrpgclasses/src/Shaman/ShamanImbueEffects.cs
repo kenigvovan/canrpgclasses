@@ -11,25 +11,21 @@ using EBEffects = effectshud.src.EBEffectsAffected;
 
 namespace canrpgclasses.Shaman
 {
-    /// <summary>
-    /// The Enhancement on-hit layer: weapon imbues, the Thunder Cleave marker, and Storm Charge. An imbue is
-    /// just a long self-buff riding <see cref="Effect.DidAttack"/>, spell power snapshotted at cast time.
-    /// </summary>
+    /// <summary>Weapon imbues: long self-buffs riding <see cref="Effect.DidAttack"/> with snapshotted spell power.</summary>
     public static class ShamanImbueIds
     {
         public const string FlameEdge = "canrpg_imbue_flametongue";
         public const string FrostEdge = "canrpg_imbue_frostbrand";
         public const string GaleEdge = "canrpg_imbue_windfury";
 
-        /// <summary>The three imbues are mutually exclusive - applying one strips the others.</summary>
+        /// <summary>Mutually exclusive: applying one strips the others.</summary>
         public static readonly string[] All = { FlameEdge, FrostEdge, GaleEdge };
     }
 
-    /// <summary>Base for a weapon imbue: a long self-buff whose rider fires on every landed melee swing, scaled by
-    /// the snapshotted spell power and <see cref="ShamanStatKeys.ImbuePower"/>.</summary>
+    /// <summary>Rider scales with snapshotted spell power and <see cref="ShamanStatKeys.ImbuePower"/>.</summary>
     public abstract class ImbueEffectBase : SnapshotEffect
     {
-        /// <summary>Baked rider magnitude. Public so it survives relog (OnStart doesn't re-run on deserialize).</summary>
+        /// <summary>Public so it survives relog (OnStart doesn't re-run on deserialize).</summary>
         public float perHit;
 
         protected abstract float Coeff { get; }
@@ -46,16 +42,14 @@ namespace canrpgclasses.Shaman
                 if (id != effectTypeId) SpellExecutor.RemoveEffect(entity, id);
         }
 
-        /// <summary>Guards the swing before the rider runs: server-side, a living non-ally target, and not our own
-        /// spell damage looping back round.</summary>
+        /// <summary>Rejects our own spell damage so the rider can't loop on itself.</summary>
         protected bool ShouldRide(DamageSource source, EntityAgent target)
             => perHit > 0f && target != null && target != entity && target.Alive
                && entity?.World?.Side == EnumAppSide.Server
                && source is not CanrpgDamageSource;
 
-        /// <summary>Lands the imbue's elemental damage as its own hit of its own school (so the weapon still swings
-        /// physical and the imbue burns/chills on top). Pierces the swing's i-frames without arming new ones -
-        /// exactly how an empowered magical strike lands (see EBSpellCaster.TakeEmpoweredMeleeBonus).</summary>
+        /// <summary>Separate hit of the imbue's school on top of the physical swing; pierces the swing's i-frames
+        /// like EBSpellCaster.TakeEmpoweredMeleeBonus.</summary>
         protected void StrikeElemental(EntityAgent target, SpellSchool school)
         {
             var def = DamageSchools.For(school);
@@ -94,13 +88,12 @@ namespace canrpgclasses.Shaman
         {
             if (!ShouldRide(source, targetEntity)) return;
             StrikeElemental(targetEntity, SpellSchool.Frost);
-            // A generic walkslow (not the mage's own chill marker) - this shouldn't enable a mage's Ice Shard shatter.
+            // Generic walkslow, not the mage chill, so it doesn't enable Ice Shard shatter.
             SpellExecutor.ApplyEffect(targetEntity, "walkslow", 1, BalanceConfig.Spell("frost_edge").F("slowDuration", 2f));
         }
     }
 
-    /// <summary>The extra swing is a fraction of the shaman's melee power, not a re-read of the weapon's own damage
-    /// (unreachable from inside an effect), so it can't double-dip weapon riders.</summary>
+    /// <summary>The extra swing uses spell power, since the weapon's damage is unreachable from an effect.</summary>
     [EffectRegistration(ShamanImbueIds.GaleEdge)]
     public class GaleEdgeImbueEffect : ImbueEffectBase
     {
@@ -115,8 +108,7 @@ namespace canrpgclasses.Shaman
         }
     }
 
-    /// <summary>Carries only the marker: the strike's damage rides the EmpowerNextMelee bundle, which can't apply a
-    /// status effect to the target it lands on.</summary>
+    /// <summary>Applies the marker; the EmpowerNextMelee bundle carrying the damage can't debuff the target.</summary>
     [EffectRegistration(ShamanEffectIds.ThunderCleaveArmed)]
     public class ThunderCleaveArmedEffect : Effect
     {
@@ -131,13 +123,11 @@ namespace canrpgclasses.Shaman
         }
     }
 
-    /// <summary>A pure flag with no stats of its own - the shaman's lightning nominates it via
-    /// DamageVsControlEffectId.</summary>
+    /// <summary>Flag read by the shaman's lightning via DamageVsControlEffectId.</summary>
     [EffectRegistration(ShamanEffectIds.ThunderCleave, positive: false)]
     public class ThunderCleaveDebuffEffect : Effect { }
 
-    /// <summary>Each stack shaves the cast time of the three staples below; at full stacks they are instant. Built by
-    /// the Storm Charge talent's on-hit roll and consumed WHOLE by any of them (Spell.ConsumesCasterEffectId).</summary>
+    /// <summary>Each stack cuts the spenders' cast time (instant at cap); any spender consumes all stacks.</summary>
     [EffectRegistration(ShamanEffectIds.Maelstrom)]
     public class MaelstromEffect : Effect
     {
@@ -152,7 +142,7 @@ namespace canrpgclasses.Shaman
             cap = (int)b.F("cap", 5f);
         }
 
-        /// <summary>Stacks needed for a free instant cast - read by the HUD pips and the talent's grant.</summary>
+        /// <summary>Stacks needed for an instant cast; also read by the HUD pips.</summary>
         public static int Cap => (int)BalanceConfig.Talent("shaman:storm_charge").F("cap", 5f);
         public static float Duration => BalanceConfig.Talent("shaman:storm_charge").F("duration", 15f);
 

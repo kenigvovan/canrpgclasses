@@ -5,9 +5,8 @@ using Vintagestory.API.MathTools;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Draws one-shot lightning bolts as a jagged ribbon of camera-facing quads that flickers between a few
-    /// pre-jittered shapes and fades over ~0.3s - crisper than the particle version. Fed by
-    /// <see cref="SkillFxClient"/>; AfterOIT stage, see <see cref="ShieldDomeRenderer"/> for why.
+    /// One-shot lightning bolts: jagged ribbon flickering between pre-jittered shapes, fading over ~0.3s.
+    /// Fed by <see cref="SkillFxClient"/>; AfterOIT stage, see <see cref="ShieldDomeRenderer"/>.
     /// </summary>
     public class BoltRenderer : IRenderer
     {
@@ -40,8 +39,7 @@ namespace canrpgclasses.Client
             capi.Event.RegisterRenderer(this, EnumRenderStage.AfterOIT, "canrpgbolt");
         }
 
-        /// <summary>Registers a bolt between two world points. <paramref name="color"/> is packed A,R,G,B (only
-        /// R,G,B are used; alpha comes from the fade).</summary>
+        /// <summary><paramref name="color"/> is packed ARGB; alpha is ignored (comes from the fade).</summary>
         public void Add(Vec3d a, Vec3d b, int color)
         {
             if (bolts.Count >= MaxBolts) bolts.RemoveAt(0); // drop the oldest rather than the new hit
@@ -57,8 +55,7 @@ namespace canrpgclasses.Client
             });
         }
 
-        /// <summary>A jagged polyline from a to b: perpendicular random-walk offsets with a t·(1-t) envelope so
-        /// both ends stay pinned to the actual endpoints while the middle forks about.</summary>
+        /// <summary>Random-walk offsets with a t*(1-t) envelope so both ends stay pinned.</summary>
         private Vec3d[] Jagged(Vec3d a, Vec3d b)
         {
             var rnd = capi.World.Rand;
@@ -130,9 +127,7 @@ namespace canrpgclasses.Client
             rpi.GLDepthMask(true);
         }
 
-        /// <summary>One ribbon quad for a segment p0→p1 (billboarded edge-on toward the camera). Model matrix
-        /// column X = the segment axis, column Y = the camera-perpendicular width, translate = p0. Mirror of
-        /// <see cref="BeamRenderer"/>'s DrawRibbon.</summary>
+        /// <summary>Billboarded quad for segment p0-p1, same matrix layout as <see cref="BeamRenderer"/>.</summary>
         private void DrawSegment(IRenderAPI rpi, IShaderProgram prog, Vec3d p0, Vec3d p1, Vec3d camPos,
             float width, float r, float g, float b, float alpha)
         {

@@ -15,9 +15,8 @@ namespace canrpgclasses.Core.Net
     {
     }
 
-    /// <summary>client → server: respec, then re-spend to match a saved build (parallel id/rank arrays). The
-    /// server validates every point (tier gates, prerequisites, available points), so a build that no longer
-    /// fits - e.g. after a level loss - is applied as far as the points allow.</summary>
+    /// <summary>client → server: respec and re-spend a saved build. Each point is validated, so a build that no
+    /// longer fits is applied as far as it can be.</summary>
     [ProtoContract]
     public class TalentLoadoutPacket
     {

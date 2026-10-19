@@ -2,8 +2,7 @@ using canrpgclasses.Core.Spells;
 
 namespace canrpgclasses.Client
 {
-    /// <summary>The colour each magic school is drawn in, shared by the spell hotbar and the character sheet so a
-    /// school reads the same everywhere.</summary>
+    /// <summary>Per-school colours shared by the hotbar and the character sheet.</summary>
     public static class SchoolPalette
     {
         public static (float R, float G, float B) Rgb(SpellSchool school) => school switch

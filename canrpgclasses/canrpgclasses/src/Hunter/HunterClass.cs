@@ -16,9 +16,7 @@ namespace canrpgclasses.Hunter
             TreeNames = new[] { "Marksmanship", "Survival", "Beast Mastery" };
             IconName = "bowman";
 
-            // Available from level 1; the rest of the kit is unlocked by talents. The wolf is the
-            // class-defining feature (like the rogue's Stealth), so summoning it needs no talent - and the
-            // pet-order spells (mode switches + attack/come) are always at hand to control it.
+            // Available from level 1; the wolf and its orders are class-defining, so they need no talent.
             BaseSpells = new[]
             {
                 "canrpgclasses:summon_pet", "canrpgclasses:measured_shot", "canrpgclasses:finishing_shot",
@@ -34,8 +32,7 @@ namespace canrpgclasses.Hunter
             float heavyArmorPen = BalanceConfig.Affinity("hunter", "heavy_armor").F("value", 0.12f);
             GearAffinities = new()
             {
-                // A hunter's bow: arrow damage scales off the vanilla rangedWeaponsDamage stat (not
-                // meleeWeaponsDamage - that only affects melee swings; the bow projectile reads ranged).
+                // Arrows read rangedWeaponsDamage, not meleeWeaponsDamage.
                 new GearAffinity
                 {
                     Key = "bow_mastery", Description = "+{0}% damage with a bow",
@@ -66,10 +63,7 @@ namespace canrpgclasses.Hunter
                 },
             };
 
-            // Spec scaling - each point in a tree sharpens that tree's role:
-            // Marksmanship → ranged spell damage, Survival → movement speed. Beast Mastery scales the PET,
-            // which TreeMasteries can't reach (they modify the player's stats) - the pet reads the owner's
-            // points-in-tree directly in HunterPetSystem.ApplyOwnerScaling instead.
+            // No Beast Mastery entry: it scales the pet, which TreeMasteries (player stats only) can't reach.
             TreeMasteries = new()
             {
                 new TreeMastery(0, StatKeys.SpellpowerFor(SpellSchool.PhysicalRanged), BalanceConfig.Global("hunterMarksRangedPerPoint", 0.015f)),

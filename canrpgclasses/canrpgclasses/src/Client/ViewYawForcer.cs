@@ -5,9 +5,8 @@ using Vintagestory.API.Common.Entities;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Snaps the local camera yaw toward a server-requested angle for a short window (shadow_step lands facing
-    /// its target). Writes <c>mouseYaw</c> per frame instead of trusting <c>TeleportTo</c>'s yaw, which races the
-    /// async position sync.
+    /// Snaps camera yaw to a server-requested angle for a short window (e.g. shadow_step). Writes <c>mouseYaw</c>
+    /// per frame because <c>TeleportTo</c>'s yaw races the async position sync.
     /// </summary>
     public class ViewYawForcer : IRenderer
     {

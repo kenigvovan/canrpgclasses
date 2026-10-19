@@ -7,11 +7,8 @@ using canrpgclasses.Core.Spells;
 
 namespace canrpgclasses.Core.EB
 {
-    /// <summary>
-    /// The caster's spell power per school. Spell damage is <c>SpellPower × coeff</c>, so this is what makes
-    /// spells scale: a steady multiplier from character level, and for physical schools the vanilla weapon-damage
-    /// blend (weapon tier, talents, gear affinity). A <c>spellpower_&lt;school&gt;</c> stat multiplies on top.
-    /// </summary>
+    /// <summary>Spell power per school (spell damage = SpellPower x coeff): level multiplier, vanilla weapon-damage
+    /// blend for physical schools, times the <c>spellpower_&lt;school&gt;</c> stat.</summary>
     public class EBRpgStats : EntityBehavior
     {
         public const string Name = "canrpgrpgstats";
@@ -29,8 +26,8 @@ namespace canrpgclasses.Core.EB
             float levelMul = 1f + Math.Max(0, level - 1) * PerLevel;
 
             float gearMul = 1f;
-            // Physical spells fold in the matching vanilla weapon-damage stat, guarding a 0 baseline. Ranged
-            // reads rangedWeaponsDamage, so bow talents and affinities buff the hunter's special shots too.
+            // Physical spells fold in the vanilla weapon-damage stat (guarding a 0 baseline), so bow talents
+            // and affinities also buff hunter shots.
             if (school == SpellSchool.PhysicalMelee)
             {
                 float md = entity.Stats.GetBlended(StatKeys.MeleeWeaponsDamage);
@@ -42,9 +39,8 @@ namespace canrpgclasses.Core.EB
                 gearMul = rd > 0.01f ? rd : 1f;
             }
 
-            // spellpower_<school> needs no seeding: EntityFloatStats gives the category an implicit base of 1.0,
-            // and GetBlended returns 1f for one never touched. Floored at 10%, so a big debuff cuts spell power
-            // instead of silently snapping back to full.
+            // No seeding needed: GetBlended returns 1f for an untouched stat. Floored at 10% so a big debuff
+            // still cuts spell power.
             float explicitSp = entity.Stats.GetBlended(StatKey(school));
             float schoolMul = Math.Max(0.1f, explicitSp);
 

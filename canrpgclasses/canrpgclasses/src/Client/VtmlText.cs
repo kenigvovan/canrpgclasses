@@ -3,8 +3,7 @@ using Vintagestory.API.Common;
 
 namespace canrpgclasses.Client
 {
-    /// <summary>Colour-coded VTML runs for the windows drawing text through a richtext element (talent summaries,
-    /// character sheet). Lang and authored text is escaped, and the shared palette keeps the windows in step.</summary>
+    /// <summary>Colour-coded, escaped VTML runs for richtext windows (talent summaries, character sheet).</summary>
     public static class VtmlText
     {
         // Row colours, as hex because VTML wants hex.

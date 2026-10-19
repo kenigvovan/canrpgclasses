@@ -9,9 +9,8 @@ using canrpgclasses.Core.Net;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Admin-only live balance editor, listing every number <see cref="BalanceConfig"/> knows about straight from
-    /// its dictionaries. Nothing is applied locally - the server validates, persists and broadcasts, and an
-    /// explicit Apply batches the edits so a keystroke doesn't cost a registry rebuild.
+    /// Admin-only live editor for <see cref="BalanceConfig"/>. The server validates and broadcasts; Apply batches
+    /// edits so a keystroke doesn't cost a registry rebuild.
     /// </summary>
     public class AdminBalanceDialog : CanrpgDialog
     {
@@ -22,10 +21,8 @@ namespace canrpgclasses.Client
         private const double PanelHeight = 340;
         private const double RowH = 24;
 
-        /// <summary>Key rows shown at once. The value column is paged rather than scrolled on purpose:
-        /// GuiElementTextInput.RenderInteractiveElements sets its own GL scissor and then clears the scissor flag
-        /// entirely, so a number input inside a BeginClip container draws its text outside the clip (values
-        /// smeared down the screen). Paging keeps every input inside the dialog, where the engine can draw it.</summary>
+        /// <summary>Paged, not scrolled: GuiElementTextInput clears the scissor flag itself, so inputs inside a
+        /// BeginClip container draw outside the clip.</summary>
         private const int KeysPerPage = 8;
 
         private enum Tab { Spells, Talents, Affinities, Globals }
@@ -43,8 +40,7 @@ namespace canrpgclasses.Client
         private ElementBounds listContainerBounds = null!;
         private ElementBounds listClipBounds = null!;
 
-        /// <summary>Keys drawn by the last <see cref="Compose"/>, in row order - their number inputs are filled in
-        /// after Compose (a composer element only exists once composed).</summary>
+        /// <summary>Keys drawn by the last <see cref="Compose"/>; inputs are filled after composing.</summary>
         private readonly List<string> visibleKeys = new();
 
         public AdminBalanceDialog(ICoreClientAPI capi) : base(capi) { }
@@ -114,8 +110,7 @@ namespace canrpgclasses.Client
         /// <summary>The id the packets carry: globals live under an empty id.</summary>
         private string EditId => tab == Tab.Globals ? "" : selectedId ?? "";
 
-        /// <summary>The key rows to show, sorted. On the Globals tab the filter box has no id list to narrow, so it
-        /// filters the key names instead - the fastest way to reach one number among the ~50 globals.</summary>
+        /// <summary>Sorted key rows. On the Globals tab the filter applies to key names.</summary>
         private List<KeyValuePair<string, float>> CurrentKeys()
         {
             var pairs = CurrentPairs().OrderBy(p => p.Key).AsEnumerable();
@@ -172,7 +167,6 @@ namespace canrpgclasses.Client
                     .AddHorizontalTabs(tabs, tabBounds, OnTabClicked,
                         CairoFont.WhiteSmallText(), CairoFont.WhiteSmallText().WithColor(GuiStyle.ActiveButtonTextColor), "tabs");
 
-            // The filter box narrows the id list on the entry tabs; on Globals (no id list) it narrows the key names.
             compo.AddTextInput(filterBounds, OnFilterChanged, CairoFont.WhiteSmallText(), "filter");
 
             if (tab != Tab.Globals)
@@ -210,8 +204,7 @@ namespace canrpgclasses.Client
 
             SingleComposer.GetHorizontalTabs("tabs").activeElement = (int)tab;
 
-            // Fill the value inputs now that the elements exist. An unsent edit (pending) wins over the stored
-            // value, so paging away and back doesn't silently drop what the admin typed.
+            // Pending edits win over stored values so paging doesn't drop unsent input.
             var stored = keys.ToDictionary(k => k.Key, k => k.Value);
             foreach (string key in visibleKeys)
             {
@@ -229,8 +222,7 @@ namespace canrpgclasses.Client
 
             var filterInput = SingleComposer.GetTextInput("filter");
             filterInput.SetValue(filter);
-            // Typing in the filter rebuilds the dialog, which means rebuilding this element too - put the caret
-            // back so the admin can keep typing.
+            // Filter typing rebuilds the dialog; restore the caret.
             if (filter.Length > 0) SingleComposer.FocusElement(filterInput.TabIndex);
         }
 
@@ -256,13 +248,11 @@ namespace canrpgclasses.Client
             }
         }
 
-        /// <summary>Composer element key for one value input. Unique per config key, so <see cref="Compose"/> can
-        /// fetch it back after composing.</summary>
+        /// <summary>Composer element key for one value input.</summary>
         private static string InputKey(string configKey) => "val_" + configKey;
 
-        /// <summary>Adds the current page's key rows STRAIGHT into the composer (not into a clipped container):
-        /// only a composer-owned input gets keyboard focus - a GuiElementContainer drops key events unless it is
-        /// itself focusable, which it isn't by default, so inputs nested in one can be clicked but never typed in.</summary>
+        /// <summary>Adds rows directly to the composer: inputs nested in a GuiElementContainer never get key
+        /// events unless the container itself is focusable.</summary>
         private void AddKeyRows(GuiComposer compo, List<KeyValuePair<string, float>> keys, double panelX, double keysY)
         {
             visibleKeys.Clear();
@@ -306,7 +296,7 @@ namespace canrpgclasses.Client
             newKeyName = "";
             newKeyValue = 0;
             keyPage = 0;
-            pending.Clear(); // another tab is another category - unsent edits can't be carried across
+            pending.Clear(); // unsent edits don't carry across tabs
             Compose();
         }
 
@@ -324,7 +314,7 @@ namespace canrpgclasses.Client
             newKeyName = "";
             newKeyValue = 0;
             keyPage = 0;
-            pending.Clear(); // pending is keyed by config key only - it belongs to the entry it was typed in
+            pending.Clear(); // keyed by config key only, so it belongs to this entry
             Compose();
             return true;
         }
@@ -353,8 +343,7 @@ namespace canrpgclasses.Client
             // Snapshot: each packet round-trips into a registry rebuild, which can change what CurrentPairs sees.
             foreach (var kv in pending.ToList()) Send(kv.Key, kv.Value);
             pending.Clear();
-            // Re-read once the round trip (server applies -> persists -> broadcasts the merged config) has landed,
-            // so the fields show the CONFIRMED numbers rather than what was typed.
+            // Re-read after the server broadcast so fields show confirmed values.
             capi.Event.RegisterCallback(_ => { if (IsOpened()) Compose(); }, 400);
             return true;
         }

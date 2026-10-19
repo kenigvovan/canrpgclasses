@@ -6,9 +6,8 @@ using Vintagestory.API.Common;
 
 namespace canrpgclasses.Core.Attributes
 {
-    /// <summary>Turns attribute points into the stats they pay for. Runs at the end of the stat pass in
-    /// <see cref="canrpgclasses.Core.EB.EBTalents"/>, so class grant, talents, gear and the admin bonus read as one
-    /// total. Every payout is written on every pass (0 where a class has none), so nothing lingers.</summary>
+    /// <summary>Turns attribute points into stats at the end of the <see cref="canrpgclasses.Core.EB.EBTalents"/> stat
+    /// pass. Every payout is written each pass (0 where none), so nothing lingers.</summary>
     public static class AttributeStats
     {
         public static void Apply(EntityAgent agent, string classId, int level)

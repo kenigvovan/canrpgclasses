@@ -4,10 +4,7 @@ using canrpgclasses.Core.Config;
 
 namespace canrpgclasses.Core.Spells
 {
-    /// <summary>
-    /// Base class for every spell. Concrete spells subclass this, mark themselves with
-    /// <see cref="SpellRegistrationAttribute"/> and configure the data fields in their constructor.
-    /// </summary>
+    /// <summary>Base spell: subclasses carry <see cref="SpellRegistrationAttribute"/> and set data fields in the constructor.</summary>
     public abstract class Spell
     {
         /// <summary>Stable id, e.g. <c>canrpgclasses:quickblades</c>. Filled from the registration attribute.</summary>
@@ -58,6 +55,15 @@ namespace canrpgclasses.Core.Spells
         {
             get { int i = Id.IndexOf(':'); return i >= 0 ? Id.Substring(i + 1) : Id; }
         }
+
+        /// <summary>False hides the spell from everyone (server toggle in balance config, e.g. the Waypoint portal).</summary>
+        public bool Enabled { get; protected set; } = true;
+
+        /// <summary>The client asks the player to pick a Waypoint destination before sending the cast.</summary>
+        public bool PicksPortalDestination { get; protected set; }
+
+        /// <summary>The client asks the player to pick a party member (Summon Ritual) before sending the cast.</summary>
+        public bool PicksPartyMember { get; protected set; }
 
         public string CooldownKey => string.IsNullOrEmpty(Cost.Cooldown.Group) ? Id : Cost.Cooldown.Group!;
 
@@ -151,9 +157,7 @@ namespace canrpgclasses.Core.Spells
             SecondaryResourceCost = amount;
         }
 
-        /// <summary>Seconds of stealth window a successful cast opens. The cooldown is meant to be shorter than the
-        /// invisibility, so re-stealthing out of combat is seamless; attacking inside it restores the full
-        /// lockout. 0 = no window.</summary>
+        /// <summary>Seconds of stealth window a cast opens (0 = none). Attacking inside it restores the full lockout.</summary>
         public float OpensStealthWindowSeconds { get; protected set; }
 
         private BalanceConfig.Entry? _balance;

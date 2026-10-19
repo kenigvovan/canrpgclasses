@@ -9,11 +9,8 @@ namespace canrpgclasses.Core
     /// mitigation, so an implementation must check its own talent rank and bail fast.</summary>
     public delegate void DamageModifier(Entity victim, Entity? attacker, DamageSource source, ref float damage);
 
-    /// <summary>
-    /// Registry of class-content damage perks applied in the vanilla damage pipeline, so that pipeline never
-    /// references class content by id. Published as an immutable array behind a volatile reference: in
-    /// singleplayer both sides share these statics, so the server tick can read while a client scan republishes.
-    /// </summary>
+    /// <summary>Damage perks applied in the vanilla damage pipeline. Immutable arrays behind volatile refs: in
+    /// singleplayer both sides share these statics, so the server may read while the client republishes.</summary>
     public static class DamageModifiers
     {
         private static volatile DamageModifier[] current = Array.Empty<DamageModifier>();
@@ -56,8 +53,7 @@ namespace canrpgclasses.Core
         {
             if (target?.Pos == null || attacker?.Pos == null) return false;
             float yaw = target.Pos.Yaw;
-            // Matches EntityControls.CalcMovementVectors' forward, not EntityPos.GetViewVector: the two are
-            // opposite in sign, and the view-vector convention inverted this check - front hits read as behind.
+            // Matches EntityControls.CalcMovementVectors' forward; EntityPos.GetViewVector has the opposite sign.
             double fx = Math.Sin(yaw);
             double fz = Math.Cos(yaw);
             double ax = attacker.Pos.X - target.Pos.X;

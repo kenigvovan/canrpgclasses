@@ -7,9 +7,8 @@ using canrpgclasses.Core.Spells;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// The stat keys the editors offer in a dropdown, read off <see cref="StatKeys"/> by reflection so a new stat
-    /// appears on its own. Per-spell keys are built from a spell id at call time and have no fixed set, so the
-    /// editors keep a free-text option for those.
+    /// Editor dropdown stat keys, read from <see cref="StatKeys"/> by reflection. Per-spell keys have no fixed
+    /// set, hence the free-text option.
     /// </summary>
     public static class StatCatalog
     {
@@ -36,15 +35,14 @@ namespace canrpgclasses.Client
                 list.Add((key, $"{Humanize(f.Name)}  ({key})"));
             }
 
-            // Spell power is per school, so its keys are generated - one entry per school beats explaining the
-            // naming scheme in a tooltip.
+            // Spell power keys are generated per school.
             foreach (SpellSchool school in Enum.GetValues(typeof(SpellSchool)))
             {
                 string key = StatKeys.SpellpowerFor(school);
                 if (seen.Add(key)) list.Add((key, $"Spell power: {school}  ({key})"));
             }
 
-            // Attributes are plain stat keys too, so a talent or class can grant them straight from the editor.
+            // Attributes are plain stat keys too.
             foreach (var attr in Core.Attributes.RpgAttributes.All)
                 if (seen.Add(attr.Id)) list.Add((attr.Id, $"{attr.DisplayName}  ({attr.Id})"));
 
@@ -52,8 +50,7 @@ namespace canrpgclasses.Client
             return list;
         }
 
-        /// <summary>Readable name of one stat key for display outside the dropdown (the catalog labels carry the
-        /// key in brackets, which only makes sense while picking one). A <c>stat-&lt;key&gt;</c> lang entry wins.</summary>
+        /// <summary>Readable stat name outside the dropdown; a <c>stat-&lt;key&gt;</c> lang entry wins.</summary>
         public static string Label(string key)
         {
             string lang = "canrpgclasses:stat-" + key;

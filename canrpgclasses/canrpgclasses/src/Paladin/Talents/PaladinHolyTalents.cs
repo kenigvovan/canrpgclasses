@@ -24,8 +24,7 @@ namespace canrpgclasses.Paladin.Talents
             => e.Stats.Set(StatKeys.SpellpowerHoly, "canrpgtalent_holydevotion", perRank * rank);
     }
 
-    // Aura talent: strengthens the (now base) Aura of Faith's group heal. Fills the slot the learn_aura_of_faith
-    // talent freed when auras became base spells. Scaled in EBAuras via the AuraRegenStrength stat.
+    // Strengthens Aura of Faith's group heal; scaled in EBAuras via the AuraRegenStrength stat.
     [TalentRegistration("paladin:zealous_faith")]
     public class ZealousFaithTalent : Talent
     {

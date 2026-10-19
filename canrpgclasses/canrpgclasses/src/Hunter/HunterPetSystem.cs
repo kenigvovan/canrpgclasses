@@ -12,39 +12,30 @@ using canrpgclasses.Core.Talents;
 
 namespace canrpgclasses.Hunter
 {
-    /// <summary>
-    /// Server-side driver for the hunter's wolf: the summon impact, the assist/defend hook, owner-scaled
-    /// pet stats, and the Tend Beast / Beast Fury (PetTarget) impacts.
-    /// </summary>
+    /// <summary>Server-side hunter wolf: summon, assist/defend hook, owner-scaled stats, pet-target impacts.</summary>
     public static class HunterPetSystem
     {
         public const string PetEntityCode = "hunterpet";
 
-        // Owner WA: the summoned pet's entity id (so a resummon can despawn the old one, and death can bump the
-        // summon cooldown). Pet WA: guardedPlayerUid (owner uid, also drives the follow task) + wrath window.
+        // Owner WA holds the pet's entity id (resummon despawns the old one); pet WA holds the Beast Fury window.
         public const string OwnerPetIdKey = "canrpgPetEntityId";
         public const string PetWrathUntilKey = "canrpgPetWrathUntil";
         public const string PetWrathBonusKey = "canrpgPetWrathBonus";
 
-        // Command mode on the pet (set by the pet-command spells, read by the gated AI tasks). Aggressive hunts
-        // freely; Defensive only engages within an order/assist window; Passive never attacks on its own.
         public const string PetModeKey = "canrpgPetMode";
         public const string PetAssignUntilKey = "canrpgPetAssignUntil";
-        // The foe the pet was last ordered/assisted onto - its AI tasks hold this as their target so a commanded pet
-        // doesn't drop a player or distant foe on the vanilla nearest-target re-scan after a single bite.
+        // Held by the AI tasks so a commanded pet doesn't drop its target on the vanilla nearest-target re-scan.
         public const string PetTargetIdKey = "canrpgPetTargetId";
-        // How long after an order/assist the pet is allowed to actively pursue in Defensive mode.
+        // How long after an order/assist a Defensive pet may pursue.
         private const long AssignWindowMs = 6000;
 
-        // 1.0-based owner stats set by Beast Mastery talents; read here to scale the pet.
+        // 1.0-based owner stats from Beast Mastery talents.
         public const string PetHealthStat = "hunterPetHealth";
         public const string PetDamageStat = "hunterPetDamage";
 
-        // Stay/hold: the vanilla stayclosetoguardedentity follow task already bails when this WA is set, so setting it
-        // pins the pet in place instead of trailing the owner. (Combat/seek still runs per command mode.)
+        // The vanilla stayclosetoguardedentity task bails while this WA is set, which pins the pet in place.
         public const string PetStayKey = "commandSit";
-        // The pet's chosen name, kept on the owner (the pet itself doesn't persist across relog) and stamped onto each
-        // freshly summoned wolf's nametag.
+        // Stored on the owner, since the pet itself doesn't persist across relog.
         public const string PetNameKey = "canrpgPetName";
 
         private static bool registered;
@@ -57,7 +48,7 @@ namespace canrpgclasses.Hunter
             SpellExecutor.RegisterImpact(ImpactAction.Spawn, ApplySummonPet);
             SpellExecutor.RegisterImpact(ImpactAction.PetTarget, ApplyPetTarget);
             SpellExecutor.RegisterImpact(ImpactAction.PetCommand, ApplyPetCommand);
-            // Persistent (survives talent-registry republishes): pet damage scaling + owner assist/defend.
+            // Persistent so it survives talent-registry republishes.
             canrpgclasses.Core.DamageModifiers.RegisterPersistent(PetDamageAndAssistHook);
         }
 
@@ -76,16 +67,13 @@ namespace canrpgclasses.Hunter
             var type = world.GetEntityType(new AssetLocation(canrpgclassesModSystem.ModId, PetEntityCode));
             if (type == null || world.ClassRegistry.CreateEntity(type) is not EntityAgent pet) return;
 
-            // Owner link: guardedPlayerUid drives the follow/teleport task and EBHunterPet's despawn check.
             pet.WatchedAttributes.SetString(EBHunterPet.OwnerUidKey, op.PlayerUID);
 
-            // Stamp the chosen name into the nametag tree before spawning, so the client entity is born already
-            // carrying it (a post-spawn write races the client building an empty name texture on the first frame).
+            // Name goes in before spawning: a post-spawn write races the client building an empty name texture.
             string petName = owner.WatchedAttributes.GetString(PetNameKey, null);
             if (!string.IsNullOrEmpty(petName)) ApplyPetName(pet, petName);
 
-            // Spawn a step behind/beside the owner. (Pos is authoritative on the server; Pos/SidedPos
-            // are obsolete aliases for it in this VS build.)
+            // Spawn a step behind the owner.
             Vec3d pos = owner.Pos.XYZ.AheadCopy(1.0, 0, owner.Pos.Yaw + GameMath.PI);
             pet.Pos.SetPos(pos);
             pet.World = world;
@@ -103,9 +91,7 @@ namespace canrpgclasses.Hunter
             pet.GetBehavior<EBHunterPet>()?.SetMaxHealth(maxHp);
         }
 
-        // Writes the name straight into the vanilla nametag WatchedAttributes tree (what EntityBehaviorNameTag reads
-        // and renders) and syncs it. Direct tree write rather than GetBehavior().SetName so it also works pre-spawn,
-        // before the behavior instance exists.
+        // Direct nametag tree write instead of the behavior's SetName, so it also works pre-spawn.
         private static void ApplyPetName(Entity pet, string name)
         {
             var nt = pet.WatchedAttributes.GetTreeAttribute("nametag");
@@ -127,10 +113,9 @@ namespace canrpgclasses.Hunter
                     pet.ReceiveDamage(new DamageSource { Source = EnumDamageSource.Internal, Type = EnumDamageType.Heal }, heal);
             }
 
-            // Beast Fury: a timed damage window on the pet (read by PetDamageAndAssistHook) + a visual buff.
+            // Beast Fury: a timed damage window read by PetDamageAndAssistHook.
             if (imp.DamageSpellPowerCoefficient > 0f && imp.StatusEffectDuration > 0f)
             {
-                // Wild Chase augments Beast Fury: longer window + a bigger damage spike.
                 float durMul = 1f, bonusAdd = 0f;
                 if (TalentState.Rank(ctx.Caster, "hunter:wild_chase") > 0)
                 {
@@ -161,8 +146,7 @@ namespace canrpgclasses.Hunter
                 case "defensive": SetPetMode(pet, PetMode.Defensive); break;
                 case "passive": SetPetMode(pet, PetMode.Passive); break;
                 case "attack":
-                    // Send the wolf at the aimed foe. An explicit order takes a passive pet off passive so it
-                    // will actually engage, then the assist path drives it onto the target.
+                    // An explicit order takes a passive pet off passive so it actually engages.
                     if (target != null && target != owner && !IsPet(target) && !SpellExecutor.IsAlly(owner, target))
                     {
                         if (PetModeOf(pet) == PetMode.Passive) SetPetMode(pet, PetMode.Defensive);
@@ -173,12 +157,11 @@ namespace canrpgclasses.Hunter
                     var world = owner.World;
                     Vec3d pos = owner.Pos.XYZ.AheadCopy(1.0, 0, owner.Pos.Yaw + GameMath.PI);
                     pet.TeleportTo(pos);
-                    ClearPetTarget(pet); // recall = call off the fight, or the pet just runs back to the target we now persist
-                    SetPetStay(pet, false); // a recall resumes following - otherwise a held pet teleports in then just sits
+                    ClearPetTarget(pet); // otherwise it runs straight back to the persisted target
+                    SetPetStay(pet, false); // otherwise a held pet teleports in and just sits
                     imp.Particles?.Emit(world, pet);
                     break;
                 case "stay":
-                    // Toggle: pin the pet where it stands / release it back to following.
                     SetPetStay(pet, !pet.WatchedAttributes.GetBool(PetStayKey, false));
                     imp.Particles?.Emit(owner.World, pet);
                     break;
@@ -189,9 +172,7 @@ namespace canrpgclasses.Hunter
             }
         }
 
-        /// <summary>Player-initiated put-away of the wolf. Unlike a battlefield death this carries NO summon
-        /// lockout - the hunter can stow the pet and call it back at will. Severs the owner link on both sides
-        /// first so OnPetDeath finds no owner (OwnerOf returns null) and skips the lockout entirely.</summary>
+        /// <summary>No summon lockout, unlike a death: the owner link is severed first so OnPetDeath finds no owner.</summary>
         private static void DismissPet(Entity owner, EntityAgent pet)
         {
             pet.WatchedAttributes.RemoveAttribute(EBHunterPet.OwnerUidKey);
@@ -206,8 +187,7 @@ namespace canrpgclasses.Hunter
             pet.WatchedAttributes.MarkPathDirty(PetStayKey);
         }
 
-        /// <summary>Stores the owner's chosen pet name (persists across relog, unlike the pet) and stamps it onto the
-        /// wolf that's currently out, if any. Called from the pet-name chat command and on each summon.</summary>
+        /// <summary>Stores the pet name on the owner and stamps it onto the wolf that's currently out.</summary>
         public static void SetPetName(EntityAgent owner, string name)
         {
             name = name?.Trim() ?? "";
@@ -226,8 +206,8 @@ namespace canrpgclasses.Hunter
             pet.WatchedAttributes.MarkPathDirty(PetModeKey);
         }
 
-        /// <summary>Whether the pet's gated AI tasks (seek/melee) may run right now, per its command mode:
-        /// Aggressive = always (free hunting); Passive = never; Defensive = only inside the order/assist window.</summary>
+        /// <summary>Whether the gated seek/melee tasks may run: Aggressive always, Passive never, Defensive only
+        /// inside the order/assist window.</summary>
         public static bool TaskModeAllows(Entity pet)
         {
             switch (PetModeOf(pet))
@@ -238,12 +218,11 @@ namespace canrpgclasses.Hunter
             }
         }
 
-        // ---- Damage hook: scale pet damage + make the pet assist the owner (and defend them) ----
+        // ---- Damage hook: pet damage scaling + assist/defend ----
         private static void PetDamageAndAssistHook(Entity victim, Entity? attacker, DamageSource source, ref float damage)
         {
             if (damage <= 0f || victim?.World?.Side != EnumAppSide.Server) return;
 
-            // The pet's own hit: scale by the owner's Beast stats + any active Beast Fury window.
             if (attacker != null && IsPet(attacker))
             {
                 float mul = 1f;
@@ -257,15 +236,13 @@ namespace canrpgclasses.Hunter
                     mul *= attacker.WatchedAttributes.GetFloat(PetWrathBonusKey, 1f);
                 damage *= mul;
                 if (pOwner != null) ApplyBeastOnHit(pOwner, attacker, victim, damage);
-                // A pet actively landing hits keeps its own pursuit window open, so a Defensive pet finishes the
-                // fight it started instead of timing out after one bite when the owner isn't also attacking.
+                // Landing hits keeps the pursuit window open, so a Defensive pet finishes the fight on its own.
                 attacker.WatchedAttributes.SetLong(PetAssignUntilKey, attacker.World.ElapsedMilliseconds + AssignWindowMs);
                 return; // a pet's strike isn't an "owner attacked" event
             }
 
-            // Owner struck a foe → focus-fire bonus if the pet was already on this target (Pack Tactics), then the
-            // pet piles on. Pack Tactics is checked before the assist so the first hit on a fresh target (pet not
-            // yet retargeted) doesn't self-trigger - it rewards sticking to what the wolf is already biting.
+            // Pack Tactics is checked before the assist retargets the pet, so it only rewards hitting what the
+            // wolf is already biting.
             if (attacker is EntityPlayer && HasPet(attacker))
             {
                 int pack = TalentState.Rank(attacker, "hunter:pack_tactics");
@@ -274,13 +251,12 @@ namespace canrpgclasses.Hunter
                 AssignPetTarget((EntityAgent)attacker, victim);
             }
 
-            // Owner was struck → the pet defends against the attacker.
+            // Owner was struck: the pet defends.
             if (victim is EntityPlayer && attacker != null && HasPet(victim))
                 AssignPetTarget((EntityAgent)victim, attacker);
         }
 
-        /// <summary>Beast Mastery on-hit effects the wolf carries, gated by the owner's talent ranks: Venom (bite
-        /// poisons), Cowing Roar (bite slows), Bloodletting (the pet heals for a fraction of the damage it dealt).</summary>
+        /// <summary>Beast Mastery on-hit talents carried by the wolf: Venom, Cowing Roar, Bloodletting.</summary>
         private static void ApplyBeastOnHit(EntityAgent owner, Entity pet, Entity victim, float dealt)
         {
             int venom = TalentState.Rank(owner, "hunter:venom");
@@ -300,7 +276,6 @@ namespace canrpgclasses.Hunter
             }
         }
 
-        /// <summary>Whether the owner's pet currently has this foe as its seek/melee target (used by Pack Tactics).</summary>
         private static bool PetIsTargeting(Entity owner, Entity foe)
         {
             var mgr = GetPet(owner)?.GetBehavior<EntityBehaviorTaskAI>()?.TaskManager;
@@ -309,18 +284,16 @@ namespace canrpgclasses.Hunter
                 || mgr.GetTask<AiTaskSeekEntity>()?.targetEntity == foe;
         }
 
-        /// <summary>Points the owner's pet at a foe: sets its seek/melee target and pings the revenge hook so it
-        /// sticks through the task's own re-evaluation (same technique as SpellExecutor.ApplyAggro).</summary>
+        /// <summary>Sets the pet's seek/melee target and pings the revenge hook so it sticks through the task's
+        /// re-evaluation (same trick as SpellExecutor.ApplyAggro).</summary>
         public static void AssignPetTarget(EntityAgent owner, Entity foe)
         {
             if (foe == null || foe == owner || IsPet(foe)) return;
             if (SpellExecutor.IsAlly(owner, foe)) return;
             var pet = GetPet(owner);
             if (pet == null || pet == foe) return;
-            if (PetModeOf(pet) == PetMode.Passive) return; // a passive pet ignores assist/defend orders
+            if (PetModeOf(pet) == PetMode.Passive) return;
 
-            // Open the pursuit window so a Defensive pet actually engages this target (see TaskModeAllows), and
-            // record the foe so the AI tasks hold it as their target through their own re-evaluation.
             pet.WatchedAttributes.SetLong(PetAssignUntilKey, pet.World.ElapsedMilliseconds + AssignWindowMs);
             pet.WatchedAttributes.SetLong(PetTargetIdKey, foe.EntityId);
 
@@ -345,15 +318,13 @@ namespace canrpgclasses.Hunter
             if (owner == null) return;
             owner.WatchedAttributes.RemoveAttribute(OwnerPetIdKey);
             float lockout = BalanceConfig.Global("petDeathLockoutSeconds", 60f);
-            // Beast Call (summon_pet cooldown reduction) also shortens the death lockout - the only meaningful
-            // "summon cooldown" the pet has (its base cast CD is trivial).
+            // Beast Call's summon_pet CDR applies here, since the lockout is the only cooldown that matters.
             float cdr = System.Math.Clamp(owner.ReductionStat(StatKeys.CooldownReductionFor("summon_pet")), 0f, 0.8f);
             lockout *= 1f - cdr;
             owner.GetBehavior<EBSpellCooldowns>()?.SetCooldown("canrpgclasses:summon_pet", lockout);
         }
 
-        /// <summary>The foe the pet was last ordered/assisted onto (AssignPetTarget), or null if it's gone/dead.
-        /// The gated seek/melee tasks hold this so a commanded pet keeps its target through the vanilla re-scan.</summary>
+        /// <summary>The foe last set by AssignPetTarget, or null if it's gone or dead.</summary>
         public static Entity? ForcedTargetOf(Entity pet)
         {
             long id = pet.WatchedAttributes.GetLong(PetTargetIdKey, 0);
@@ -362,9 +333,7 @@ namespace canrpgclasses.Hunter
             return e != null && e.Alive ? e : null;
         }
 
-        /// <summary>Fully disengages the pet: forgets its ordered target, closes the pursuit window, and clears the
-        /// seek/melee tasks' targets so it stops chasing immediately (used by the "come" recall - otherwise the pet
-        /// would just path straight back to the target we now persist).</summary>
+        /// <summary>Forgets the ordered target and clears the task targets so the pet stops chasing immediately.</summary>
         public static void ClearPetTarget(Entity pet)
         {
             pet.WatchedAttributes.RemoveAttribute(PetTargetIdKey);

@@ -6,21 +6,16 @@ using Vintagestory.API.Server;
 
 namespace canrpgclasses
 {
-    /// <summary>Client GUI part of the mod system: the spell hotbar + its hotkeys, the panels
-    /// (talents, spellbook, class select, HUD layout, admin panels) behind one generic toggle helper,
-    /// and their disposal.</summary>
+    /// <summary>Client GUI part of the mod system: spell hotbar, hotkeys, panels and renderers.</summary>
     public partial class canrpgclassesModSystem
     {
-        /// <summary>Client-only: spell hotbar state (slot bindings + cast dispatch).</summary>
+        // ---- Client-only state ----
         internal SpellHotbar? Hotbar;
 
-        /// <summary>Client-only: the mod's one icon cache. Every panel and HUD renderer draws the same 200-odd
-        /// spell/talent/class icons, so they share one loader instead of each keeping its own copy of the cache
-        /// (and its own set of GPU textures).</summary>
+        /// <summary>Shared icon cache, so every panel reuses the same GPU textures.</summary>
         internal Client.IconLoader? Icons;
 
-        /// <summary>Client-only: saved talent builds per class. Lives here rather than inside the talent window so
-        /// the builds survive the window being closed.</summary>
+        /// <summary>Saved talent builds; kept here so they outlive the talent window.</summary>
         internal TalentLoadouts? Loadouts;
         private Client.Render.HudSpellHotbarRenderer? hotbarHud;
         private TalentTreeDialog? talentTree;
@@ -34,40 +29,71 @@ namespace canrpgclasses
         private PetPanelDialog? petPanel;
         private HudLayout? hudLayout;
         private HudSettingsDialog? hudSettings;
-        /// <summary>Client-only: the one drag in flight, shared by the spellbook and the on-screen bars so a skill
-        /// can be dragged from the book straight onto a bar.</summary>
+        /// <summary>The one drag in flight, shared so a skill can go from the book straight onto a bar.</summary>
         internal Client.Gui.IconDragState? SpellDrag;
 
         private SpellClickInput? clickInput;
         private Client.Render.RadialCastMenu? radialMenu;
-
-        /// <summary>Client-only: floating damage numbers + health bars over nearby damaged entities.</summary>
         private Client.Render.CombatOverlayRenderer? combatOverlay;
-
-        /// <summary>Client-only: adds a resource (mana/energy) bar per member to canparty's party-frames HUD.</summary>
         private PartyResourceOverlay? partyResourceOverlay;
-
-        /// <summary>Client-only: snaps the local view yaw on request (shadow_step). See <see cref="ViewYawForcer"/>.</summary>
         private ViewYawForcer? viewYawForcer;
-
-        /// <summary>Client-only: draws a translucent dome around shielded entities. See <see cref="ShieldDomeRenderer"/>.</summary>
         private ShieldDomeRenderer? shieldDomeRenderer;
-
-        /// <summary>Client-only: tints Shadow Guise entities' models dark. See <see cref="ShadowformTint"/>.</summary>
         private ShadowformTint? shadowformTint;
-
-        /// <summary>Client-only: renders state particles locally from the server-synced visuals mask. See <see cref="EffectVisualsEmitter"/>.</summary>
         private EffectVisualsEmitter? effectVisualsEmitter;
-
-        /// <summary>Client-only: plays one-shot skill visuals (chain arcs, heal ribbons, ring waves) from
-        /// <see cref="Core.Net.SkillFxPacket"/>s. See <see cref="SkillFxClient"/>.</summary>
         private SkillFxClient? skillFxClient;
-
-        /// <summary>Client-only: draws channel beams (Mind Rend) as a solid ribbon mesh. See <see cref="BeamRenderer"/>.</summary>
         private BeamRenderer? beamRenderer;
-
-        /// <summary>Client-only: draws one-shot lightning bolts as a solid jagged mesh. See <see cref="BoltRenderer"/>.</summary>
         private BoltRenderer? boltRenderer;
+        private PortalRenderer? portalRenderer;
+
+        private ChoicePickerDialog? choicePicker;
+        private SummonOfferDialog? summonOffer;
+        private UtilityBuffsClient? utilityBuffs;
+
+        private SpellCastSounds? castSounds;
+
+        /// <summary>Waypoint destinations: admin points, plus the own anchor in Both mode (empty choice).</summary>
+        internal void ShowPortalPicker(string spellId)
+        {
+            if (ClientApi == null) return;
+            var me = ClientApi.World?.Player?.Entity;
+            var entries = new System.Collections.Generic.List<(string, string)>();
+            if (Core.Portals.PortalAnchors.Mode == Core.Portals.AnchorMode.Both)
+                entries.Add((Lang.Get("canrpgclasses:ui-portal-own"), ""));
+            foreach (var a in Core.Portals.PortalAnchors.ClientList)
+            {
+                string label = a.Name;
+                if (me != null && a.Dim == me.Pos.Dimension)
+                {
+                    double dx = a.X - me.Pos.X, dz = a.Z - me.Pos.Z;
+                    label += "  (" + (int)System.Math.Sqrt(dx * dx + dz * dz) + ")";
+                }
+                entries.Add((label, a.Name));
+            }
+            choicePicker ??= new ChoicePickerDialog(ClientApi);
+            choicePicker.Show(spellId, Lang.Get("canrpgclasses:ui-portal-pick"), entries, Lang.Get("canrpgclasses:ui-portal-none"));
+        }
+
+        /// <summary>Summon targets: online party members other than me (choice = player uid).</summary>
+        internal void ShowPartyPicker(string spellId)
+        {
+            if (ClientApi == null) return;
+            var party = ClientApi.ModLoader.GetModSystem<canparty.canpartyModSystem>()?.Client;
+            string myUid = ClientApi.World.Player.PlayerUID;
+            var entries = new System.Collections.Generic.List<(string, string)>();
+            if (party != null)
+                foreach (var p in ClientApi.World.AllOnlinePlayers)
+                    if (p != null && p.PlayerUID != myUid && party.IsInMyParty(p.PlayerUID))
+                        entries.Add((p.PlayerName, p.PlayerUID));
+            choicePicker ??= new ChoicePickerDialog(ClientApi);
+            choicePicker.Show(spellId, Lang.Get("canrpgclasses:ui-summon-pick"), entries, Lang.Get("canrpgclasses:ui-summon-none"));
+        }
+
+        private void ShowSummonOffer(Core.Portals.SummonOfferPacket p)
+        {
+            if (ClientApi == null) return;
+            summonOffer ??= new SummonOfferDialog(ClientApi);
+            summonOffer.Show(p);
+        }
 
         // ---- Client: spell hotbar HUD + hotkeys ----
         private void SetupHotbar(ICoreClientAPI api)
@@ -77,8 +103,7 @@ namespace canrpgclasses
             Icons = new IconLoader(api);
             Loadouts = new TalentLoadouts(api);
 
-            // Bar 1, slots 1-4 on Z R F V, 5-9 on X and Shift + Z R F V - one hand covers all nine. Bars 2-3 come
-            // with no keys: they are meant to be clicked, dragged onto, or opened as a wheel.
+            // Bar 1: Z R F V X, then Shift + Z R F V. Bars 2-3 are unbound (click, drag or wheel).
             var defaultKeys = new[]
             {
                 GlKeys.Z, GlKeys.R, GlKeys.F, GlKeys.V, GlKeys.X,
@@ -90,15 +115,12 @@ namespace canrpgclasses
                         Lang.Get("canrpgclasses:hotkey-cast-bar", bar + 1, slot + 1),
                         bar == 0 ? defaultKeys[slot] : GlKeys.Unknown, bar, slot, shift: bar == 0 && slot >= 5);
 
-            // Registers itself with the Ortho render stage; there is nothing to open - it draws whenever the
-            // player is in-world.
             hotbarHud = new Client.Render.HudSpellHotbarRenderer(api, Hotbar, hudLayout);
             SpellDrag = new Client.Gui.IconDragState();
             clickInput = new SpellClickInput(api, Hotbar, hudLayout, hotbarHud, SpellDrag);
             radialMenu = new Client.Render.RadialCastMenu(api, Hotbar, clickInput);
 
-            // Unbound by default: vanilla's Alt (togglemousecontrol) already frees the cursor while held. This is
-            // only for players who would rather toggle it than hold a key.
+            // Unbound by default: vanilla Alt already frees the cursor while held; this is a toggle alternative.
             api.Input.RegisterHotKey("canrpgcursor", Lang.Get("canrpgclasses:hotkey-cursor"), GlKeys.Unknown, HotkeyType.GUIOrOtherControls);
             api.Input.SetHotKeyHandler("canrpgcursor", _ => { clickInput?.ToggleCursor(); return true; });
 
@@ -152,14 +174,11 @@ namespace canrpgclasses
                 .WithDescription("Open the hunter pet panel (name / health / orders)")
                 .HandleWith(_ => { TogglePetPanel(api); return TextCommandResult.Success(); });
 
-            // First-time players (no class chosen yet) get the picker automatically. Driven by the client
-            // PlayerJoin event (the same hook vanilla's character-creation dialog uses), not a fixed timer:
-            // it fires only once the join has completed and the player entity's synced attributes (incl. the
-            // class-chosen flag) are present - a slow connection can no longer pop the picker for a player
-            // who already has a class. Unsubscribed in DisposeClientGui.
+            // Auto-open the picker for new players on PlayerJoin (like vanilla character creation), not a timer:
+            // by then the synced class-chosen flag is present even on a slow connection.
             api.Event.PlayerJoin += OnClientPlayerJoin;
 
-            // Admin panel - opened with O. controlserver only (client gate; the server re-checks every action).
+            // controlserver only here; the server re-checks every action.
             api.Input.RegisterHotKey("canrpgadmin", "RpgClasses: admin panel", GlKeys.O, HotkeyType.GUIOrOtherControls);
             api.Input.SetHotKeyHandler("canrpgadmin", _ => OpenAdmin(api));
 
@@ -194,12 +213,10 @@ namespace canrpgclasses
 
         private static readonly System.Collections.Generic.Dictionary<System.Type, long> _lastToggleMs = new();
 
-        /// <summary>Lazily creates a GUI window and flips it open/closed - the one copy of the open/close
-        /// dance every window shares (hotkeys, chat commands and CharacterPanelButtons all route here).</summary>
+        /// <summary>Lazily creates a window and toggles it; every hotkey, command and button routes here.</summary>
         private static bool ToggleGui<T>(ref T? gui, System.Func<T> create) where T : class, IToggleableGui
         {
-            // Debounce: VS can fire a GUIOrOtherControls hotkey handler twice for a single key press, which would open
-            // then immediately close the window. Ignore a repeat toggle of the same window within a few frames.
+            // VS can fire a GUIOrOtherControls handler twice per press, which would open then close the window.
             long now = ClientApi?.ElapsedMilliseconds ?? 0;
             if (_lastToggleMs.TryGetValue(typeof(T), out var last) && now - last < 200) return true;
             _lastToggleMs[typeof(T)] = now;
@@ -242,8 +259,7 @@ namespace canrpgclasses
             return ToggleGui(ref treeEditorGui, () => new TalentTreeEditorDialog(api));
         }
 
-        /// <summary>The server's authored content changed and the registries were rebuilt. The open editors are
-        /// looking straight at those registries, so they are told rather than left polling on a timer.</summary>
+        /// <summary>Tells open editors the registries were rebuilt from new server content.</summary>
         internal void NotifyContentChanged()
         {
             treeEditorGui?.OnContentChanged();
@@ -277,8 +293,7 @@ namespace canrpgclasses
             return ToggleGui(ref spellEditorGui, () => new SpellEditorDialog(api));
         }
 
-        // Public so CharacterPanelButtons (vanilla character-screen buttons) can reuse the same toggle logic
-        // as the hotkeys, instead of duplicating the singleton-open/close dance.
+        // Public for CharacterPanelButtons.
         public bool ToggleTalents(ICoreClientAPI api) => ToggleGui(ref talentTree, () => new TalentTreeDialog(api));
 
         public bool ToggleSpellBook(ICoreClientAPI api)
@@ -306,8 +321,7 @@ namespace canrpgclasses
             AutoOpenClassPickerIfNeeded(api);
         }
 
-        // Opens the class picker for a player who hasn't chosen yet. The null-entity retry is a safety net
-        // only - after PlayerJoin the local entity and its synced class-chosen flag are normally present.
+        // The null-entity retry is only a safety net; after PlayerJoin the entity is normally there.
         private void AutoOpenClassPickerIfNeeded(ICoreClientAPI api)
         {
             var e = api.World?.Player?.Entity;
@@ -336,17 +350,12 @@ namespace canrpgclasses
         /// <summary>Set-switch hotkeys. Unbound by default - the cycle key covers most players.</summary>
         private static readonly string[] SetHotkeyCodes = { "canrpgset1", "canrpgset2", "canrpgset3" };
 
-        /// <summary>
-        /// Registered ahead of the vanilla hotkeys, so a cast slot bound to 1-9 wins over the item hotbar in
-        /// NumberRow mode. Returning false in the other modes lets the vanilla handler run as usual - which is
-        /// also how Mouse mode silences the keys.
-        /// </summary>
+        /// <summary>Registered ahead of vanilla so a slot bound to 1-9 beats the item hotbar. Returning false lets
+        /// vanilla run, which is how Mouse mode silences the keys.</summary>
         private void RegisterCastHotKey(ICoreClientAPI api, string code, string label, GlKeys key, int bar, int slot, bool shift = false)
         {
-            // The hotkey manager is a process-lifetime static (ScreenManager.hotkeyManager): leaving a world only
-            // clears the handlers, the hotkeys stay. A second insert-first of the same code throws (Insert ->
-            // Dictionary.Add), so on a relog re-register only what isn't there - the entry keeps its ordering and
-            // the player's rebind, and the handler below is re-attached either way.
+            // Hotkeys outlive the world (static manager) and RegisterHotKeyFirst throws on a duplicate, so on relog
+            // only re-attach the handler.
             if (api.Input.GetHotKeyByCode(code) == null)
                 api.Input.RegisterHotKeyFirst(code, label, key, HotkeyType.CharacterControls, shiftPressed: shift);
             api.Input.SetHotKeyHandler(code, _ =>
@@ -366,8 +375,7 @@ namespace canrpgclasses
         // Client half of Dispose (called from the main Dispose): GUI windows hold GPU textures/renderers.
         private void DisposeClientGui()
         {
-            // Instance handler - only this instance's own subscription matches, so the server instance's
-            // Dispose (which also runs through here in singleplayer) is a harmless no-op.
+            // Instance handler, so the server instance's Dispose in singleplayer is a no-op here.
             if (ClientApi != null) ClientApi.Event.PlayerJoin -= OnClientPlayerJoin;
             radialMenu?.Dispose();
             radialMenu = null;
@@ -412,6 +420,16 @@ namespace canrpgclasses
             beamRenderer = null;
             boltRenderer?.Dispose();
             boltRenderer = null;
+            portalRenderer?.Dispose();
+            portalRenderer = null;
+            choicePicker?.Dispose();
+            choicePicker = null;
+            summonOffer?.Dispose();
+            summonOffer = null;
+            utilityBuffs?.Dispose();
+            utilityBuffs = null;
+            castSounds?.Dispose();
+            castSounds = null;
             Icons?.Dispose();
             Icons = null;
             Loadouts = null;

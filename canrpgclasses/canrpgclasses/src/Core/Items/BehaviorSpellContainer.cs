@@ -4,11 +4,8 @@ using Vintagestory.API.Datastructures;
 
 namespace canrpgclasses.Core.Items
 {
-    /// <summary>
-    /// Marks a collectible as spell-capable, with an optional default spell from JSON; the real binding is
-    /// per-stack. The static helpers work on items without this behavior too, which is what lets the
-    /// right-click cast patch and the tooltip apply to anything.
-    /// </summary>
+    /// <summary>Spell-capable collectible with an optional JSON default; the real binding is per stack. The static
+    /// helpers also work on items without this behavior.</summary>
     public class BehaviorSpellContainer : CollectibleBehavior
     {
         public const string Name = "canrpgspellcontainer";
@@ -17,8 +14,7 @@ namespace canrpgclasses.Core.Items
         /// <summary>Default spell a fresh stack of this item type is bound to (first id), from JSON properties.</summary>
         internal string[] defaultSpellIds = Array.Empty<string>();
 
-        /// <summary>Class restriction from JSON: only that class may use whatever spell is bound here, so a
-        /// class-flavoured weapon doesn't leak its spell onto whoever picks it up.</summary>
+        /// <summary>Class restriction from JSON: only that class may use whatever spell is bound here.</summary>
         internal string? pool;
 
         public BehaviorSpellContainer(CollectibleObject collObj) : base(collObj) { }
@@ -30,8 +26,7 @@ namespace canrpgclasses.Core.Items
             pool = properties["pool"].AsString(null);
         }
 
-        /// <summary>The spell id bound to this stack: the per-stack attribute, else the item-type default, else null.
-        /// Static so it works on any item - items without this behavior simply have no default to fall back to.</summary>
+        /// <summary>The per-stack binding, else the item-type default, else null.</summary>
         public static string? GetBoundSpell(ItemStack? stack)
         {
             if (stack == null) return null;
@@ -52,8 +47,7 @@ namespace canrpgclasses.Core.Items
             stack.Attributes.GetOrAddTreeAttribute(AttrTree).SetString("spellIds", spellId);
         }
 
-        /// <summary>Whether this class may use the spell bound to the stack. An item with no pool restriction
-        /// works for anyone; a restricted one only for its own class, default binding or rebind alike.</summary>
+        /// <summary>No pool = anyone; otherwise only that class, for default and rebound spells alike.</summary>
         public static bool PoolAllows(ItemStack? stack, string classId)
         {
             var beh = stack?.Collectible?.GetCollectibleBehavior(typeof(BehaviorSpellContainer), true) as BehaviorSpellContainer;
@@ -65,9 +59,7 @@ namespace canrpgclasses.Core.Items
             return string.Equals(poolClass, classId, StringComparison.OrdinalIgnoreCase);
         }
 
-        /// <summary>The bound spell, but only if this class may use it. Call this rather than pairing
-        /// <see cref="GetBoundSpell"/> with <see cref="PoolAllows"/> by hand, so a new call site can't quietly
-        /// skip the restriction.</summary>
+        /// <summary>The bound spell if this class may use it. Prefer this so no call site skips <see cref="PoolAllows"/>.</summary>
         public static string? GetUsableBoundSpell(ItemStack? stack, string classId)
         {
             string? bound = GetBoundSpell(stack);

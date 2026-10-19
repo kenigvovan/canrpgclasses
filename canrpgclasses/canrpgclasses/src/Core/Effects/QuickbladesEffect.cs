@@ -3,11 +3,8 @@ using canrpgclasses.Core.Config;
 
 namespace canrpgclasses.Core.Effects
 {
-    /// <summary>
-    /// Quickblades stack buff. Uses its own effect id and stat key rather than the engine's <c>strengthmelee</c>:
-    /// sharing it would mean the per-hit ConsumeStack also drained Battle Rush and Avenging Light. Tier is the
-    /// stack count - a cast adds one, a landed melee hit consumes one and re-applies the lower bonus.
-    /// </summary>
+    /// <summary>Quickblades stacks (Tier = stack count). Own stat key, not <c>strengthmelee</c>, so per-hit
+    /// ConsumeStack doesn't drain Battle Rush and Avenging Light.</summary>
     public static class QuickbladesEffectIds
     {
         // The literal is persisted player state, so it keeps its original name.
@@ -18,7 +15,7 @@ namespace canrpgclasses.Core.Effects
     public class QuickbladesEffect : Effect
     {
         private const string StatKey = "canrpgsliceanddice";
-        // Melee-damage bonus per stack. The main balance knob - rogue.json, quickblades.perStack.
+        // Melee-damage bonus per stack (rogue.json quickblades.perStack).
         public float perStack;
 
         public QuickbladesEffect() { perStack = BalanceConfig.Spell("quickblades").F("perStack", 0.06f); }

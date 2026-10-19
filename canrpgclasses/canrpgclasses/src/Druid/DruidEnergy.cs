@@ -42,8 +42,7 @@ namespace canrpgclasses.Druid
             registered = false;
         }
 
-        // Passive regen for every druid (harmless out of Cat - only Cat abilities spend it; shifting into Cat then
-        // finds the pool topped up, the intended feral opener). Capped at the pool max (talent bonuses included).
+        // Regens in every form on purpose, so shifting into Cat finds a full pool.
         private static void RegenTick(float dt)
         {
             var api = canrpgclassesModSystem.ServerApi;

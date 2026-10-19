@@ -11,14 +11,10 @@ namespace canrpgclasses.Core.Classes
     /// <summary>Re-pick policy for changing class (config <c>classChangeReselectMode</c> in core.json).</summary>
     public enum ReselectMode { Unrestricted = 0, Cooldown = 1, AdminOnly = 2, Fee = 3 }
 
-    /// <summary>
-    /// Server-authoritative class selection / change: first pick free, later changes gated by
-    /// <see cref="ReselectMode"/>. Switching class respecs talents.
-    /// </summary>
+    /// <summary>Server-side class change: first pick free, later ones gated by <see cref="ReselectMode"/>. Respecs talents.</summary>
     public static class ClassChange
     {
-        /// <summary>True once the player has explicitly chosen a class (so the first pick is free and the
-        /// selection screen only auto-opens for the undecided). Synced for the client.</summary>
+        /// <summary>Set once a class was explicitly chosen; until then the pick is free and the picker auto-opens.</summary>
         public const string ChosenKey = Core.AttrKeys.ClassChosen;
         /// <summary>Server time (ms) of the last paid/cooldown-gated change, for the cooldown mode.</summary>
         public const string LastChangeKey = Core.AttrKeys.ClassChangedMs;
@@ -45,8 +41,7 @@ namespace canrpgclasses.Core.Classes
         public static double CooldownDays(ICoreAPI api) => BalanceConfig.Global("classChangeCooldownDays", 7f);
         public static decimal Fee(ICoreAPI api) => (decimal)BalanceConfig.Global("classChangeFee", 1000f);
 
-        /// <summary>Milliseconds remaining on the change cooldown (0 if none / not in cooldown mode). Works on either
-        /// side - reads the synced last-change stamp from the entity's WatchedAttributes.</summary>
+        /// <summary>Milliseconds left on the change cooldown (0 if none). Works on either side.</summary>
         public static long CooldownRemainingMs(Entity e, ICoreAPI api)
         {
             if (e == null) return 0;
@@ -57,9 +52,8 @@ namespace canrpgclasses.Core.Classes
             return elapsed >= window ? 0 : window - elapsed;
         }
 
-        /// <summary>Authoritative entry point. Validates the policy (unless <paramref name="adminOverride"/>), takes
-        /// any fee, switches class (respeccing talents) and records the change. <paramref name="reason"/> is a lang
-        /// key suffix on failure. The first pick is always free and ignores cooldown/fee.</summary>
+        /// <summary>Checks the policy (unless <paramref name="adminOverride"/>), takes any fee and commits.
+        /// <paramref name="reason"/> is a lang key suffix on failure.</summary>
         public static bool TryChange(IServerPlayer player, string classId, bool adminOverride, out string reason)
         {
             reason = "";
@@ -74,10 +68,8 @@ namespace canrpgclasses.Core.Classes
             bool sameClass = TalentState.CurrentClass(entity) == classId && HasChosen(entity);
             if (sameClass) { reason = "already-this-class"; return false; }
 
-            // Vanilla-character-class gate (config). Checked before the re-pick policy so a forbidden pick is
-            // refused before any fee is taken, and applied to the free first pick too - the point of the rule is
-            // which class a given character may ever be, not how often they may switch. An admin override skips
-            // it, like every other gate here.
+            // Checked before any fee is taken, and on the free first pick too: it limits which class a character
+            // may ever be, not how often they switch.
             if (!adminOverride && !ClassRestrictions.Allowed(entity, classId, out string restricted))
             { reason = restricted; return false; }
 
@@ -112,8 +104,7 @@ namespace canrpgclasses.Core.Classes
             return true;
         }
 
-        /// <summary>Applies the class switch + respec and stamps the change/chosen flags. Used by the policy path
-        /// above and by the admin command (which bypasses the policy).</summary>
+        /// <summary>Switches class (with respec) and stamps the flags, bypassing the policy.</summary>
         public static void Commit(Entity entity, string classId)
         {
             entity.GetBehavior<EBTalents>()?.SetClass(classId);

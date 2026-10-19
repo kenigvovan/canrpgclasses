@@ -15,8 +15,9 @@ namespace canrpgclasses.Core.Execution
 
         public float SpellPower = 1f;
 
-        /// <summary>Combo points available to a finisher this cast (read before delivery, spent after).
-        /// Finisher impacts scale by this; 0 for builders and non-combo spells.</summary>
+        /// <summary>Finisher combo points, read before delivery and spent after; 0 for non-finishers.</summary>
         public int ComboPoints;
+
+        public int ImpactSounds;
     }
 }

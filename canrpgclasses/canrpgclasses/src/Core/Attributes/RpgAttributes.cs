@@ -32,9 +32,8 @@ namespace canrpgclasses.Core.Attributes
         }
     }
 
-    /// <summary>An attribute (strength, wisdom…) from <c>config/attributes.json</c>. The attribute itself is an
-    /// ordinary EntityStats key - class grants, talents, gear and the admin command all feed it the same way -
-    /// and its effects are what it pays back out. Points are read 0-based, like every 1.0-based stat here.</summary>
+    /// <summary>An attribute from <c>config/attributes.json</c>. It is an ordinary EntityStats key that every source
+    /// feeds; its effects are the payout. Points are read 0-based.</summary>
     public sealed class AttributeDef
     {
         public readonly string Id;
@@ -101,9 +100,7 @@ namespace canrpgclasses.Core.Attributes
              + (PerLevel.TryGetValue(attrId, out var p) ? p : 0f) * levelsAboveFirst;
     }
 
-    /// <summary>The attribute definitions, loaded from <c>config/attributes*.json</c> on both sides: a server can
-    /// rename, drop or invent attributes without touching C#. No file means an empty registry and no attributes at
-    /// all.</summary>
+    /// <summary>Attribute definitions from <c>config/attributes*.json</c>, both sides. No file = no attributes.</summary>
     public static class RpgAttributes
     {
         /// <summary>Stat source of one attribute's payout - one per attribute, so two attributes can feed one stat.</summary>
@@ -198,8 +195,8 @@ namespace canrpgclasses.Core.Attributes
             Publish(merged, api.Logger);
         }
 
-        /// <summary>Folds the affinities a class declares on itself over the ones from JSON, and rebuilds. Call after
-        /// every registry rebuild: payouts are resolved per class ahead of time, so the classes must be known.</summary>
+        /// <summary>Folds class-declared affinities over the JSON ones. Call after every registry rebuild, since
+        /// payouts are pre-resolved per class.</summary>
         public static void SyncClassAffinity(IEnumerable<(string ClassId, IReadOnlyList<(string Attribute, float Multiplier)> Affinity)> classes,
                                              ILogger? logger)
         {
@@ -219,12 +216,10 @@ namespace canrpgclasses.Core.Attributes
             Publish(source, logger);
         }
 
-        /// <summary>The merged definitions as JSON, for the server to hand a joining client - otherwise the client
-        /// reads its own file, which need not match.</summary>
+        /// <summary>Merged definitions as JSON for a joining client, whose own files need not match.</summary>
         public static string Serialize() => Newtonsoft.Json.JsonConvert.SerializeObject(source);
 
-        /// <summary>Client side: adopt the server's definitions. Payouts are recomputed on the next stat pass,
-        /// which the caller triggers through <c>ReapplyStatTalents</c>.</summary>
+        /// <summary>Client side: adopt the server's definitions. The caller triggers <c>ReapplyStatTalents</c>.</summary>
         public static void ApplySerialized(string json, ILogger? logger)
         {
             if (string.IsNullOrEmpty(json)) return;
@@ -242,8 +237,7 @@ namespace canrpgclasses.Core.Attributes
             return into;
         }
 
-        /// <summary>Resolves one merged definition set into the live registry - the single path both the asset
-        /// load and the network sync go through.</summary>
+        /// <summary>Resolves a merged definition set into the live registry (asset load and network sync).</summary>
         private static void Publish(AttributeFileModel file, ILogger? logger)
         {
             var models = new List<AttributeModel>();
@@ -348,8 +342,7 @@ namespace canrpgclasses.Core.Attributes
         {
             string id = m.id!.Trim();
 
-            // One resolved effect list per class that changes it, plus a fallback. All cover the same stats, so a
-            // class switch always overwrites a payout instead of leaving it.
+            // Per-class lists plus a fallback, all covering the same stats so a class switch overwrites every payout.
             var stats = new List<string>();
             var perClassPayout = new Dictionary<string, Dictionary<string, float>>(StringComparer.OrdinalIgnoreCase);
             var basePayout = new Dictionary<string, float>(StringComparer.Ordinal);

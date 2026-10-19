@@ -6,22 +6,14 @@ using canrpgclasses.Core.Talents;
 
 namespace canrpgclasses.Core.Content
 {
-    /// <summary>
-    /// Registers data-driven content: <c>config/content/*.json</c> from any mod, then in-game authored
-    /// <see cref="ContentStore"/> layered on top. Runs after the assembly scan, so a definition can deliberately
-    /// replace a compiled one of the same id.
-    /// </summary>
+    /// <summary>Registers <c>config/content/*.json</c> from any mod, then <see cref="ContentStore"/> on top. Runs after
+    /// the assembly scan, so data can replace a compiled definition of the same id.</summary>
     public static class ContentLoader
     {
-        /// <summary>Content lives under the engine's <c>config</c> asset category, in a <c>content</c> subfolder.
-        /// A custom category would read better, but <c>AssetCategory.categories</c> is walked when the asset
-        /// manager is built - before mod code runs - so a category registered from a mod system is never
-        /// scanned. <c>config</c> is Universal and already scanned, so it is the one that actually works.
-        /// <see cref="Config.BalanceConfig"/> skips this subfolder when it reads its own numbers.</summary>
+        /// <summary>Under <c>config</c> because asset categories are collected before mod code runs, so a custom one
+        /// is never scanned. <see cref="Config.BalanceConfig"/> skips this subfolder.</summary>
         public const string AssetPath = "config/content/";
 
-        /// <summary>Loads every content source and registers what it finds. Returns the report so the caller can
-        /// surface problems - the reload command prints them to the admin who asked.</summary>
         public static ContentReport Load(ICoreAPI api, SpellRegistry spells, RpgClassRegistry classes,
                                          TalentRegistry talents, ILogger? logger = null)
         {
@@ -46,8 +38,7 @@ namespace canrpgclasses.Core.Content
                          ref nClasses, ref nSpells, ref nTalents);
             }
 
-            // Content authored in-game goes on top of the asset files, so an edit wins over a shipped entry of
-            // the same id. On a client this is whatever the server last sent.
+            // In-game edits win over shipped files. On a client this is whatever the server last sent.
             if (ContentStore.Current is { } authored)
                 Register(authored, "in-game editor", spells, classes, talents, report,
                          ref nClasses, ref nSpells, ref nTalents);
@@ -100,9 +91,7 @@ namespace canrpgclasses.Core.Content
             return false;
         }
 
-        /// <summary>Cross-checks the registered content: the mistakes that only show up once everything is loaded
-        /// - a talent granting a spell nobody defined, a class starting with one, a talent pointing at a tree its
-        /// class doesn't have, a prerequisite that doesn't exist.</summary>
+        /// <summary>Cross-reference checks that only make sense once everything is loaded (dangling spell/talent/tree refs).</summary>
         private static void Verify(SpellRegistry spells, RpgClassRegistry classes, TalentRegistry talents,
                                    ContentReport report)
         {

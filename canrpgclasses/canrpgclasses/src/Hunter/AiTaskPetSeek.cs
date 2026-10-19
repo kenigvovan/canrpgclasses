@@ -5,16 +5,14 @@ using Vintagestory.GameContent;
 
 namespace canrpgclasses.Hunter
 {
-    /// <summary>The hunter wolf's seek task, gated by its command mode. Unlike vanilla seek (which re-scans and
-    /// randomly bails every call) it holds its commanded target while it's alive and sensable.</summary>
+    /// <summary>Mode-gated seek. Unlike vanilla (re-scans and randomly bails) it holds the commanded target
+    /// while it's alive and sensable.</summary>
     public class AiTaskPetSeek : AiTaskSeekEntity
     {
         public AiTaskPetSeek(EntityAgent entity, JsonObject taskConfig, JsonObject aiConfig)
             : base(entity, taskConfig, aiConfig)
         {
-            // Never leap at the target: the leap branch in the base ContinueExecute dereferences
-            // entity.AnimManager.Animator, which is null on the server for our pet, so a leap would NRE-crash the
-            // entity tick. The wolf still walks/runs to its target normally.
+            // The base leap branch dereferences AnimManager.Animator, which is null server-side for our pet (NRE).
             leapAtTarget = false;
         }
 
@@ -23,7 +21,6 @@ namespace canrpgclasses.Hunter
             if (!HunterPetSystem.TaskModeAllows(entity)) return false;
             NowSeekRange = getSeekRange();
 
-            // Drop the current target only if it actually became invalid - otherwise keep chasing it.
             if (targetEntity != null && (!targetEntity.Alive || !CanSense(targetEntity, NowSeekRange)))
                 targetEntity = null;
 
@@ -42,7 +39,7 @@ namespace canrpgclasses.Hunter
                 return true;
             }
 
-            // No commanded target: only an Aggressive pet wanders off to fight whatever it spots (vanilla scan).
+            // No commanded target: only an Aggressive pet falls back to the vanilla scan.
             return HunterPetSystem.PetModeOf(entity) == PetMode.Aggressive && base.ShouldExecute();
         }
     }

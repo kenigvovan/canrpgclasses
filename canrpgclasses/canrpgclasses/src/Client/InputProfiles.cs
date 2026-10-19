@@ -4,8 +4,7 @@ using Vintagestory.API.Client;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Keeps one cast-key mapping per input mode. Leaving a mode snapshots its keys, entering one restores its own
-    /// snapshot (or that mode's defaults the first time), so switching back and forth never loses a rebind.
+    /// One cast-key mapping per input mode, so switching modes never loses a rebind.
     /// </summary>
     public static class InputProfiles
     {
@@ -26,7 +25,7 @@ namespace canrpgclasses.Client
             return Build(keys, _ => false);
         }
 
-        /// <summary>Presets only cover bar 1 - the other bars ship without keys and stay as the player left them.</summary>
+        /// <summary>Presets only cover bar 1.</summary>
         private static List<KeyBindingSnapshot> Build(GlKeys[] keys, System.Func<int, bool> shift)
         {
             var list = new List<KeyBindingSnapshot>();
@@ -74,8 +73,7 @@ namespace canrpgclasses.Client
             }
         }
 
-        /// <summary>Switches modes, snapshotting the keys of the one being left and restoring those of the one
-        /// being entered. Mouse mode leaves the keys alone - they simply stop firing.</summary>
+        /// <summary>Snapshots the old mode's keys and restores the new one's. Mouse mode leaves keys untouched.</summary>
         public static void Switch(ICoreClientAPI capi, HudLayout layout, InputMode target)
         {
             if (layout.Mode == target) return;

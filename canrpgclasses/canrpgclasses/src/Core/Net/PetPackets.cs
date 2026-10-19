@@ -2,8 +2,7 @@ using ProtoBuf;
 
 namespace canrpgclasses.Core.Net
 {
-    /// <summary>client → server: the hunter renames their pet. The name is kept on the owner and re-applied to
-    /// every summoned wolf. An empty name clears it. (Just a string - carries no hunter-specific dependency.)</summary>
+    /// <summary>client → server: rename the pet. Stored on the owner and re-applied to every summon; empty clears it.</summary>
     [ProtoContract]
     public class PetNamePacket
     {

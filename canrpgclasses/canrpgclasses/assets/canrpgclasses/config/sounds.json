@@ -1,0 +1,49 @@
+{
+  "_comment": "cast = loop during a cast bar, release = on fire, impact = per struck target. \"as\" borrows a school's set, \"\" = silent.",
+  "volume": { "cast": 0.5, "release": 0.7, "impact": 0.8 },
+  "heal": "game:sounds/voice/harp/5",
+  "shield": "game:sounds/block/glass",
+  "schools": {
+    "PhysicalMelee":  { "release": "game:sounds/tool/slash",                 "impact": "game:sounds/player/strike1" },
+    "PhysicalRanged": { "release": "game:sounds/player/throw",               "impact": "game:sounds/arrow-impact" },
+    "Fire":   { "cast": "game:sounds/environment/fire",          "release": "game:sounds/torch-ignite",  "impact": "game:sounds/effect/smallexplosion", "impactVolume": 0.5 },
+    "Frost":  { "cast": "game:sounds/weather/wind-leafless",     "release": "game:sounds/block/ice",     "impact": "game:sounds/block/glass" },
+    "Arcane": { "cast": "game:sounds/effect/translocate-idle",   "release": "game:sounds/effect/swoosh", "impact": "game:sounds/effect/translocate-breakdimension", "impactVolume": 0.4 },
+    "Holy":   { "cast": "game:sounds/effect/echochamber",        "release": "game:sounds/voice/harp/1",  "impact": "game:sounds/effect/deepbell", "impactVolume": 0.4 },
+    "Nature": { "cast": "game:sounds/weather/wind-leafy",        "release": "game:sounds/block/plant",   "impact": "game:sounds/block/leafy-picking" },
+    "Shadow": { "cast": "game:sounds/effect/tempstab-drain",     "release": "game:sounds/effect/swoosh", "impact": "game:sounds/creature/drifter-hit" },
+    "Fel":    { "cast": "game:sounds/effect/tempstab-drain",     "release": "game:sounds/torch-ignite",  "impact": "game:sounds/creature/drifter-hit" }
+  },
+  "spells": {
+    "arc_bolt":         { "release": "game:sounds/weather/lightning-distant", "releaseVolume": 0.5 },
+    "forked_lightning": { "release": "game:sounds/weather/lightning-distant", "releaseVolume": 0.5 },
+    "thunder_cleave":   { "as": "PhysicalMelee", "impact": "game:sounds/weather/lightning-distant", "impactVolume": 0.4 },
+    "tempest":          { "release": "game:sounds/weather/lightning-near", "releaseVolume": 0.5 },
+    "static_shield":    { "release": "game:sounds/weather/lightning-distant", "releaseVolume": 0.4 },
+    "magma_burst":      { "impact": "game:sounds/effect/mediumexplosion", "impactVolume": 0.5 },
+
+    "claw_slash":   { "as": "PhysicalMelee" },
+    "flesh_tear":   { "as": "PhysicalMelee" },
+    "deep_rend":    { "as": "PhysicalMelee" },
+    "savage_bite":  { "as": "PhysicalMelee" },
+    "bone_crunch":  { "as": "PhysicalMelee" },
+    "heavy_paw":    { "as": "PhysicalMelee" },
+    "claw_sweep":   { "as": "PhysicalMelee" },
+    "gash":         { "as": "PhysicalMelee" },
+    "roar":         { "as": "PhysicalMelee", "release": "game:sounds/creature/bear/growl1" },
+    "zealots_strike": { "release": "game:sounds/tool/slash" },
+
+    "summon_pet":   { "release": "game:sounds/creature/wolf/howl1", "releaseVolume": 0.6 },
+    "pet_attack":   { "release": "game:sounds/creature/wolf/growl1" },
+    "spirit_wolf":  { "release": "game:sounds/creature/wolf/growl2" },
+
+    "stalk":         { "release": "", "impact": "" },
+    "concealment":   { "release": "", "impact": "" },
+    "blend":         { "release": "", "impact": "" },
+    "shadow_guise":  { "release": "", "impact": "" },
+
+    "mage_gate":     { "release": "game:sounds/effect/translocate-active" },
+    "waypoint":      { "release": "game:sounds/effect/translocate-active" },
+    "summon_ritual": { "release": "game:sounds/effect/translocate-active" }
+  }
+}

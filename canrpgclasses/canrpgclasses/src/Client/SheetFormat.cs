@@ -1,10 +1,9 @@
 namespace canrpgclasses.Client
 {
-    /// <summary>How numbers read across the mod's windows: a signed bonus, a percentage, a multiplier. Shared so
-    /// the same stat can't show as "+12%" in one panel and "0.12" in another.</summary>
+    /// <summary>Shared number formatting so a stat reads the same in every window.</summary>
     public static class SheetFormat
     {
-        /// <summary>"+2.5" / "-1" - a bonus, where the sign is the point.</summary>
+        /// <summary>Signed bonus: "+2.5" / "-1".</summary>
         public static string Signed(float v) => (v >= 0f ? "+" : "") + v.ToString("0.##");
 
         public static string Signed(int v) => (v >= 0 ? "+" : "") + v;

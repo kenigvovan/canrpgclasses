@@ -6,8 +6,7 @@ using canrpgclasses.Core.Talents;
 
 namespace canrpgclasses.Client
 {
-    /// <summary>A saved talent build: a name + the spent talents and their ranks (parallel arrays, ready to send
-    /// as a <see cref="canrpgclasses.Core.Net.TalentLoadoutPacket"/>).</summary>
+    /// <summary>A saved talent build; parallel arrays ready for <see cref="canrpgclasses.Core.Net.TalentLoadoutPacket"/>.</summary>
     public class TalentLoadout
     {
         public string Name = "Build 1";
@@ -15,8 +14,7 @@ namespace canrpgclasses.Client
         public int[] Ranks = Array.Empty<int>();
     }
 
-    /// <summary>Client-side saved talent builds, kept PER CLASS (talents are class-specific). Capturing reads the
-    /// current synced ranks; applying is server-validated. Persisted in its own config file.</summary>
+    /// <summary>Client-side talent builds per class; applying is server-validated.</summary>
     public class TalentLoadouts
     {
         private const string ConfigFile = "canrpgclasses-talents.json";

@@ -9,7 +9,7 @@ namespace canrpgclasses.Rogues.Talents
     // Rogue tree 2 - Utility: survival, sustain, mobility, escapes.
     // Tiers unlock at 0/4/8/12/16 points spent in this tree.
 
-    // Hook talent: registers a DamageModifier into the core damage pipeline. Reduces fall damage per rank.
+    // Fall damage reduction via a DamageModifier.
     [TalentRegistration("rogue:soft_landing")]
     public class SoftLandingTalent : Talent
     {

@@ -17,13 +17,12 @@ namespace canrpgclasses.Shaman
         public const string RisingTide = "canrpg_rising_tide";    // timed +healing power
     }
 
-    /// <summary>Snapshotted at cast, so it keeps healing at full strength even if the shaman is dropped or swaps gear
-    /// mid-HoT.</summary>
+    /// <summary>Snapshotted at cast, so gear swaps or the shaman's death don't change the HoT.</summary>
     [EffectRegistration(ShamanRestoIds.TideSurge)]
     public class TideSurgeEffect : SnapshotEffect
     {
         private readonly float coeffPerTick;
-        /// <summary>Baked heal applied each tick. Public so it survives relog (OnStart doesn't re-run on deserialize).</summary>
+        /// <summary>Public so it survives relog.</summary>
         public float perTick;
 
         public TideSurgeEffect() { coeffPerTick = BalanceConfig.Spell("tide_surge").F("coeffPerTick", 0.25f); }
@@ -40,14 +39,11 @@ namespace canrpgclasses.Shaman
         }
     }
 
-    /// <summary>
-    /// Stone Ward: heals the bearer on each hit taken, one charge per proc (charges = effect tier, shown as
-    /// HUD stacks). Caster's power is snapshotted since the effect runs on someone else's body.
-    /// </summary>
+    /// <summary>Heals the bearer on each hit taken, one charge per proc (charges = effect tier).</summary>
     [EffectRegistration(ShamanRestoIds.StoneWard)]
     public class StoneWardEffect : SnapshotEffect
     {
-        /// <summary>Baked heal per proc. Public so it survives relog (OnStart doesn't re-run on deserialize).</summary>
+        /// <summary>Public so it survives relog.</summary>
         public float perProc;
 
         private readonly float coeff;
@@ -63,8 +59,7 @@ namespace canrpgclasses.Shaman
 
         public override float DisplayMagnitude() => perProc;
 
-        // Any real damage taken triggers the heal - unlike Static Shield this includes ranged and spell hits (the
-        // point is to keep a focused target alive), but never a heal ticking in, and never our own proc damage.
+        // Unlike Static Shield, ranged and spell hits also proc it.
         public override void OnShouldEntityReceiveDamage(ref float damage, DamageSource dmgSource)
         {
             if (perProc <= 0f || damage <= 0f || dmgSource == null || dmgSource.Type == EnumDamageType.Heal) return;

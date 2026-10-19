@@ -2,8 +2,7 @@ using canrpgclasses.Core.Spells;
 
 namespace canrpgclasses.Warrior.Spells
 {
-    /// <summary>The three warrior stances - one active at a time, casting a different one swaps them. Switching
-    /// does not reset rage (v1). See <see cref="StanceEffects"/>.</summary>
+    /// <summary>Warrior stances: one active at a time, casting another swaps them. See <see cref="StanceEffects"/>.</summary>
     public abstract class StanceSpell : Spell
     {
         protected StanceSpell(string effectId, string icon, string display)

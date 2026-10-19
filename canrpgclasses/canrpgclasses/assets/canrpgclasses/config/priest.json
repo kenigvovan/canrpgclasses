@@ -2,6 +2,8 @@
 	"_comment": "Balance numbers for the Priest class. Single source of truth: spells/talents read these at load, and the templated lang descriptions are filled from the same values. Editable without recompiling. Keys map to fields in the matching spell/talent C# class; a missing key falls back to the code default. Spell keys are global by local id; talent/affinity keys are namespaced by this filename (priest:*). Ticking DoT/HoT effects tick once per second (effectshud TICK_EVERY_SECONDS=1), so coeffPerTick is per-second and duration is the number of ticks.",
 
 	"spells": {
+		"guiding_light": { "resource": 10, "cooldown": 5, "duration": 600, "lightHue": 8, "lightSaturation": 2, "lightBrightness": 16 },
+		"summon_ritual": { "resource": 40, "cooldown": 300, "cast": 8, "duration": 20, "answerSeconds": 30 },
 		"piercing_light": { "resource": 20, "cooldown": 0, "cast": 1.5, "coeff": 2.0 },
 		"warding_word": { "resource": 30, "cooldown": 12, "shieldCoeff": 8, "shieldDuration": 15 },
 		"soothing_prayer": { "resource": 25, "cooldown": 3, "duration": 12, "coeffPerTick": 0.5 },

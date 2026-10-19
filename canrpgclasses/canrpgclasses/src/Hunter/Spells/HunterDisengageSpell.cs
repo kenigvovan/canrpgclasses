@@ -15,15 +15,14 @@ namespace canrpgclasses.Hunter.Spells
 
             Target.Type = TargetType.Caster;
             Deliver.Type = DeliveryType.Direct;
-            Range = b.F("slowRadius", 4f); // AoE slow disc radius (zone reads the spell Range)
+            Range = b.F("slowRadius", 4f); // the zone reads its radius from Range
 
-            // 1) Chill nearby foes at your current position (one-shot zone: no damage, just walkslow), THEN
-            // 2) leap backward. Order matters so the slow lands where the enemies are, before you move.
+            // Slow first, then leap, so the slow lands where the enemies are.
             Impacts.Add(new SpellImpact
             {
                 Action = ImpactAction.DamageZone,
-                DamageSpellPowerCoefficient = 0f,          // pure control, no damage
-                ZoneDurationSeconds = 0.5f,                // → a single immediate pulse, no lingering
+                DamageSpellPowerCoefficient = 0f,
+                ZoneDurationSeconds = 0.5f,                // a single pulse, no lingering
                 ZoneStatusEffectId = "walkslow",
                 ZoneStatusTier = b.I("slowAmp", 2),
                 ZoneStatusSeconds = b.F("slowDuration", 3f)

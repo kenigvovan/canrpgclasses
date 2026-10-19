@@ -1,10 +1,7 @@
 namespace canrpgclasses.Core
 {
-    /// <summary>
-    /// WatchedAttributes keys for the timed combat-state flags: written by spell impacts, read by the Harmony
-    /// patches and expired by <see cref="canrpgclasses.Core.EB.EBCombatState"/>. Each <c>*Until</c> holds a deadline in
-    /// <see cref="Vintagestory.API.Common.IWorldAccessor.ElapsedMilliseconds"/>.
-    /// </summary>
+    /// <summary>WatchedAttributes keys for timed combat flags, expired by <see cref="canrpgclasses.Core.EB.EBCombatState"/>.
+    /// Each <c>*Until</c> is a deadline in server ElapsedMilliseconds.</summary>
     public static class CombatFlags
     {
         public const string Evasion = "canrpgEvasion";
@@ -22,17 +19,15 @@ namespace canrpgclasses.Core
         // (0 = smooth energy dome, 1 = angular ice crystal for frost shields).
         public const string AbsorbColor = "canrpgAbsorbColor";
         public const string AbsorbStyle = "canrpgAbsorbStyle";
-        // Cosmetic: remaining shield lifetime in SECONDS when the server (re)applied it. The renderer arms its
-        // own deadline from this - AbsorbUntil is server ElapsedMilliseconds, a different counter than the
-        // client's, and reads as already expired client-side.
+        // Cosmetic: shield lifetime in SECONDS at (re)apply. The client can't use AbsorbUntil - it's the server's
+        // ElapsedMilliseconds counter and reads as already expired client-side.
         public const string AbsorbDuration = "canrpgAbsorbDurationSec";
 
         public const string Silenced = "canrpgSilenced";
         public const string SilenceUntil = "canrpgSilenceUntilMs";
 
-        // Aggregate gate for the per-tick CC queries: bitmask of the active control types, kept in sync with the
-        // individual flags by ControlState.RefreshCcGate. Lets the hot paths answer "any CC preventing X?" with
-        // one attribute read; absent/0 in the common no-CC case.
+        // Bitmask of active control types, synced by ControlState.RefreshCcGate, so per-tick CC checks cost one
+        // attribute read. Absent/0 when no CC is active.
         public const string CcMask = "canrpgCcMask";
 
         // A feared player wanders within a radius of where they were feared (mobs flee via their own AI
@@ -59,10 +54,8 @@ namespace canrpgclasses.Core
         public const string InCombat = "canrpgInCombat";
         public const string InCombatUntil = "canrpgInCombatUntilMs";
 
-        // Travel-form action lock: while set the bearer can't swing a weapon or cast. Self-chosen rather than a
-        // timed CC, so it lives outside ControlState and has no diminishing returns. Spells that toggle the form
-        // off set Spell.BypassesFormLock, so nobody is trapped in it. Only Source==Player swings are blocked,
-        // leaving totems placed before the transform to keep dealing their damage.
+        // Travel-form lock: no swings or casts. Self-chosen, so it lives outside ControlState (no DR); form toggles
+        // set Spell.BypassesFormLock. Only Source==Player swings are blocked, so earlier totems keep working.
         public const string FormActionLock = "canrpgFormActionLock";
     }
 }

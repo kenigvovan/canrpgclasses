@@ -8,9 +8,8 @@ using canrpgclasses.Core;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Draws a translucent dome around every nearby entity carrying an active absorb shield: one shared UV-sphere
-    /// mesh through the flat-colour <see cref="EnumShaderProgram.Wireframe"/> shader, so it reads as a clean
-    /// energy bubble. Cosmetic only - reads synced WatchedAttributes, changes no game state.
+    /// Translucent dome around entities with an active absorb shield, drawn with the flat-colour
+    /// <see cref="EnumShaderProgram.Wireframe"/> shader. Cosmetic only.
     /// </summary>
     public class ShieldDomeRenderer : IRenderer
     {
@@ -19,16 +18,14 @@ namespace canrpgclasses.Client
         private MeshRef? crystal;  // angular ice crystal (frost shields: Frozen Shell / Ice Ward)
         private readonly Matrixf mv = new Matrixf();
 
-        // Fallback tint (pale gold) when a shield didn't record a colour. Per-shield colour comes from canrpgAbsorbColor.
+        // Fallback tint when a shield has no canrpgAbsorbColor.
         private static readonly Vec4f DomeColor = new Vec4f(0.95f, 0.88f, 0.55f, 1f);
         private readonly Vec4f colorScratch = new Vec4f(); // reused per shielded entity - Vec4f is a class
 
-        // The spatial scan for shielded entities is throttled: shields appear/disappear on a seconds scale, so a
-        // full GetEntitiesAround (which walks every entity in range and allocates a result array + a closure) every
-        // frame bought nothing. Between scans the cached list is re-verified per frame via Alive/ShieldAlpha.
+        // Throttled GetEntitiesAround scan; the cached list is re-checked per frame via Alive/ShieldAlpha.
         private const long ScanIntervalMs = 150;
         private readonly System.Collections.Generic.List<Entity> shielded = new();
-        // NB: not long.MinValue - "now - lastScanMs" would overflow and never trigger the first scan.
+        // Not long.MinValue: "now - lastScanMs" would overflow.
         private long lastScanMs = -ScanIntervalMs;
         private long scanNow; // "now" for the predicate below, set right before each scan (no per-scan closure)
         private readonly ActionConsumable<Entity> shieldMatcher;
@@ -42,10 +39,8 @@ namespace canrpgclasses.Client
             shieldMatcher = e => e.Alive && ShieldAlpha(e, scanNow) > 0f;
             sphere = capi.Render.UploadMesh(GenSphere(16, 10));
             crystal = capi.Render.UploadMesh(GenCrystal());
-            // AfterOIT, not OIT: during the OIT stage the game has the weighted-blended-transparency framebuffer
-            // bound (accum/revealage attachments) - a plain shader with standard blending writes garbage there and
-            // the dome never shows up in the composed frame. AfterOIT runs right after MergeTransparentRenderPass
-            // with the primary framebuffer + depth test restored, which is exactly what this overlay needs.
+            // AfterOIT, not OIT: the OIT stage has the accum/revealage framebuffer bound, where standard blending
+            // writes garbage. AfterOIT has the primary framebuffer and depth test back.
             capi.Event.RegisterRenderer(this, EnumRenderStage.AfterOIT, "canrpgshielddome");
         }
 
@@ -67,7 +62,7 @@ namespace canrpgclasses.Client
                 var found = world.GetEntitiesAround(camPos, RenderRange, RenderRange, shieldMatcher);
                 for (int i = 0; i < found.Length; i++) shielded.Add(found[i]);
 
-                // Prune expired client-clock deadlines so the dict doesn't grow with every shield ever seen.
+                // Prune expired deadlines.
                 if (deadlines.Count > 0)
                 {
                     expiredIds.Clear();
@@ -93,9 +88,7 @@ namespace canrpgclasses.Client
                     prog.Use();
                     rpi.GLEnableDepthTest();
                     rpi.GLDepthMask(false);              // translucent: test against the scene, don't write depth
-                    rpi.GlDisableCullFace();             // draw BOTH faces of the sphere - otherwise the "inward"
-                                                        // winding is back-face-culled and the dome is invisible from
-                                                        // outside (and you're inside your own dome in 1st person)
+                    rpi.GlDisableCullFace();             // both faces: visible from inside and outside
                     rpi.GlToggleBlend(true, EnumBlendMode.Standard);
                     prog.Uniform("origin", 0f, 0f, 0f);
                     prog.UniformMatrix("projectionMatrix", rpi.CurrentProjectionMatrix);
@@ -106,19 +99,17 @@ namespace canrpgclasses.Client
                 int style = wa.GetInt(CombatFlags.AbsorbStyle, 0); // 0 = smooth sphere, 1 = ice crystal, 2 = solid ice block
                 MeshRef mesh = style >= 1 ? crystal : sphere;
 
-                // Per-shield tint (frost = icy blue, else gold). Packed A,R,G,B like ColorUtil.ToRgba; keep our own alpha.
+                // Per-shield tint, packed ARGB like ColorUtil.ToRgba; alpha is ours.
                 int packed = wa.GetInt(CombatFlags.AbsorbColor, 0);
                 float cr = DomeColor.R, cg = DomeColor.G, cb = DomeColor.B;
                 if (packed != 0)
                 {
-                    // ColorUtil.ToRgba(a,r,g,b) = (a<<24)|(r<<16)|(g<<8)|b, so r is bits 16-23, b is the low byte.
                     cr = ((packed >> 16) & 0xff) / 255f;
                     cg = ((packed >> 8) & 0xff) / 255f;
                     cb = (packed & 0xff) / 255f;
                 }
 
-                // Style 2 (Frozen Shell): a fatter, near-opaque solid ice encasement so it reads clearly different from
-                // Ice Ward's thin translucent crystal (style 1).
+                // Style 2 (Frozen Shell): thicker, near-opaque ice, distinct from Ice Ward's crystal.
                 bool solid = style == 2;
                 float grow = solid ? 0.35f : 0f;
                 float drawAlpha = solid ? Math.Min(0.72f, alpha * 4f) : alpha;
@@ -140,21 +131,17 @@ namespace canrpgclasses.Client
             if (began)
             {
                 prog.Stop();
-                rpi.GlEnableCullFace();  // restore the default culling for everything drawn after us
+                rpi.GlEnableCullFace();  // restore default culling
                 rpi.GLDepthMask(true);
             }
         }
 
-        /// <summary>Dome opacity for an entity: 0 if no active shield, else a gentle pulse that fades out over the
-        /// final second so the bubble visibly "runs out".</summary>
-        // CLIENT-clock deadlines per shielded entity. AbsorbUntil is written with the server's ElapsedMilliseconds -
-        // a different counter than the client's - so comparing it against the client clock always read as "already
-        // expired" and no dome ever rendered. Instead we detect a (re)applied shield by its AbsorbUntil VALUE changing
-        // (used only as a version stamp, never compared to our clock) and arm a deadline from the synced
-        // AbsorbDuration seconds on the client's own clock.
+        // Client-clock deadlines. AbsorbUntil is on the server clock, so it's only used as a version stamp to
+        // detect a reapplied shield; the deadline is armed from AbsorbDuration locally.
         private readonly System.Collections.Generic.Dictionary<long, (long serverUntil, long clientUntilMs)> deadlines = new();
         private readonly System.Collections.Generic.List<long> expiredIds = new(); // scratch for the per-scan prune
 
+        /// <summary>0 without an active shield, else a pulse that fades out over the final second.</summary>
         private float ShieldAlpha(Entity e, long now)
         {
             var wa = e.WatchedAttributes;
@@ -164,7 +151,7 @@ namespace canrpgclasses.Client
             if (!deadlines.TryGetValue(e.EntityId, out var d) || d.serverUntil != serverUntil)
             {
                 float durSec = wa.GetFloat(CombatFlags.AbsorbDuration, 0f);
-                if (durSec <= 0f) return 0f; // no duration synced (stale pre-fix shield) - nothing to time against
+                if (durSec <= 0f) return 0f; // no duration synced
                 d = (serverUntil, now + (long)(durSec * 1000f));
                 deadlines[e.EntityId] = d;
             }
@@ -177,8 +164,7 @@ namespace canrpgclasses.Client
             return baseA;
         }
 
-        // A unit UV-sphere (radius 1, centred at origin) as triangles: xyz + white rgba + glow flags, matching the
-        // vertex format the Wireframe shader expects (same components LineMeshUtil produces for the block outline).
+        // Unit UV-sphere: xyz + white rgba + flags, the vertex format the Wireframe shader expects.
         private static MeshData GenSphere(int slices, int stacks)
         {
             int vcount = (stacks + 1) * (slices + 1);
@@ -214,9 +200,7 @@ namespace canrpgclasses.Client
             return m;
         }
 
-        // An angular ice crystal: an icosahedron (20 flat facets) with each vertex pushed to a slightly different
-        // radius, so the silhouette is jagged and irregular like a chunk of ice - not a smooth bubble. Same vertex
-        // format as GenSphere (xyz + white rgba + glow flags) for the flat-colour Wireframe shader.
+        // Ice crystal: icosahedron with jittered vertex radii. Same vertex format as GenSphere.
         private static MeshData GenCrystal()
         {
             float t = (float)((1.0 + Math.Sqrt(5.0)) / 2.0); // golden ratio

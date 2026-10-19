@@ -14,10 +14,8 @@ using EBEffects = effectshud.src.EBEffectsAffected;
 
 namespace canrpgclasses.Hunter
 {
-    /// <summary>
-    /// Hunter "shot" abilities arm a bonus on the caster instead of spawning a projectile; the next real
-    /// arrow that lands consumes it. Split Shot's extra arrows are spawned by BowPatches on bow release.
-    /// </summary>
+    /// <summary>Shot abilities arm a bonus on the caster that the next real arrow consumes on hit. Split Shot's
+    /// extra arrows are spawned by BowPatches on release.</summary>
     public static class HunterShots
     {
         private static bool registered;
@@ -35,18 +33,16 @@ namespace canrpgclasses.Hunter
             var e = ctx.Caster;
             var wa = e.WatchedAttributes;
 
-            // Bonus damage snapshot: coeff + per-combo-point (finisher combo captured before delivery) × ranged
-            // spell power. Same shape as FinisherAmount, but banked onto the next arrow instead of dealt now.
+            // Same shape as FinisherAmount, but banked onto the next arrow instead of dealt now.
             float coeff = imp.DamageSpellPowerCoefficient + imp.DamagePerComboPoint * ctx.ComboPoints;
             wa.SetFloat(AttrKeys.ShotDamage, ctx.SpellPower * coeff);
             wa.SetFloat(AttrKeys.ShotKnockback, imp.Knockback);
-            // Builders grant their combo when the arrow HITS (a miss builds nothing); finishers already spent it.
+            // Builders grant combo only when the arrow hits.
             wa.SetInt(AttrKeys.ShotComboGrant, ctx.Spell.ComboBuilder ? ctx.Spell.ComboPointsGenerated : 0);
             wa.SetString(AttrKeys.ShotStatusId, imp.StatusEffectId ?? "");
             wa.SetFloat(AttrKeys.ShotStatusDur, imp.StatusEffectDuration);
             wa.SetInt(AttrKeys.ShotStatusAmp, imp.StatusEffectAmplifier);
             wa.SetString(AttrKeys.ShotSpell, ctx.Spell.Id);
-            // Bank Shot augments a shot that already fires a fan (Split Shot) with extra arrows.
             int extraArrows = imp.ShotExtraArrows;
             if (extraArrows > 0 && Core.Talents.TalentState.Rank(e, "hunter:bank_shot") > 0)
                 extraArrows += (int)BalanceConfig.Talent("hunter:bank_shot").F("extraArrows", 2f);
@@ -60,7 +56,7 @@ namespace canrpgclasses.Hunter
             float window = imp.EmpowerWindowSeconds > 0 ? imp.EmpowerWindowSeconds : 6f;
             wa.SetLong(AttrKeys.ShotUntilMs, e.World.ElapsedMilliseconds + (long)(window * 1000f));
 
-            // Cosmetic HUD buff with a countdown of the window (per-spell icon), + a puff so it reads as "armed".
+            // Cosmetic HUD buff showing the window.
             SpellExecutor.ApplyEffect(e, EmpowerEffectIds.For(ctx.Spell.LocalId), 1, window);
             imp.Particles?.Emit(e.World, e);
         }
@@ -69,12 +65,12 @@ namespace canrpgclasses.Hunter
         {
             if (damage <= 0f || attacker == null || victim == attacker) return;
             if (victim?.World?.Side != EnumAppSide.Server) return;
-            // Only a real vanilla arrow the attacker fired (an EntityProjectile that isn't one of our spell shots).
+            // Vanilla arrows only, not our spell projectiles.
             if (source.SourceEntity is not EntityProjectile proj || proj is EntitySpellProjectile) return;
 
             var wa = attacker.WatchedAttributes;
             long until = wa.GetLong(AttrKeys.ShotUntilMs, 0);
-            if (until == 0 || attacker.World.ElapsedMilliseconds > until) return; // nothing armed / window lapsed
+            if (until == 0 || attacker.World.ElapsedMilliseconds > until) return;
             if (SpellExecutor.IsAlly(attacker, victim)) return;
 
             float bonus = wa.GetFloat(AttrKeys.ShotDamage, 0f);
@@ -87,8 +83,7 @@ namespace canrpgclasses.Hunter
             int grant = wa.GetInt(AttrKeys.ShotComboGrant, 0);
             if (grant > 0) ResourceState.AddCombo(attacker, grant);
 
-            // WoundedEffect owns the heal-cut and its HUD icon; ShotHealCut only gates it and ShotHealCutSecs
-            // drives the duration. Ignite is the vanilla burn (~0.5 dmg/s until it goes out).
+            // WoundedEffect owns the heal cut itself; ShotHealCut only gates it. Ignite is the vanilla burn.
             float healCut = wa.GetFloat(AttrKeys.ShotHealCut, 0f);
             if (healCut > 0f)
                 SpellExecutor.ApplyEffect(victim!, Core.Effects.WoundedEffectId.Id, 1, wa.GetFloat(AttrKeys.ShotHealCutSecs, 5f));
@@ -100,7 +95,7 @@ namespace canrpgclasses.Hunter
             if (wa.GetBool(AttrKeys.ShotIgnite, false))
                 victim!.IsOnFire = true;
 
-            ClearArmedDamage(attacker); // the empowered shot is spent (extra arrows are cleared separately on fire)
+            ClearArmedDamage(attacker);
         }
 
         public static bool HasArmedShot(Entity e)
@@ -109,23 +104,19 @@ namespace canrpgclasses.Hunter
             return until != 0 && e.World.ElapsedMilliseconds <= until;
         }
 
-        /// <summary>Called on bow release (BowPatches): if the armed shot demands a fresh full draw (aimed_shot),
-        /// discard the empowered bundle unless this shot qualifies - held long enough and its draw STARTED after
-        /// the ability was pressed (so you can't pre-draw the bow and then press aimed_shot for a free big hit).
-        /// A discarded aimed shot fires as a plain arrow.</summary>
-        // Vanilla bow: renderVariant reaches full (max) by ~this many seconds of draw (ItemBow's hardcoded
-        // timing). A future "faster draw" talent would set StatKeys.BowDrawSpeed (1.0-based) to shorten it.
+        // ItemBow's hardcoded time to full draw.
         private const float BowFullDrawSeconds = 0.75f;
+
+        /// <summary>On bow release: a shot that needs a full draw is discarded unless the draw started after the
+        /// ability was pressed (no pre-drawing) and was held long enough.</summary>
 
         public static void ValidateDrawOnRelease(Entity shooter, float secondsUsed)
         {
             if (!HasArmedShot(shooter)) return;
             var wa = shooter.WatchedAttributes;
             float fraction = wa.GetFloat(AttrKeys.ShotFullDraw, 0f);
-            if (fraction <= 0f) return; // this shot has no draw requirement (steady/kill/serpent/concussive)
+            if (fraction <= 0f) return;
 
-            // Required hold = the demanded fraction of a full draw, scaled by the bow's draw speed (so a faster
-            // bow reaches the same fraction sooner). Expressed as a fraction, not a fixed time.
             float drawSpeed = shooter.Stats.GetBlended(StatKeys.BowDrawSpeed);
             float fullDrawSecs = BowFullDrawSeconds / (drawSpeed > 0.1f ? drawSpeed : 1f);
             float need = fraction * fullDrawSecs;
@@ -136,8 +127,7 @@ namespace canrpgclasses.Hunter
             if (!freshDraw || !drawnEnough) ClearArmedDamage(shooter);
         }
 
-        /// <summary>Extra arrows the current armed shot fires (Split Shot), or 0. Consuming it clears only the
-        /// extra-arrow flag - the damage/status bundle still lands on the arrow's hit.</summary>
+        /// <summary>Takes the armed extra-arrow count; the damage bundle still waits for the hit.</summary>
         public static int TakeExtraArrows(Entity e)
         {
             if (!HasArmedShot(e)) return 0;
@@ -146,8 +136,7 @@ namespace canrpgclasses.Hunter
             return extra;
         }
 
-        // Clears the damage/status/combo bundle and closes the window + strips the HUD buff. Leaves the extra
-        // arrows to their own consumption on fire.
+        // Leaves the extra arrows alone; TakeExtraArrows consumes those on fire.
         private static void ClearArmedDamage(Entity e)
         {
             var wa = e.WatchedAttributes;

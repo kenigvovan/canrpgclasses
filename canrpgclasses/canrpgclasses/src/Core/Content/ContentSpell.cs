@@ -2,11 +2,8 @@ using canrpgclasses.Core.Spells;
 
 namespace canrpgclasses.Core.Content
 {
-    /// <summary>A spell defined in JSON rather than C#. Everything a <see cref="Spell"/> holds is already data,
-    /// so this only copies a validated <see cref="SpellModel"/> across; the executor can't tell the difference.
-    ///
-    /// The balance numbers come from the content file itself rather than <c>BalanceConfig</c>, so a JSON spell
-    /// is self-contained - the trade-off is that the in-game balance editor can't retune it live.</summary>
+    /// <summary>A spell defined in JSON. Its numbers come from the content file, not <c>BalanceConfig</c>, so the
+    /// balance editor can't retune it.</summary>
     public class ContentSpell : Spell
     {
         public ContentSpell(string id, SpellModel m, ContentReport report)
@@ -15,6 +12,7 @@ namespace canrpgclasses.Core.Content
             DisplayName = m.name ?? LangText.Humanize(id);
             if (!string.IsNullOrEmpty(m.description)) Description = m.description!;
             IconName = m.icon;
+            if (!string.IsNullOrWhiteSpace(m.animation)) AnimationCode = m.animation!.Trim();
 
             School = report.Enum(m.school, SpellSchool.PhysicalMelee, id, "school");
             Tier = m.tier;

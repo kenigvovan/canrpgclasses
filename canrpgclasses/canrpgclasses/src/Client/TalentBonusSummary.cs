@@ -11,14 +11,12 @@ using canrpgclasses.Core.Talents;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// The talent window's "build bonuses" lines: totals each derived stat from talent ranks, tree mastery and
-    /// gear affinities, mirroring <see cref="canrpgclasses.Core.EB.EBRpgStats"/>. Pure arithmetic over live
-    /// client state, split out of the window so it can recompute on a tick rather than every frame.
+    /// Talent window "build bonuses": totals derived stats from talents, tree mastery and gear affinities,
+    /// mirroring <see cref="canrpgclasses.Core.EB.EBRpgStats"/>. Recomputed on a tick, not per frame.
     /// </summary>
     public static class TalentBonusSummary
     {
-        // Declared before the tables below - static fields initialize in textual order, and the tables
-        // reference these in their initializers.
+        // Must precede the tables below: static fields initialize in textual order.
         private static readonly string HunterRanged = StatKeys.SpellpowerFor(Core.Spells.SpellSchool.PhysicalRanged);
         private static readonly string PriestShadow = StatKeys.SpellpowerFor(Core.Spells.SpellSchool.Shadow);
         private static readonly string MageFire = StatKeys.SpellpowerFor(Core.Spells.SpellSchool.Fire);
@@ -26,8 +24,7 @@ namespace canrpgclasses.Client
         private static readonly string MageArcane = StatKeys.SpellpowerFor(Core.Spells.SpellSchool.Arcane);
         private static readonly string ShamanNature = StatKeys.SpellpowerFor(Core.Spells.SpellSchool.Nature);
 
-        // Which numeric talent feeds which summary stat, and the sign of its applied modifier (config holds the
-        // magnitude). The per-rank value itself comes from BalanceConfig - single source of truth.
+        // Talent -> summary stat and modifier sign; per-rank magnitude comes from BalanceConfig.
         private static readonly (string id, string stat, float sign)[] TalentStatTable =
         {
             ("rogue:nimble",           StatKeys.WalkSpeed,             1f),
@@ -97,7 +94,7 @@ namespace canrpgclasses.Client
             ("shaman:water_meditation",    StatKeys.ResourceRegen,        1f),
         };
 
-        // Display order: stat key → lang label, and whether it's a percent (×100) or a flat number.
+        // Display order: stat key, lang label, percent (x100) or flat.
         private static readonly (string stat, string langKey, bool pct)[] SummaryRows =
         {
             (StatKeys.MeleeWeaponsDamage,   "ui-sum-melee",     true),
@@ -125,8 +122,7 @@ namespace canrpgclasses.Client
             (StatKeys.CooldownReduction,    "ui-sum-cdr",       true),
         };
 
-        /// <summary>One line of the summary: what it is, the formatted value, and which way it moves the character
-        /// (so the window can colour it without re-parsing the number back out of the string).</summary>
+        /// <summary>One summary line; the direction lets the window colour it without re-parsing.</summary>
         public readonly struct Row
         {
             public readonly string Label;
@@ -153,8 +149,7 @@ namespace canrpgclasses.Client
 
             if (cls != null)
             {
-                // Tree mastery: every point spent in a tree adds its bonus regardless of which specific talent it
-                // went into - not covered by TalentStatTable, so without this the summary undercounts the real stat.
+                // Tree mastery: every point in a tree adds its bonus; not covered by TalentStatTable.
                 foreach (var m in cls.TreeMasteries)
                 {
                     int pts = TalentState.PointsInTree(player, mod.Talents, m.TreeIndex);
@@ -173,8 +168,7 @@ namespace canrpgclasses.Client
                 if (cls.HpPerLevel > 0f) Add(StatKeys.MaxHealthExtraPoints, cls.HpPerLevel * Math.Max(0, level - 1));
             }
 
-            // Attributes pay into the same stats, and the level curves now run through them - without this the
-            // summary reads far too low.
+            // Attributes pay into the same stats (level curves run through them).
             foreach (var def in Core.Attributes.RpgAttributes.All)
             {
                 float points = def.EffectivePoints(player);
@@ -192,7 +186,7 @@ namespace canrpgclasses.Client
             }
             if (lines.Count == 0) lines.Add(new Row(Lang.Get("canrpgclasses:ui-sum-none"), "", 0));
 
-            // Effective spell power = levelMul × (1 + relevant stat fraction), as in EBRpgStats.GetSpellPower.
+            // levelMul * (1 + stat fraction), as in EBRpgStats.GetSpellPower.
             float levelMul = 1f + Math.Max(0, level - 1) * BalanceConfig.Global("spellPowerPerLevel", 0.05f);
             totals.TryGetValue(StatKeys.MeleeWeaponsDamage, out var meleeFrac);
             totals.TryGetValue(StatKeys.SpellpowerHoly, out var holyFrac);
@@ -207,8 +201,8 @@ namespace canrpgclasses.Client
             return lines;
         }
 
-        /// <summary>The class's intrinsic gear affinities with a live active/inactive marker, computed client-side
-        /// from the held weapon + worn armor (the same <see cref="GearAffinity.Matches"/> the server uses).</summary>
+        /// <summary>Class gear affinities with a live active marker, via the same <see cref="GearAffinity.Matches"/>
+        /// the server uses.</summary>
         public static List<(string line, bool active)> GearAffinities(ICoreClientAPI capi, RpgClassDef? cls)
         {
             var result = new List<(string, bool)>();

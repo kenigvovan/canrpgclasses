@@ -8,10 +8,8 @@ using Vintagestory.API.Server;
 
 namespace canrpgclasses.Core.Execution
 {
-    /// <summary>
-    /// Server-side driver for lingering ground zones - both ticking AoE carpets and one-shot traps. One tick
-    /// listener drives them all and a zone dies with its caster. Server main thread only, no locking.
-    /// </summary>
+    /// <summary>Ground zones (ticking carpets and one-shot traps) on a single server tick listener. A zone dies with
+    /// its caster. Main thread only, no locking.</summary>
     public static class ZoneManager
     {
         private sealed class Zone
@@ -32,9 +30,9 @@ namespace canrpgclasses.Core.Execution
             // Trap mode.
             public bool IsTrap;
             public float TriggerRadius;
-            public long ArmExpiryMs; // remove the trap if nothing trips it by this time
+            public long ArmExpiryMs;
 
-            // Channel mode: the zone lives only while its caster keeps channeling.
+            // Lives only while the caster keeps channeling.
             public bool ChannelBound;
         }
 
@@ -45,7 +43,6 @@ namespace canrpgclasses.Core.Execution
         public static void Start(ICoreServerAPI api)
         {
             sapi = api;
-            // 100ms resolution - fine enough for a trap trigger check and the finest carpet cadence.
             tickId = api.Event.RegisterGameTickListener(OnTick, 100);
         }
 
@@ -57,16 +54,15 @@ namespace canrpgclasses.Core.Execution
             zones.Clear();
         }
 
-        /// <summary>Places a zone at the caster's current position. A ticking zone lands its first pulse and
-        /// carpet immediately; a trap arms and waits for an enemy to step onto it.</summary>
+        /// <summary>A ticking zone pulses immediately; a trap arms and waits.</summary>
         public static void Add(SpellContext ctx, SpellImpact imp)
         {
             var caster = ctx.Caster;
             var t = ctx.Spell.Target;
-            // Range is the max cast DISTANCE (used as the zone radius too, unless ZoneRadius decouples them).
+            // Range doubles as the zone radius unless ZoneRadius is set.
             float placeRange = ctx.Spell.Range > 0 ? ctx.Spell.Range : 6f;
             float radius = imp.ZoneRadius > 0 ? imp.ZoneRadius : placeRange;
-            Vec3d center = imp.ZoneAtAimPoint ? AimGroundPoint(caster, placeRange) : caster.Pos.XYZ.Clone();
+            Vec3d center = imp.ZoneAtAimPoint ? AimGroundPoint(caster, placeRange, ctx.Aim) : caster.Pos.XYZ.Clone();
 
             float duration = imp.ZoneDurationSeconds > 0 ? imp.ZoneDurationSeconds : 1f;
             float fxEvery = imp.ZoneParticleSeconds > 0 ? imp.ZoneParticleSeconds : 0.4f;
@@ -85,8 +81,7 @@ namespace canrpgclasses.Core.Execution
                 ChannelBound = ctx.Spell.CastMode == CastMode.Channel
             };
 
-            // One-shot placement accent at the zone centre (once per cast - a zone has no single struck target for the
-            // per-impact SkillFx flags to ride). Uses the zone's real footprint so the ring/sigil matches the reach.
+            // Placement accent sized to the zone's real footprint.
             if (imp.ZoneLandRune) Visuals.SkillFx.Rune(caster.World, center, zone.Hor, ctx.Spell.School);
             if (imp.ZoneLandRing) Visuals.SkillFx.RingWave(caster.World, center, zone.Hor, ctx.Spell.School);
 
@@ -97,14 +92,12 @@ namespace canrpgclasses.Core.Execution
                 zone.IsTrap = true;
                 zone.TriggerRadius = imp.ZoneTriggerRadius > 0 ? imp.ZoneTriggerRadius : 1.5f;
                 zone.ArmExpiryMs = now + (long)(duration * 1000f);
-                // A single puff at placement so the caster sees where it landed; then the trap stays hidden while
-                // it waits (no continuous marker) and shows again only when it fires (Trigger).
+                // One puff at placement, then hidden until it fires.
                 zone.Carpet?.EmitDisc(caster.World, zone.Center, zone.TriggerRadius);
                 zones.Add(zone);
                 return;
             }
 
-            // Ticking zone (Hallowed Ground).
             float dmgEvery = imp.ZoneTickSeconds > 0 ? imp.ZoneTickSeconds : 1f;
             zone.DamageEveryMs = (long)(dmgEvery * 1000f);
             zone.DamageTicksLeft = Math.Max(1, (int)Math.Round(duration / dmgEvery));
@@ -124,10 +117,9 @@ namespace canrpgclasses.Core.Execution
             if (zone.DamageTicksLeft > 0 || zone.FxTicksLeft > 0) zones.Add(zone);
         }
 
-        /// <summary>The ground point the caster is aiming at, up to <paramref name="maxDist"/> blocks along the look
-        /// direction: the first block the view ray hits; if it hits nothing (aiming over a ledge / above terrain),
-        /// the ray end dropped straight down onto the surface. Server-side placement for aim-cast zones (Ice Storm).</summary>
-        private static Vec3d AimGroundPoint(EntityAgent caster, float maxDist)
+        /// <summary>First block hit by the view ray within <paramref name="maxDist"/>; on a miss, the ray end dropped
+        /// onto the ground.</summary>
+        internal static Vec3d AimGroundPoint(EntityAgent caster, float maxDist, AimContext? aim = null)
         {
             var from = caster.Pos;
             Vec3d eye = from.XYZ.Add(caster.LocalEyePos);
@@ -135,6 +127,16 @@ namespace canrpgclasses.Core.Execution
 
             BlockSelection bsel = null!;
             EntitySelection esel = null!;
+
+            // AI casters: target position clamped to range and dropped to the ground.
+            if (aim != null && aim.AimAtTarget && (aim.TargetEntity?.Pos.XYZ ?? aim.AimPosition) is Vec3d point)
+            {
+                Vec3d origin = from.XYZ;
+                if (point.DistanceTo(origin) > maxDist) point = origin + (point - origin).Normalize() * maxDist;
+                caster.World.RayTraceForSelection(point.AddCopy(0, 1, 0), point.AddCopy(0, -40, 0), ref bsel, ref esel);
+                return bsel != null ? bsel.FullPosition : point;
+            }
+
             caster.World.RayTraceForSelection(eye, to, ref bsel, ref esel);
             if (bsel != null) return bsel.FullPosition;
 
@@ -142,8 +144,7 @@ namespace canrpgclasses.Core.Execution
             return bsel != null ? bsel.FullPosition : to;
         }
 
-        /// <summary>Removes every channel-bound zone belonging to <paramref name="caster"/> - called when their
-        /// channel (Ice Storm) ends early (moved / interrupted). No-op for non-channel zones.</summary>
+        /// <summary>Called when a channel ends early.</summary>
         public static void CancelChannelZones(Entity caster)
         {
             for (int i = zones.Count - 1; i >= 0; i--)
@@ -168,11 +169,11 @@ namespace canrpgclasses.Core.Execution
 
                 if (z.IsTrap)
                 {
-                    if (now >= z.ArmExpiryMs) { zones.RemoveAt(i); continue; } // never tripped
+                    if (now >= z.ArmExpiryMs) { zones.RemoveAt(i); continue; }
                     if (AnEnemyIsOn(z))
                     {
                         Trigger(z);
-                        zones.RemoveAt(i); // one-shot
+                        zones.RemoveAt(i);
                     }
                     continue;
                 }
@@ -208,20 +209,17 @@ namespace canrpgclasses.Core.Execution
             return false;
         }
 
-        /// <summary>Fires a trap: a single AoE burst of damage + status over the blast disc, plus an explosion
-        /// visual/sound at the centre. No block destruction.</summary>
+        /// <summary>One AoE burst over the blast disc; no block destruction.</summary>
         private static void Trigger(Zone z)
         {
             var world = z.Caster.World;
-            // Trap Mastery (hunter): a 1.0-based multiplier on the burst damage and the control duration.
+            // 1.0-based multiplier on damage and control duration.
             float trapPower = z.Caster.Stats.GetBlended(canrpgclasses.Core.StatKeys.TrapPower);
             if (trapPower < 0.01f) trapPower = 1f;
             float amount = z.SpellPower * z.Impact.DamageSpellPowerCoefficient * trapPower;
             float statusSecs = z.Impact.ZoneStatusSeconds * trapPower;
             string? statusId = z.Impact.ZoneStatusEffectId;
-            // Napalm Traps (hunter): a damaging trap also ignites what it catches. Generic stat, so the core
-            // stays class-agnostic (same pattern as trapPower above). GetBlended is 1.0-based: an UNSET stat
-            // returns 1.0, and the Napalm talent adds +1 (→ 2.0), so the flag is "on" only above 1.5.
+            // 1.0-based flag stat: unset = 1.0, the talent adds +1, so "on" above 1.5.
             bool ignite = amount > 0 && z.Caster.Stats.GetBlended(canrpgclasses.Core.StatKeys.TrapIgnite) > 1.5f;
 
             foreach (var e in world.GetEntitiesAround(z.Center, z.Hor, z.Ver, en => en.Alive && en is EntityAgent && en != z.Caster))
@@ -246,13 +244,12 @@ namespace canrpgclasses.Core.Execution
                 z.Impact.Particles?.Emit(world, e);
             }
 
-            // Blast visual over the whole disc + optional boom (missing sound asset = silent, no crash).
+            // A missing sound asset is silent, not a crash.
             z.Carpet?.EmitDisc(world, z.Center, z.Hor);
             if (!string.IsNullOrEmpty(z.Impact.ZoneTriggerSound))
                 world.PlaySoundAt(new AssetLocation(z.Impact.ZoneTriggerSound), z.Center.X, z.Center.Y, z.Center.Z, null, false, 32f);
         }
 
-        /// <summary>One damage pulse for a TICKING zone: enemies in the disc take damage and/or the status.</summary>
         private static void DamageTick(Zone z)
         {
             float amount = z.SpellPower * z.Impact.DamageSpellPowerCoefficient;

@@ -5,14 +5,11 @@ using canrpgclasses.Core;
 
 namespace canrpgclasses.Core.Talents
 {
-    /// <summary>
-    /// One talent in a class's tree, positioned by (TreeIndex, Tier, Column), with up to MaxRank ranks and an
-    /// optional prerequisite. Stat talents override <see cref="ApplyStats"/>; hook talents carry no stats and
-    /// are read by the combat hooks themselves.
-    /// </summary>
+    /// <summary>One talent in a class tree. Stat talents override <see cref="ApplyStats"/>; hook talents are read
+    /// by the combat hooks themselves.</summary>
     public abstract class Talent
     {
-        // protected, so a data-driven subclass (see Core.Content) can set its id from JSON instead of an attribute.
+        // Protected so a JSON-defined subclass can set its id without the attribute.
         public string Id { get; protected set; } = "";
         public string ClassId { get; protected set; } = "rogue";
         public int TreeIndex { get; protected set; }          // 0..RpgClassDef.TreeCount-1 within the class
@@ -21,8 +18,7 @@ namespace canrpgclasses.Core.Talents
         public int MaxRank { get; protected set; } = 1;
         public string? RequiresTalent { get; protected set; } // prerequisite talent id (must be maxed)
 
-        /// <summary>Attribute points the character must hold to spend on this talent, e.g. <c>strength 10</c>.
-        /// Checked by <see cref="TalentState.CanSpend"/>, so the client preview and the server agree.</summary>
+        /// <summary>Attribute points needed to spend here, checked by <see cref="TalentState.CanSpend"/>.</summary>
         public IReadOnlyDictionary<string, float>? RequiresAttributes { get; protected set; }
 
         /// <summary>If set, taking this talent (rank ≥ 1) grants the player this active spell in their hotbar.</summary>
@@ -70,19 +66,13 @@ namespace canrpgclasses.Core.Talents
         /// <summary>Stat talents override this; called with the current rank (0 clears the modifier).</summary>
         public virtual void ApplyStats(EntityAgent entity, int rank) { }
 
-        /// <summary>
-        /// Resource-max talents override this to raise a pool's maximum. Read live by
-        /// <see cref="canrpgclasses.Core.Resources.ResourceState.EffectiveMax"/>, so a respec applies at once.
-        /// Return 0 for other pools.
-        /// </summary>
+        /// <summary>Raises a pool's max; read live by <see cref="canrpgclasses.Core.Resources.ResourceState.EffectiveMax"/>.</summary>
         public virtual float MaxResourceBonus(string poolId, int rank) => 0f;
 
-        /// <summary>Perk for talents that modify the vanilla damage pipeline. Collected at talent scan and run on
-        /// every hit before core mitigation, so it must read its own rank and bail fast at 0.</summary>
+        /// <summary>Runs on every hit before mitigation, so it must bail fast at rank 0.</summary>
         public virtual DamageModifier? DamageModifier => null;
 
-        /// <summary>Perk for talents that trigger on the owner's landed melee swing. Same contract as
-        /// <see cref="DamageModifier"/>: it runs on every swing, so it must bail fast at rank 0.</summary>
+        /// <summary>Runs on every landed swing, so it must bail fast at rank 0.</summary>
         public virtual MeleeHitHook? OnMeleeHit => null;
     }
 }

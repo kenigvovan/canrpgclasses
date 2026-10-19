@@ -18,20 +18,18 @@ using Vintagestory.API.Server;
 
 namespace canrpgclasses
 {
-    /// <summary>Network part of the mod system: message-type registration, the server-side packet handlers
-    /// (cast requests, talents, class select, admin/balance edits) and the client-side ones (cast bars,
-    /// cooldowns, chat, damage numbers), plus the periodic party-resource push.</summary>
+    /// <summary>Network part of the mod system: message registration and packet handlers for both sides.</summary>
     public partial class canrpgclassesModSystem
     {
-        // Anti-spam throttle for OnSpellRequest, keyed by player UID. One entry per player, overwritten on every
-        // accepted request; evicted on disconnect (OnPlayerDisconnectCleanup) so it can't grow with every player
-        // who EVER joined over a long-lived server's life.
+        // OnSpellRequest throttle by player UID; evicted on disconnect so it doesn't grow forever.
         private readonly System.Collections.Generic.Dictionary<string, long> lastSpellRequestMs = new();
 
-        // Drops per-player transient server state on disconnect (hooked to PlayerDisconnect in StartServerSide).
         private void OnPlayerDisconnectCleanup(IServerPlayer player)
         {
-            if (player?.PlayerUID != null) lastSpellRequestMs.Remove(player.PlayerUID);
+            if (player?.PlayerUID == null) return;
+            lastSpellRequestMs.Remove(player.PlayerUID);
+            Core.Portals.PortalManager.Forget(player.PlayerUID);
+            Core.Portals.PortalShots.Forget(player.PlayerUID);
         }
         private const long SpellRequestMinIntervalMs = 50;
 
@@ -64,9 +62,16 @@ namespace canrpgclasses
             channel.RegisterMessageType(typeof(ClassEditPacket));
             channel.RegisterMessageType(typeof(SpellEditPacket));
             channel.RegisterMessageType(typeof(ContentEditResultPacket));
+            channel.RegisterMessageType(typeof(PortalStatePacket));
+            channel.RegisterMessageType(typeof(Core.Portals.PortalAnchorsPacket));
+            channel.RegisterMessageType(typeof(Core.Portals.PortalShotRequestPacket));
+            channel.RegisterMessageType(typeof(Core.Portals.PortalShotPacket));
+            channel.RegisterMessageType(typeof(Core.Portals.SummonOfferPacket));
+            channel.RegisterMessageType(typeof(Core.Portals.SummonAnswerPacket));
+            channel.RegisterMessageType(typeof(SpellSoundPacket));
         }
 
-        // ---- Server: rename the sender's hunter pet (persists on the owner, re-applied on each summon) ----
+        // ---- Server handlers ----
         private void OnPetName(IServerPlayer fromPlayer, PetNamePacket packet)
         {
             if (fromPlayer?.Entity is not EntityAgent owner) return;
@@ -80,15 +85,11 @@ namespace canrpgclasses
             var entity = fromPlayer?.Entity;
             if (entity == null) return;
 
-            // Cheap anti-spam throttle: a flooding/broken client would otherwise still hit full cast validation
-            // (access/resource/cooldown checks) on every packet for nothing - every cast is rejected anyway,
-            // but there's no reason to do that work more than ~20x/sec per player.
+            // Skip full cast validation for clients flooding faster than ~20 req/s.
             long now = ServerApi!.World.ElapsedMilliseconds;
             if (lastSpellRequestMs.TryGetValue(fromPlayer!.PlayerUID, out long last) && now - last < SpellRequestMinIntervalMs) return;
             lastSpellRequestMs[fromPlayer.PlayerUID] = now;
 
-            // Server authority: a client can put any id in the packet, so verify the player is actually allowed to
-            // cast it - it must be one of their class/talent spells OR the spell bound to the item in their hand.
             string id = packet.SpellId ?? "";
             if (!string.IsNullOrEmpty(id) && !id.Contains(':')) id = ModId + ":" + id;
             if (!IsCastAllowed(entity, id)) return;
@@ -96,9 +97,8 @@ namespace canrpgclasses
             AttemptCast(entity, id, BuildAim(entity, packet));
         }
 
-        /// <summary>Server-authoritative gate against a forged cast request: the player may only cast spells from
-        /// their class/talents or the one bound to the item in hand. Single rule shared with the client UI via
-        /// <see cref="Core.Spells.SpellAccess"/>. Resource/cooldown/etc. are enforced separately in TryCast.</summary>
+        /// <summary>Gate against forged cast requests, shared with the client UI via <see cref="Core.Spells.SpellAccess"/>.
+        /// Costs and cooldowns are enforced in TryCast.</summary>
         private bool IsCastAllowed(Entity entity, string fullSpellId)
             => Core.Spells.SpellAccess.CanCast(entity, this, fullSpellId);
 
@@ -107,6 +107,7 @@ namespace canrpgclasses
             var aim = new AimContext();
             if (packet.TargetEntityId != 0) aim.TargetEntity = caster.World.GetEntityById(packet.TargetEntityId);
             if (packet.HasAimPos) aim.AimPosition = new Vec3d(packet.AimX, packet.AimY, packet.AimZ);
+            if (!string.IsNullOrEmpty(packet.Choice) && packet.Choice!.Length <= 64) aim.Choice = packet.Choice;
             return aim;
         }
 
@@ -135,7 +136,7 @@ namespace canrpgclasses
             fromPlayer?.Entity?.GetBehavior<EBTalents>()?.ApplyLoadout(packet?.Ids, packet?.Ranks);
         }
 
-        // Admin panel actions. Server-authoritative privilege check - never trust the client to gate this.
+        // Admin panel actions; privilege is checked here, never trusted from the client.
         private void OnAdminProgression(IServerPlayer fromPlayer, AdminProgressionPacket packet)
         {
             if (fromPlayer == null || !fromPlayer.HasPrivilege(Privilege.controlserver)) return;
@@ -166,8 +167,7 @@ namespace canrpgclasses
             }, fromPlayer);
         }
 
-        // Bind (or clear) the spell on the player's active held item. Server writes it into the stack attributes;
-        // the change syncs back to the client, and the right-click patch reads it to cast. One spell per item.
+        // Bind (or clear) the spell on the active held item; one spell per item.
         private void OnBindSpell(IServerPlayer fromPlayer, BindSpellPacket packet)
         {
             var slot = fromPlayer?.InventoryManager?.ActiveHotbarSlot;
@@ -184,10 +184,8 @@ namespace canrpgclasses
             if (!id.Contains(':')) id = ModId + ":" + id;
             if (!Spells.TryGet(id, out _)) return; // only real spells can be bound
 
-            // Server authority: a forged packet could name ANY registered spell (including another class's kit, or
-            // one this player never spent a talent point on) - PoolAllows only restricts by the ITEM's own pool tag,
-            // which most items don't set, so without this check binding would silently bypass class/talent gating
-            // entirely. Only a spell this player's current class already has (base kit or talent-granted) may be bound.
+            // PoolAllows only checks the item's pool tag, which most items lack, so also require the player to own
+            // the spell; otherwise a forged packet could bind any spell.
             var entity = fromPlayer!.Entity;
             var cls = Classes.Get(TalentState.CurrentClass(entity));
             bool owned = (cls != null && System.Array.IndexOf(cls.BaseSpells, id) >= 0)
@@ -198,13 +196,12 @@ namespace canrpgclasses
             slot!.MarkDirty();
         }
 
-        // Admin balance editor: apply one live-edited number, persist it, rebuild the registries so it takes
-        // effect immediately server-side, then push the updated config to every connected client.
+        // Admin balance edit: apply, persist, rebuild, broadcast.
         private void OnBalanceEdit(IServerPlayer fromPlayer, BalanceEditPacket packet)
         {
             if (fromPlayer == null || !fromPlayer.HasPrivilege(Privilege.controlserver)) return;
             if (ServerApi == null || packet == null || string.IsNullOrEmpty(packet.Key)) return;
-            if (!System.Enum.IsDefined(typeof(BalanceConfig.BalanceCategory), packet.Category)) return; // reject a malformed/forged category instead of letting BalanceConfig.Set throw
+            if (!System.Enum.IsDefined(typeof(BalanceConfig.BalanceCategory), packet.Category)) return; // else BalanceConfig.Set throws
 
             var cat = (BalanceConfig.BalanceCategory)packet.Category;
             BalanceConfig.Set(cat, packet.Id ?? "", packet.Key, packet.Value);
@@ -215,19 +212,13 @@ namespace canrpgclasses
             BroadcastBalanceConfig();
         }
 
-        // Talent-tree editor: replace one class tree with the set the editor sent, persist it, rebuild so it
-        // takes effect at once, then push the new content to everyone.
-        //
-        // The packet is admin-gated, but it still arrives as arbitrary bytes and its contents end up in the
-        // registries every player reads - so nothing here trusts it. The privilege is only the first gate:
-        // the payload is size-capped before it is parsed, and ContentEditGuard vets every talent (see there for
-        // what it refuses and why). A rejected edit changes nothing and is reported back to the sender.
+        // Talent-tree edit. Admin-gated, but the payload still lands in registries every player reads, so it is
+        // size-capped before parsing and vetted by ContentEditGuard.
         private void OnTalentTreeEdit(IServerPlayer fromPlayer, TalentTreeEditPacket packet)
         {
             if (fromPlayer == null || !fromPlayer.HasPrivilege(Privilege.controlserver)) return;
             if (ServerApi == null || packet == null) return;
 
-            // Cap before parsing: deserializing an arbitrarily large payload is the cheapest way to hurt us.
             if (packet.TalentsJson == null || packet.TalentsJson.Length > Core.Content.ContentEditGuard.MaxJsonBytes)
             {
                 ReplyEdit(fromPlayer, false, "the edit is too large");
@@ -261,8 +252,7 @@ namespace canrpgclasses
             ApplyContentEdit(fromPlayer, "");
         }
 
-        // Class editor: add, replace or delete one authored class. Same distrust as OnTalentTreeEdit - the
-        // privilege is the first gate, ContentEditGuard.RejectClass is the one that reads the payload.
+        // Class editor: add, replace or delete one authored class. Same checks as OnTalentTreeEdit.
         private void OnClassEdit(IServerPlayer fromPlayer, ClassEditPacket packet)
         {
             if (fromPlayer == null || !fromPlayer.HasPrivilege(Privilege.controlserver)) return;
@@ -306,7 +296,7 @@ namespace canrpgclasses
             ApplyContentEdit(fromPlayer, "");
         }
 
-        // Spell editor: add, replace or delete one authored spell. Same distrust as the other content handlers.
+        // Spell editor: add, replace or delete one authored spell. Same checks as OnTalentTreeEdit.
         private void OnSpellEdit(IServerPlayer fromPlayer, SpellEditPacket packet)
         {
             if (fromPlayer == null || !fromPlayer.HasPrivilege(Privilege.controlserver)) return;
@@ -352,8 +342,7 @@ namespace canrpgclasses
             ApplyContentEdit(fromPlayer, "");
         }
 
-        /// <summary>Why this class may not be deleted, or null when it may. A class someone is currently playing
-        /// is the one case worth blocking: their character would be left naming a class nobody defines.</summary>
+        /// <summary>Refusal reason or null. Blocks deleting a class someone online is playing.</summary>
         private string? RefuseClassDeletion(string classId)
         {
             if (string.IsNullOrEmpty(classId)) return "no class named";
@@ -370,12 +359,11 @@ namespace canrpgclasses
             return null;
         }
 
-        // Persist, rebuild, broadcast, re-apply stat talents - the tail every content edit shares.
+        // Persist, rebuild, broadcast, re-apply stat talents.
         private void ApplyContentEdit(IServerPlayer fromPlayer, string okMessage)
         {
             Core.Content.ContentStore.Save(ServerApi!);
-            // Logged, not silent: a content edit that registers nothing is the one failure an admin can't see
-            // from the game, and ContentLoader reports its counts through this logger.
+            // With a logger, so ContentLoader's counts reach the server log.
             RebuildRegistries(ServerApi!.Logger);
             BroadcastContent();
 
@@ -388,8 +376,7 @@ namespace canrpgclasses
         private void ReplyEdit(IServerPlayer player, bool ok, string message)
             => ServerChannel?.SendPacket(new ContentEditResultPacket { Ok = ok, Message = message ?? "" }, player);
 
-        // Pushes the in-game authored content to every online player, so their tree and spellbook draw what the
-        // server enforces. Same single-serialize fan-out as BroadcastBalanceConfig.
+        // One SendPacket to all recipients serializes once.
         private void BroadcastContent()
         {
             if (ServerApi == null || ServerChannel == null) return;
@@ -399,8 +386,6 @@ namespace canrpgclasses
             ServerChannel.SendPacket(msg, online.ToArray());
         }
 
-        // Pushes the freshly-merged balance numbers to every online player (single serialize, fanned out -
-        // same pattern as PushPartyResources) so their spellbook/talent tree/UI reflect the admin's edit at once.
         private void BroadcastBalanceConfig()
         {
             if (ServerApi == null || ServerChannel == null) return;
@@ -414,7 +399,7 @@ namespace canrpgclasses
             ServerChannel.SendPacket(msg, online.ToArray());
         }
 
-        // Server → client: hand the joining player our merged balance numbers so their UI/prediction match us.
+        // Join sync: server-owned config and content the client has no copy of.
         private void OnPlayerNowPlaying(IServerPlayer player)
         {
             if (player == null) return;
@@ -423,21 +408,14 @@ namespace canrpgclasses
                 Json = BalanceConfig.Serialize(),
                 Attributes = Core.Attributes.RpgAttributes.Serialize()
             }, player);
-            // The vanilla-class restrictions live in the server's mod-config folder, so the client has no copy -
-            // hand it one, or its class picker would offer classes the server is going to refuse.
             ServerChannel?.SendPacket(new ClassRestrictionsPacket { Json = Core.Classes.ClassRestrictions.Serialize() }, player);
-            // Same for content authored in-game: it lives in the server's mod-config folder, so without this the
-            // client would draw the shipped trees while the server enforces the edited ones.
+            Core.Portals.PortalAnchors.SendTo(player);
             ServerChannel?.SendPacket(new ContentSyncPacket { Json = Core.Content.ContentStore.Serialize() }, player);
-            // Push the player's persisted (relog-surviving) cooldowns so their HUD shows them - otherwise the icon
-            // reads as ready while the server still enforces the cooldown (cast rejected with a chat message).
+            // Persisted cooldowns, or the HUD shows them as ready after a relog.
             player.Entity?.GetBehavior<Core.EB.EBSpellCooldowns>()?.SyncAll();
-            // Model-swap form across relog (Spirit Wolf / druid forms): re-apply the swapped model once the client
-            // is fully attached - the whole why/how lives in PlayerModelSwap.ScheduleReapplyOnJoin.
             if (ServerApi != null) Core.Integration.PlayerModelSwap.ScheduleReapplyOnJoin(ServerApi, player);
         }
 
-        // Server → party clients: each online member's class-resource fraction (+ pool colour), for canparty's frames.
         private void PushPartyResources()
         {
             var sapi = ServerApi;
@@ -465,21 +443,17 @@ namespace canrpgclasses
                 }
                 if (uids.Count == 0) continue;
                 var msg = new PartyResourceMsg { Uids = uids.ToArray(), Fractions = fracs.ToArray(), Colors = colors.ToArray() };
-                // Single SendPacket call: the channel serializes msg once and fans it out to all recipients,
-                // instead of re-serializing per member (was O(n²) per party per tick).
                 ServerChannel.SendPacket(msg, online.ToArray());
             }
         }
 
         // ---- Client packet handlers ----
 
-        // Client: adopt the server's balance numbers, then rebuild the registries so spell/talent constructors
-        // re-read them (DescArgs, costs, affinity values) and re-apply stat talents for local prediction.
+        // Rebuild so constructors re-read the server's numbers.
         private void OnBalanceConfig(BalanceConfigPacket packet)
         {
             if (packet == null || string.IsNullOrEmpty(packet.Json)) return;
             BalanceConfig.ApplySerialized(packet.Json);
-            // Attribute definitions ride along, or the client would read its own file instead of the server's.
             Core.Attributes.RpgAttributes.ApplySerialized(packet.Attributes, ClientApi?.Logger);
 
             RebuildRegistries(null);
@@ -487,8 +461,6 @@ namespace canrpgclasses
             ClientApi?.World?.Player?.Entity?.GetBehavior<EBTalents>()?.ReapplyStatTalents();
         }
 
-        // Client: adopt the server's authored content and rebuild, so the talent tree and spellbook show the
-        // same talents the server will accept points for.
         private void OnContentSync(ContentSyncPacket packet)
         {
             if (packet == null) return;
@@ -498,12 +470,11 @@ namespace canrpgclasses
 
             ClientApi?.World?.Player?.Entity?.GetBehavior<EBTalents>()?.ReapplyStatTalents();
 
-            // An open editor is looking at the registries that just changed - tell it, instead of leaving it to
-            // guess when the round trip landed.
+            // Tell any open editor the round trip landed.
             NotifyContentChanged();
         }
 
-        // Client: the outcome of an edit this player sent, shown in chat so a refused talent doesn't just vanish.
+        // Edit outcome in chat, so a refused edit doesn't just vanish.
         private void OnContentEditResult(ContentEditResultPacket packet)
         {
             if (packet == null || ClientApi == null) return;
@@ -513,8 +484,6 @@ namespace canrpgclasses
                 : "Not saved: " + packet.Message);
         }
 
-        // Client: adopt the server's vanilla-class restrictions, so the class picker greys out what would be
-        // refused. Purely cosmetic - the server re-checks every pick.
         private void OnClassRestrictions(ClassRestrictionsPacket packet)
         {
             if (packet == null) return;
@@ -523,12 +492,12 @@ namespace canrpgclasses
 
         private void OnCastSync(SpellCastSyncPacket packet)
         {
-            // Cosmetic body animation on use (e.g. Sweeping Blades -> "falx"). Resolved from the caster's player shape by
-            // the spell's AnimationCode. Must run before the cast-bar early-return so instant skills animate too; it
-            // does not gate the impacts (those already landed server-side).
+            // Cosmetic body animation; before the cast-bar early return so instant skills animate too.
             if (Spells.TryGet(packet.SpellId, out var castSpell) && !string.IsNullOrEmpty(castSpell.AnimationCode))
             {
                 var caster = ClientApi?.World?.GetEntityById(packet.CasterEntityId);
+                // NPC bodies without player animations opt out.
+                if (caster?.WatchedAttributes.GetBool(Core.RpgCombatApi.SuppressSpellAnimationKey) == true) caster = null;
                 caster?.AnimManager?.StartAnimation(new AnimationMetaData
                 {
                     Animation = castSpell.AnimationCode,
@@ -538,10 +507,10 @@ namespace canrpgclasses
                 }.Init());
             }
 
-            // Timed casts only (Charge cast bar OR a Channel like Ice Storm/Mystic Barrage/Mana Draw) - instant casts
-            // (Duration 0, incl. proc'd instant casts) have nothing to show or interrupt.
+            // Timed casts only (Charge or Channel); instant ones have nothing to show.
             if ((packet.CastMode != (int)CastMode.Charge && packet.CastMode != (int)CastMode.Channel) || packet.Duration <= 0f) return;
 
+            if (castSpell != null) castSounds?.Start(packet.CasterEntityId, castSpell, packet.Duration);
             string name = Spells.TryGet(packet.SpellId, out var s) ? s.DisplayName : packet.SpellId;
             bool isLocal = ClientApi?.World?.Player?.Entity?.EntityId == packet.CasterEntityId;
             if (isLocal)
@@ -552,6 +521,7 @@ namespace canrpgclasses
 
         private void OnCastCancel(SpellCastCancelPacket packet)
         {
+            castSounds?.Stop(packet.CasterEntityId);
             if (ClientApi?.World?.Player?.Entity?.EntityId == packet.CasterEntityId)
                 hotbarHud?.HideCastBar();
             else
@@ -592,8 +562,7 @@ namespace canrpgclasses
             combatOverlay?.AddDamageNumber(new Vintagestory.API.MathTools.Vec3d(packet.X, packet.Y, packet.Z), packet.Amount, packet.IsHeal);
         }
 
-        // The owner camera is rendered from MouseYaw; ViewYawForcer snaps it for a short window. Used by
-        // shadow_step (TeleportTo's own yaw is unreliable for the owner camera due to async chunk-load).
+        // The owner camera follows MouseYaw, not TeleportTo's yaw (async chunk load), so force it briefly.
         private void OnSetViewYaw(SetViewYawPacket packet)
         {
             viewYawForcer?.Trigger(packet.Yaw, 400);

@@ -96,7 +96,7 @@ namespace canrpgclasses.Shaman.Talents
             DisplayName = "Elemental Warding"; Description = "+{0}% magic resistance per rank."; IconName = "diamond-hard";
             DescArgs = new object[] { (int)System.Math.Round(perRank * 100f) };
         }
-        // Raw HP lives only in the Enhancement tree (Toughness); the caster/healer wards give MAGIC RESISTANCE instead.
+        // Raw HP is Enhancement-only (Toughness); caster/healer trees get magic resist.
         public override void ApplyStats(EntityAgent e, int rank)
             => e.Stats.Set(StatKeys.MagicResist, "canrpgtalent_elementalwarding", perRank * rank);
     }
@@ -107,8 +107,7 @@ namespace canrpgclasses.Shaman.Talents
         public LearnMagmaBurstTalent()
         {
             ClassId = "shaman"; TreeIndex = 0; Tier = 2; Column = 0; MaxRank = 1;
-            RequiresTalent = "shaman:learn_ember_shock"; // Magma Burst is built around the burn - gate it behind it
-            GrantsSpellId = "canrpgclasses:magma_burst";
+            RequiresTalent = "shaman:learn_ember_shock";            GrantsSpellId = "canrpgclasses:magma_burst";
             DisplayName = "Magma Burst Training"; Description = "Unlocks Magma Burst (a heavy hit, far bigger against a burning target).";
         }
     }
@@ -120,8 +119,7 @@ namespace canrpgclasses.Shaman.Talents
         public MagmaFlowTalent()
         {
             ClassId = "shaman"; TreeIndex = 0; Tier = 2; Column = 1; MaxRank = 3;
-            RequiresTalent = "shaman:learn_magma_burst"; // it only boosts Magma Burst - useless without the spell
-            perRank = BalanceConfig.Talent("shaman:magma_flow").F("perRank", 0.05f);
+            RequiresTalent = "shaman:learn_magma_burst";            perRank = BalanceConfig.Talent("shaman:magma_flow").F("perRank", 0.05f);
             DisplayName = "Magma Flow"; Description = "+{0}% Magma Burst damage per rank."; IconName = "lava";
             DescArgs = new object[] { (int)System.Math.Round(perRank * 100f) };
         }

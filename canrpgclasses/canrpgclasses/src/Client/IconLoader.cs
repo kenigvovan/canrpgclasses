@@ -6,17 +6,15 @@ using Vintagestory.API.Common;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Loads icons into GL textures, cached by path, one instance for the whole mod. Tries an <c>.svg</c> first,
-    /// then a <c>.png</c>; returns 0 when no asset exists. Rasterized SVGs are ours to dispose, PNGs belong to
-    /// the engine.
+    /// Cached icon textures: tries <c>.svg</c>, then <c>.png</c>. Rasterized SVGs are ours to dispose, PNGs
+    /// belong to the engine.
     /// </summary>
     public class IconLoader : IDisposable
     {
         private readonly ICoreClientAPI capi;
         private readonly Dictionary<string, (int Id, LoadedTexture? Owned)> cache = new();
 
-        /// <summary>PNG textures: the engine owns and frees these, we only keep the wrapper so
-        /// <see cref="GetTex"/> can hand out width/height along with the id.</summary>
+        /// <summary>Engine-owned PNG textures, wrapped only so <see cref="GetTex"/> can report the size.</summary>
         private readonly Dictionary<string, LoadedTexture> engineOwned = new();
 
         public IconLoader(ICoreClientAPI capi) { this.capi = capi; }
@@ -24,13 +22,12 @@ namespace canrpgclasses.Client
         /// <summary>Asset path of a mod icon by its bare name (no extension), e.g. a spell's IconName.</summary>
         public static string PathFor(string iconName) => "canrpgclasses:textures/icons/" + iconName;
 
-        /// <summary>Icon path for a thing that names its own icon but may fall back to its id - the rule every
-        /// panel used to spell out for itself (spell, talent and class all follow it).</summary>
+        /// <summary>Icon path from an explicit icon name, falling back to the id.</summary>
         public static string PathFor(string? iconName, string fallbackId)
             => PathFor(string.IsNullOrEmpty(iconName) ? fallbackId : iconName!);
 
-        /// <summary>The loaded texture for an icon, or null if no asset exists. Preferred over <see cref="Get"/>:
-        /// the vanilla GUI stack renders from a <see cref="LoadedTexture"/>, width and height included.</summary>
+        /// <summary>The icon texture, or null. Preferred over <see cref="Get"/> since vanilla GUI renders from a
+        /// <see cref="LoadedTexture"/>.</summary>
         public LoadedTexture? GetTex(string basePath)
         {
             Load(basePath);
@@ -68,8 +65,7 @@ namespace canrpgclasses.Client
                     var png = new AssetLocation(basePath + ".png");
                     if (capi.Assets.TryGet(png) != null)
                     {
-                        // The engine owns and frees PNG textures, so wrap the id without taking ownership -
-                        // IgnoreUndisposed keeps its finalizer quiet since we deliberately never dispose it.
+                        // Engine owns PNG textures; IgnoreUndisposed silences the finalizer warning.
                         var lt = new LoadedTexture(capi);
                         capi.Render.GetOrLoadTexture(png, ref lt);
                         tex = lt.TextureId;

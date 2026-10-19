@@ -4,10 +4,7 @@ using Vintagestory.API.Config;
 
 namespace canrpgclasses.Shaman
 {
-    /// <summary>
-    /// Client-only: swaps the totem's rendered shape per <see cref="EBShamanTotem.KindKey"/> in OnTesselation.
-    /// One entity type, three shapes; a late kind sync re-tesselates via the listener.
-    /// </summary>
+    /// <summary>Client-only: swaps the totem shape per <see cref="EBShamanTotem.KindKey"/> in OnTesselation.</summary>
     public class EBShamanTotemVisual : EntityBehavior
     {
         public const string Name = "canrpgshamantotemvisual";
@@ -18,19 +15,17 @@ namespace canrpgclasses.Shaman
         public override void Initialize(EntityProperties properties, Vintagestory.API.Datastructures.JsonObject attributes)
         {
             base.Initialize(properties, attributes);
-            // The kind arrives via watched-attribute sync, which may land after the first tesselation - re-tesselate
-            // when it does so the right shape shows up without a relog.
+            // The kind sync can land after the first tesselation, so re-tesselate when it arrives.
             if (entity.Api.Side == EnumAppSide.Client)
                 entity.WatchedAttributes.RegisterModifiedListener(EBShamanTotem.KindKey, () => entity.MarkShapeModified());
         }
 
-        /// <summary>Names the totem after its kind in the look-at readout ("Ember Totem", "Wellspring Totem", ...).
-        /// One entity type serves all five kinds, so the entity's own <c>item-creature-shamantotem</c> string can only
-        /// ever say "Totem" - the kind lives on a watched attribute, and only a behavior can read it at name time.</summary>
+        /// <summary>Names the totem after its kind; one entity type serves all kinds, so only a behavior can tell them
+        /// apart at name time.</summary>
         public override string GetName(ref EnumHandling handling)
         {
             string kind = entity.WatchedAttributes.GetString(EBShamanTotem.KindKey, "");
-            if (kind == "") return base.GetName(ref handling); // not synced yet: fall back to the entity's own name
+            if (kind == "") return base.GetName(ref handling); // not synced yet
             handling = EnumHandling.PreventDefault;
             return Lang.Get("canrpgclasses:entity-shamantotem-" + kind);
         }
@@ -45,19 +40,18 @@ namespace canrpgclasses.Shaman
                 ShamanTotemSystem.KindSearing => "shamantotem_searing",
                 ShamanTotemSystem.KindStream => "shamantotem_stream",
                 ShamanTotemSystem.KindEarth => "shamantotem_earth",
-                // Earthbind reuses the stone body (earthy snare); Mana Spring reuses the reed (a water totem). Both get
-                // their own dedicated shape later if wanted - for now the geometry fits the theme.
+                // Earthbind and Mana Spring reuse the stone and reed shapes.
                 ShamanTotemSystem.KindEarthbind => "shamantotem_earth",
                 ShamanTotemSystem.KindManaSpring => "shamantotem_stream",
                 _ => null
             };
-            if (shapeName == null) return; // kind not synced yet: keep the default shape until the listener re-tesselates
+            if (shapeName == null) return; // not synced yet; the listener re-tesselates
 
             var loc = new AssetLocation(canrpgclassesModSystem.ModId, "shapes/entity/" + shapeName + ".json");
             var shape = Shape.TryGet(entity.Api, loc);
             if (shape == null) return;
 
-            // Resolve element parent/child links exactly as the game does when loading an entity shape (ShapeTesselatorManager).
+            // Same as ShapeTesselatorManager does on load, otherwise element parent links are missing.
             shape.ResolveReferences(entity.Api.Logger, loc.ToString());
             entityShape = shape;
             shapeIsCloned = true;

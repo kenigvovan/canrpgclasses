@@ -10,8 +10,7 @@ namespace canrpgclasses.Core.Effects
         public const string Id = "canrpg_wounded";
     }
 
-    /// <summary>Mortal wound: cuts the bearer's incoming healing. Catches every heal - ours and vanilla food or
-    /// potions alike - by hooking the onDamaged path they all pass through before ApplyHealing.</summary>
+    /// <summary>Cuts incoming healing. Hooks the onDamaged path so vanilla heals (food, potions) are caught too.</summary>
     [EffectRegistration(WoundedEffectId.Id, positive: false)]
     public class WoundedEffect : Effect
     {

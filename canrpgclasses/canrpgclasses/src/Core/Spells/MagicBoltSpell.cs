@@ -1,9 +1,6 @@
 namespace canrpgclasses.Core.Spells
 {
-    /// <summary>
-    /// Test bolt for projectile delivery, cast with <c>/canrpgcast magic_bolt</c>. Belongs to no class, so it is
-    /// reachable only through that command.
-    /// </summary>
+    /// <summary>Classless test bolt for projectile delivery, cast only via <c>/canrpgcast magic_bolt</c>.</summary>
     [SpellRegistration("canrpgclasses:magic_bolt")]
     public class MagicBoltSpell : Spell
     {

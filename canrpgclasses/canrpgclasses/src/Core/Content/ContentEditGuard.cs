@@ -6,11 +6,8 @@ using canrpgclasses.Core.Talents;
 
 namespace canrpgclasses.Core.Content
 {
-    /// <summary>
-    /// Validates a talent-tree edit before the server applies it: rejects ids of compiled talents (an edit would
-    /// silently replace the real hook), unknown classes/trees, unsafe id characters and absurd sizes. The editor
-    /// is admin-gated, but the packet is still client input landing in registries every player reads.
-    /// </summary>
+    /// <summary>Validates in-game content edits before the server applies them. The editor is admin-gated, but the
+    /// packet is still client input landing in registries every player reads.</summary>
     public static class ContentEditGuard
     {
         public const int MaxJsonBytes = 64 * 1024;
@@ -42,13 +39,12 @@ namespace canrpgclasses.Core.Content
                 if (!IsCleanId(t.id)) return $"talent id '{Trim(t.id)}' may only use letters, digits, ':', '_', '-' and '.'";
                 if (!seen.Add(t.id)) return $"talent id '{Trim(t.id)}' appears twice in the same tree";
 
-                // The one that actually matters: never let an edit take over a talent whose behaviour is code.
+                // Never let an edit take over a talent whose behaviour is code.
                 var existing = talents.Get(t.id);
                 if (existing != null && existing is not ContentTalent)
                     return $"'{Trim(t.id)}' is a built-in talent and can't be overwritten from the editor";
 
-                // A save replaces one tree, so an id already used by another tree would leave two entries with the
-                // same id on disk - and only one of them would ever register.
+                // A save replaces one tree, so reusing another tree's id would leave a duplicate on disk.
                 if (existing is ContentTalent && (existing.TreeIndex != treeIndex
                         || !string.Equals(existing.ClassId, classId, System.StringComparison.OrdinalIgnoreCase)))
                     return $"'{Trim(t.id)}' already exists in {existing.ClassId} tree {existing.TreeIndex}";
@@ -106,8 +102,7 @@ namespace canrpgclasses.Core.Content
             return null;
         }
 
-        /// <summary>Attribute gates on a talent or spell: the attribute has to exist, or the gate would silently
-        /// pass for everyone. Same contract as the other Reject helpers - null means it may be applied.</summary>
+        /// <summary>Attribute gates must name a known attribute, or they'd silently pass for everyone.</summary>
         private static string? RejectAttributeRequirement(Dictionary<string, float>? required, string owner)
         {
             if (required == null) return null;
@@ -133,8 +128,7 @@ namespace canrpgclasses.Core.Content
         public const float MaxResourceMax = 100000f;
         public const float MaxHpPerLevel = 200f;
 
-        /// <summary>Checks an incoming class definition. Same contract as <see cref="Reject"/>: null means it may
-        /// be applied.</summary>
+        /// <summary>Checks an incoming class definition; null means it may be applied.</summary>
         public static string? RejectClass(ClassModel m, RpgClassRegistry classes, SpellRegistry spells,
                                           TalentRegistry talents)
         {
@@ -142,8 +136,7 @@ namespace canrpgclasses.Core.Content
             if (m.id!.Length > MaxIdLength || !IsCleanId(m.id))
                 return $"class id '{Trim(m.id)}' may only use letters, digits, ':', '_', '-' and '.'";
 
-            // A code class carries behaviour a data record can't - gear affinities, its own mechanics - so a data
-            // class of the same id would replace it and quietly turn all of that off.
+            // A data class with a code class's id would replace it and drop its behaviour.
             var existing = classes.Get(m.id);
             if (existing != null && existing is not ContentClassDef)
                 return $"'{Trim(m.id)}' is a built-in class and can't be redefined from the editor";
@@ -160,8 +153,7 @@ namespace canrpgclasses.Core.Content
                 if (name.Length > MaxTextLength) return "a tree name is too long";
             }
 
-            // Dropping a tree that still holds talents would strand them: their TreeIndex would point past the
-            // class, and a code talent can't simply be moved from here.
+            // Dropping a non-empty tree would strand its talents past the class's last tree.
             foreach (var t in talents.ForClass(m.id))
                 if (t.TreeIndex >= treeCount)
                     return $"tree {t.TreeIndex} still holds '{t.Id}' - empty it before removing the tree";
@@ -250,22 +242,22 @@ namespace canrpgclasses.Core.Content
         public const float MaxRange = 64f;
         public const int MaxProjectiles = 16;
 
-        /// <summary>Checks an incoming spell definition. Same contract as <see cref="Reject"/>: null means it may
-        /// be applied.</summary>
+        /// <summary>Checks an incoming spell definition; null means it may be applied.</summary>
         public static string? RejectSpell(SpellModel m, SpellRegistry spells)
         {
             if (string.IsNullOrWhiteSpace(m.id)) return "the spell has no id";
             if (m.id!.Length > MaxIdLength || !IsCleanId(m.id))
                 return $"spell id '{Trim(m.id)}' may only use letters, digits, ':', '_', '-' and '.'";
 
-            // Same rule as talents and classes: a code spell's behaviour is its C# class, and registration is by
-            // id, so accepting one here would replace it with a data record that can't do what it did.
+            // Same rule as talents and classes: never replace a code spell with a data record.
             var existing = spells.Get(m.id);
             if (existing != null && existing is not ContentSpell)
                 return $"'{Trim(m.id)}' is a built-in spell and can't be redefined from the editor";
 
             if (TooLong(m.name) || TooLong(m.description) || TooLong(m.icon))
                 return "a text field is longer than " + MaxTextLength + " characters";
+            if (m.animation != null && (m.animation.Length > MaxIdLength || !IsCleanId(m.animation)))
+                return "the animation code is malformed";
 
             if (!Finite(m.range) || m.range < 0f || m.range > MaxRange)
                 return $"range must be within 0..{MaxRange}";

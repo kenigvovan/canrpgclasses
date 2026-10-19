@@ -8,39 +8,25 @@ using EBEffects = effectshud.src.EBEffectsAffected;
 
 namespace canrpgclasses.Core.Visuals
 {
-    /// <summary>
-    /// World visuals for ongoing states (auras, DoT wisps, CC rings): the server syncs a per-entity bitmask of
-    /// active <see cref="Specs"/> rows and clients spawn the particles locally. Detection must be server-side -
-    /// effectshud effects sync only to their bearer, so the mask is how others see a mob's DoTs.
-    /// </summary>
+    /// <summary>World visuals for ongoing states: the server syncs a bitmask of active <see cref="Specs"/> rows and
+    /// clients spawn particles locally. Server-side because effectshud effects only sync to their bearer.</summary>
     public static class EffectVisuals
     {
-        /// <summary>Synced per-entity bitmask of active visual states (bit i = Specs[i] active).</summary>
-        // 64 bits: the Specs list is past 32 rows, and a 32-bit mask would overflow (1 << 32 wraps in C#). The
-        // key carries an L suffix because VS casts rather than converts attributes, so reading an older save's
-        // int value with GetLong would throw.
+        /// <summary>Synced bitmask, bit i = Specs[i] active. Key has an "L" suffix: VS casts rather than converts,
+        /// so GetLong on an old int value under the same key would throw.</summary>
         public const string MaskAttr = "canrpgVisualsMaskL";
 
-        /// <summary>Synced per-entity COUNTER pack for visuals that show a number, not just a state - the orbiting
-        /// charge/stack motes (shield charges, Mystic Charges, Shadow Orbs, Maelstrom = orbiting orbs). eight byte
-        /// slots in one long (slot i = bits 8i..8i+7), published exactly like the mask: server-detected (stack tiers
-        /// only sync to their bearer, so other clients learn the count from here), written on change only.</summary>
-        // Key bumped when the pack widened from int (4 slots) to long (8 slots): a save/session that still had the
-        // old IntAttribute under the previous key would throw on GetLong (VS casts, doesn't convert). The new key
-        // starts clean as a LongAttribute; the orphaned int is simply never read again.
+        /// <summary>Synced orbit-mote counts, 8 byte slots in one long (slot i = bits 8i..8i+7); "L" key for the
+        /// same reason as <see cref="MaskAttr"/>.</summary>
         public const string CountsAttr = "canrpgFxCountsL";
 
-        /// <summary>Synced on a caster while a beam channel (Spell.BeamFx, e.g. Mind Rend) is running: the target's
-        /// entity id (0 = no beam) plus the school for the colour. The client resolves both entities each visual
-        /// tick, so the beam follows a moving target; the server clears it on every channel-end path. State, not a
-        /// packet: a beam outlives any single event.</summary>
+        /// <summary>Synced on a caster while a beam channel runs: target entity id (0 = none) and school. State,
+        /// not a packet, since a beam outlives any single event.</summary>
         public const string BeamTargetAttr = "canrpgBeamTarget";
         public const string BeamSchoolAttr = "canrpgBeamSchool";
 
-        /// <summary>Synced on the BEARER of a lingering link effect (Stone Ward): the entity id of the other end
-        /// - the protector who cast it (0 = no link) - plus the school for the colour. A persistent thin line the
-        /// TetherRenderer draws bearer → protector, so you can see who a shielded ally is bonded to. Recomputed each
-        /// server tick from live effect state (relog-safe), same publish-on-change discipline as the mask.</summary>
+        /// <summary>Synced on the bearer of a link effect (Stone Ward): the caster's entity id (0 = none) and school,
+        /// recomputed each server tick so it survives a relog.</summary>
         public const string TetherTargetAttr = "canrpgTetherTarget";
         public const string TetherSchoolAttr = "canrpgTetherSchool";
 
@@ -48,13 +34,10 @@ namespace canrpgclasses.Core.Visuals
 
         private readonly struct Spec
         {
-            // Detector gets the entity and its effects behavior (fetched once per entity per tick, not per spec).
             public readonly System.Func<Entity, EBEffects?, bool> Active;
             public readonly int Color; // ARGB (ColorUtil.ToRgba(a,r,g,b))
             public readonly Style Style;
-            // True when the detector only reads the effects behavior (Eff) - such rows are skipped wholesale for
-            // entities with no active effects, which is nearly every mob in the world. Rows reading WatchedAttributes
-            // directly (CC flags, pet wrath) pass false and are always evaluated.
+            // Effect-only rows are skipped for entities with no effects (most mobs); WA-reading rows pass false.
             public readonly bool NeedsEffects;
             public Spec(System.Func<Entity, EBEffects?, bool> active, int color, Style style, bool needsEffects = true)
             { Active = active; Color = color; Style = style; NeedsEffects = needsEffects; }
@@ -63,16 +46,11 @@ namespace canrpgclasses.Core.Visuals
         private static bool Eff(EBEffects? ce, string id) => ce?.HasEffect(id) ?? false;
         private static bool Flag(Entity e, string key) => e.WatchedAttributes?.GetBool(key) ?? false;
 
-        // The one place each state's world visual is declared. Distinct colour per effect so they're tellable apart.
-        // Order defines the mask bits - append new rows at the end (bit meanings are only transient WA state, but
-        // mid-list inserts would briefly mis-colour effects on clients from an older tick).
+        // Order defines the mask bits; append new rows at the end so older ticks don't briefly mis-colour.
         private static readonly Spec[] Specs =
         {
             // --- Forms / power auras ---
             new Spec((e, ce) => Eff(ce, Priest.PriestEffectIds.ShadowGuise),        ColorUtil.ToRgba( 90,  80,  20, 100), Style.Aura),  // dark violet
-            // (Reckless Stance intentionally has NO world particle - removed on request; the stance is still a
-            //  gameplay effect, just no aura. Its old bit slot is gone; downstream bits shift up by one, which is fine
-            //  since server publish + client emit share this same array.)
             new Spec((e, ce) => e.WatchedAttributes.GetFloat(Hunter.HunterPetSystem.PetWrathBonusKey, 1f) > 1.01f,
                                                                                    ColorUtil.ToRgba( 90, 225,  70,  35), Style.Aura, needsEffects: false),  // bestial red (pet)
 
@@ -110,10 +88,8 @@ namespace canrpgclasses.Core.Visuals
             new Spec((e, ce) => Eff(ce, Mage.MageEffectIds.MysticSurge),           ColorUtil.ToRgba( 90, 190,  90, 235), Style.Aura),  // arcane aura
 
             // --- Shaman ---
-            // (Static Shield moved to the orbiting-charge visuals below - its charge count IS the visual.)
             new Spec((e, ce) => Eff(ce, Shaman.ShamanEffectIds.EmberShock),        ColorUtil.ToRgba(140, 255, 140,  40), Style.Wisp),  // fire embers on the burning target
             new Spec((e, ce) => Eff(ce, Shaman.ShamanEffectIds.ElementalSurge),  ColorUtil.ToRgba( 90, 130, 230, 210), Style.Aura),  // teal-violet elemental aura
-            // (Spirit Wolf carries NO world particles - the spectral look comes from its own texture, not a shroud.)
             new Spec((e, ce) => Eff(ce, Shaman.ShamanEffectIds.TotemEarth),        ColorUtil.ToRgba( 80, 165, 130,  75), Style.Aura),  // earthen dust
             new Spec((e, ce) => Eff(ce, Shaman.ShamanEffectIds.WarChant),         ColorUtil.ToRgba(110, 235,  60,  50), Style.Aura),  // bloodlust red
             new Spec((e, ce) => Eff(ce, Shaman.ShamanEffectIds.ThunderCleave),       ColorUtil.ToRgba(140, 150, 220, 255), Style.Wisp),  // marked: crackling blue
@@ -137,14 +113,12 @@ namespace canrpgclasses.Core.Visuals
 
         private readonly struct OrbitSpec
         {
-            /// <summary>Remaining charges (0 = nothing to draw). The effect's Tier is the charge count for both
-            /// shields, so this is just a tier read.</summary>
+            /// <summary>Remaining charges (the effect's tier); 0 = nothing to draw.</summary>
             public readonly System.Func<Entity, EBEffects?, int> Count;
             public readonly int Color;      // ARGB
             public readonly float Radius;   // orbit radius around the body axis
             public readonly float Height;   // fraction of body height the ring sits at
-            /// <summary>Vertical bob amplitude: 0 = a flat ring (grounded, earthy); >0 = each mote rides its own
-            /// phase-shifted up/down wave, so the swarm FLIES around the body instead of spinning like a carousel.</summary>
+            /// <summary>Vertical bob amplitude: 0 = flat ring, >0 = each mote on its own phase-shifted wave.</summary>
             public readonly float Bob;
             public OrbitSpec(System.Func<Entity, EBEffects?, int> count, int color, float radius, float height, float bob = 0f)
             { Count = count; Color = color; Radius = radius; Height = height; Bob = bob; }
@@ -156,9 +130,7 @@ namespace canrpgclasses.Core.Visuals
             return t < 0 ? 0 : Math.Min(t, 255); // one byte per slot
         }
 
-        // Slot index = byte position in CountsAttr; append-only (each slot is a fixed effect type, so never reorder -
-        // one long holds up to 8 slots). Several can ride the same body (a shaman's Static Shield + Maelstrom +
-        // a Resto's Stone Ward), hence separate slots, colours and rings.
+        // Slot index = byte position in CountsAttr: append-only, max 8.
         private static readonly OrbitSpec[] CountSpecs =
         {
             new OrbitSpec((e, ce) => TierOf(ce, Shaman.ShamanEffectIds.StaticShield),
@@ -203,8 +175,7 @@ namespace canrpgclasses.Core.Visuals
             serverTickId = canrpgclassesModSystem.ServerApi?.Event.RegisterGameTickListener(ServerTick, 500) ?? 0;
         }
 
-        /// <summary>Tears down the server tick listener and resets the static guard, so a second world loaded in the
-        /// same process (singleplayer re-enter) re-registers on the new ServerApi. Called from the mod's Dispose.</summary>
+        /// <summary>Resets the static guard so a second world in the same process re-registers on the new ServerApi.</summary>
         public static void Stop()
         {
             var api = canrpgclassesModSystem.ServerApi;
@@ -230,8 +201,6 @@ namespace canrpgclasses.Core.Visuals
                 if (e.Alive)
                 {
                     var ce = e.GetBehavior<EBEffects>();
-                    // Nearly every mob in the world carries zero effects - skip all effect-based detectors for them
-                    // outright, so the sweep only pays the handful of direct WA reads (CC flags, pet wrath) per entity.
                     bool hasEffects = ce?.activeEffects != null && ce.activeEffects.Count > 0;
                     for (int i = 0; i < Specs.Length; i++)
                     {
@@ -242,8 +211,7 @@ namespace canrpgclasses.Core.Visuals
                     {
                         for (int i = 0; i < CountSpecs.Length; i++)
                             counts |= (long)CountSpecs[i].Count(e, ce) << (8 * i);
-                        // First active tether source wins (an entity carries at most one link in practice). Recomputed
-                        // every tick from live effect state, so it's relog-safe unlike a one-shot OnStart write.
+                        // First active tether wins; recomputed each tick so it survives a relog.
                         for (int i = 0; i < TetherSpecs.Length; i++)
                         {
                             long id = TetherSpecs[i].AnchorId(e, ce);
@@ -252,7 +220,7 @@ namespace canrpgclasses.Core.Visuals
                     }
                 }
 
-                // SetInt/SetLong marks the attribute dirty and re-syncs it - so only write when it actually changed.
+                // Every Set re-syncs, so only write on change.
                 if (tether != wa.GetLong(TetherTargetAttr, 0)) wa.SetLong(TetherTargetAttr, tether);
                 if (tetherSchool != wa.GetInt(TetherSchoolAttr, 0)) wa.SetInt(TetherSchoolAttr, tetherSchool);
                 if (mask != wa.GetLong(MaskAttr, 0)) wa.SetLong(MaskAttr, mask);
@@ -261,17 +229,15 @@ namespace canrpgclasses.Core.Visuals
         }
 
         // ---- Client: spawn the particles for a mask, locally ----
-        /// <summary>Spawns one visual burst per set bit of <paramref name="mask"/> around the entity. Called by the
-        /// client emitter each visual tick; world is the client world, so particles are local (no network).</summary>
+        /// <summary>Spawns one local burst per set bit of <paramref name="mask"/>.</summary>
         public static void EmitMask(IWorldAccessor world, Entity e, long mask)
         {
             for (int i = 0; i < Specs.Length; i++)
                 if ((mask & (1L << i)) != 0) Emit(world, e, Specs[i].Style, Specs[i].Color);
         }
 
-        /// <summary>Draws N orbiting charge orbs per <see cref="CountsAttr"/> slot. Nothing actually moves: each
-        /// call spawns a large motionless particle at the orbit angle for the current time, so it reads as a solid
-        /// ball instead of the streak a moving particle would leave. Needs a fast (~60ms) caller tick.</summary>
+        /// <summary>Orbiting charge orbs per <see cref="CountsAttr"/> slot. Each call spawns a motionless particle at the
+        /// current orbit angle (a moving one would streak), so it needs a ~60ms caller tick.</summary>
         public static void EmitOrbits(IWorldAccessor world, Entity e, long counts)
         {
             const float omega = 1.8f;  // rad/s: one lap every ~3.5s
@@ -305,9 +271,6 @@ namespace canrpgclasses.Core.Visuals
             }
         }
 
-        // (The channel beam is drawn by the client-side BeamRenderer as a solid ribbon mesh - the Beam* attributes
-        // above are its data feed; there is no particle path for it.)
-
         private static void Emit(IWorldAccessor world, Entity e, Style style, int color)
         {
             var box = e.SelectionBox;
@@ -326,7 +289,7 @@ namespace canrpgclasses.Core.Visuals
                 default:             count = 3; size = 0.30f; life = 0.6f; vmin = new Vec3f(-0.05f, 0.0f, -0.05f); vmax = new Vec3f(0.05f, 0.10f, 0.05f); break; // Aura
             }
 
-            // Facing basis (for a front-only shield panel): forward = look direction (flattened), right = perpendicular.
+            // Facing basis for the Front style.
             double yaw = e.Pos.Yaw;
             double fwdX = Math.Sin(yaw), fwdZ = Math.Cos(yaw);
             double rgtX = Math.Cos(yaw), rgtZ = -Math.Sin(yaw);
@@ -350,8 +313,7 @@ namespace canrpgclasses.Core.Visuals
                 }
                 else if (style == Style.Front)
                 {
-                    // A flat panel in front of the body (a raised shield): spread across the facing width + full
-                    // height, pushed forward of the torso, with only a thin depth.
+                    // Thin panel in front of the body, like a raised shield.
                     double w = (rnd.NextDouble() - 0.5) * (rxz * 2.2);   // across the shield face
                     double h = (rnd.NextDouble() - 0.5) * box.Y2;        // full body height
                     double f = (rxz + 0.15) + (rnd.NextDouble() - 0.5) * 0.1; // in front, thin depth

@@ -6,9 +6,8 @@ using Vintagestory.API.Client;
 namespace canrpgclasses.Client.Gui
 {
     /// <summary>
-    /// The spell tooltip that follows the cursor in the spellbook, class picker and talent window. Vanilla's
-    /// hover text is single-colour, so the coloured lines from <see cref="SpellTooltip.BuildLines"/> are baked
-    /// into one Cairo texture instead - re-baked only when the hovered spell changes.
+    /// Cursor-following spell tooltip. Vanilla hover text is single-colour, so <see cref="SpellTooltip.BuildLines"/>
+    /// is baked into a Cairo texture, re-baked only when the spell changes.
     /// </summary>
     public class GuiElementSpellTooltip : GuiElement
     {
@@ -21,13 +20,11 @@ namespace canrpgclasses.Client.Gui
         private LoadedTexture texture;
         private string? shownKey;
 
-        /// <summary>Someone asked for a tooltip during this frame's render pass. Only a hit raises it: several
-        /// grids share one tooltip, so if a miss could hide it, whichever grid rendered last would always win.
-        /// The element is added to the composer last, after every grid has had its say.</summary>
+        /// <summary>Raised by a hit this frame; misses never hide it, since several grids share one tooltip.
+        /// Must be added to the composer after the grids.</summary>
         private bool requested;
 
-        /// <summary>Body font. Settable so a dialog can size the tooltip to its own text; the colours come from the
-        /// lines themselves, this only carries size/face.</summary>
+        /// <summary>Body font size/face; colours come from the lines.</summary>
         public CairoFont Font = CairoFont.WhiteSmallishText();
 
         public GuiElementSpellTooltip(ICoreClientAPI capi, ElementBounds bounds) : base(capi, bounds)
@@ -35,12 +32,10 @@ namespace canrpgclasses.Client.Gui
             texture = new LoadedTexture(capi);
         }
 
-        /// <summary>"Nothing under my cursor" - deliberately a no-op on visibility, see <see cref="requested"/>.
-        /// The tooltip hides on its own once no one asks for it in a frame.</summary>
+        /// <summary>Intentionally a no-op, see <see cref="requested"/>.</summary>
         public void Clear() { }
 
-        /// <summary>Shows <paramref name="lines"/> for this frame. <paramref name="key"/> identifies what is being
-        /// described (usually the spell id) so an unchanged tooltip is not re-baked every frame.</summary>
+        /// <summary>Shows <paramref name="lines"/> this frame; <paramref name="key"/> avoids re-baking an unchanged tooltip.</summary>
         public void SetLines(string key, List<SpellTooltip.Line> lines)
         {
             requested = true;
@@ -54,7 +49,7 @@ namespace canrpgclasses.Client.Gui
             double lineHeight = api.Gui.Text.GetLineHeight(Font);
             double maxTextWidth = scaled(MaxWidth) - 2 * scaled(PadX);
 
-            // Flavour text is the only line that wraps; everything else is a short generated line.
+            // Only flavour text wraps.
             var laid = new List<(string text, double[] color)>();
             double widest = 0;
             foreach (var line in lines)
@@ -89,9 +84,7 @@ namespace canrpgclasses.Client.Gui
             foreach (var (text, color) in laid)
             {
                 var font = Font.Clone().WithColor(color);
-                // DrawTextLine draws with whatever is already on the context - it does not apply the font itself,
-                // so without this every line would come out in the last colour set above (and on the wrong
-                // baseline, since it reads ctx.FontExtents).
+                // DrawTextLine doesn't apply the font itself; colour and ctx.FontExtents come from the context.
                 font.SetupContext(ctx);
                 api.Gui.Text.DrawTextLine(ctx, font, text, scaled(PadX), y);
                 y += lineHeight;
@@ -115,8 +108,7 @@ namespace canrpgclasses.Client.Gui
             if (x < 0) x = 0;
             if (y < 0) y = 0;
 
-            // z 500, same as vanilla's own hover text. It has to clear the scrollbar handle, which draws at 200 -
-            // anything lower and a tooltip next to a scrollable list gets a slider drawn through it.
+            // z 500 like vanilla hover text; must clear the scrollbar handle at 200.
             api.Render.Render2DTexture(texture.TextureId, x, y, texture.Width, texture.Height, 500f);
         }
 

@@ -6,11 +6,8 @@ using canrpgclasses.Core.Talents;
 
 namespace canrpgclasses.Core.Spells
 {
-    /// <summary>
-    /// Single source of truth for "which spells may this entity cast": class base spells + talent unlocks, read
-    /// by both the client spellbook and the server cast gate. Deliberately excludes the held item's bound spell -
-    /// a weapon binding is only a trigger, never a second source of ownership.
-    /// </summary>
+    /// <summary>Which spells an entity may cast (class base + talent unlocks), shared by spellbook and server gate.
+    /// Excludes item-bound spells on purpose: a weapon binding is only a trigger, not ownership.</summary>
     public static class SpellAccess
     {
         /// <summary>The full spell-id list the entity may use, in a stable order (base, then granted).</summary>
@@ -27,6 +24,7 @@ namespace canrpgclasses.Core.Spells
             foreach (var id in TalentState.GrantedSpells(e, mod.Talents))
                 if (!list.Contains(id)) list.Add(id);
 
+            list.RemoveAll(id => mod.Spells.TryGet(id, out var s) && !s.Enabled);
             return list;
         }
 

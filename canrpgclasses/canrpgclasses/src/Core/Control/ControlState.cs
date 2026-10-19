@@ -8,40 +8,35 @@ using canrpgclasses.Core.Config;
 
 namespace canrpgclasses.Core.Control
 {
-    /// <summary>The kinds of crowd control the mod applies; each one's profile is a row in ControlState's table.</summary>
     public enum ControlType { Stun, Fear, Silence, Root, Transmute }
 
-    /// <summary>
-    /// The mod's single crowd-control layer. Every CC goes through <see cref="Apply"/>: per-bracket diminishing
-    /// returns, the timed flag, then the type's side effects. Gates ask <see cref="PreventsMovement"/> and
-    /// friends, not the individual flags.
-    /// </summary>
+    /// <summary>Single CC layer. <see cref="Apply"/> does bracket DR, the timed flag and side effects; gates query
+    /// <see cref="PreventsMovement"/> and friends, not individual flags.</summary>
     public static class ControlState
     {
         private readonly struct Props
         {
             public readonly bool PreventsMovement, PreventsActions, PreventsCasting, RootsMotion, InterruptsHandUse;
             public readonly string Bracket, Flag, Until;
-            public readonly string? HudEffect; // cosmetic effectshud marker shown on a controlled player (null = none)
+            public readonly string? HudEffect; // HUD marker for a controlled player, null = none
             public Props(bool move, bool act, bool cast, bool root, bool hand, string bracket, string flag, string until, string? hudEffect = null)
             { PreventsMovement = move; PreventsActions = act; PreventsCasting = cast; RootsMotion = root; InterruptsHandUse = hand; Bracket = bracket; Flag = flag; Until = until; HudEffect = hudEffect; }
         }
 
-        // Each CC's behaviour, declared once. Stun and Fear share the "incap" DR bracket; Stun roots motion,
-        // Fear must not - its wander needs the knockback to move the player.
+        // Stun and Fear share the "incap" DR bracket. Fear must not root - its wander needs knockback to move the player.
         private static readonly Dictionary<ControlType, Props> Table = new()
         {
             [ControlType.Stun]      = new Props(true,  true,  true,  root: true,  hand: true,  "incap",   CombatFlags.Stunned,     CombatFlags.StunUntil,     Effects.ControlEffectIds.Stunned),
             [ControlType.Fear]      = new Props(true,  true,  true,  root: false, hand: true,  "incap",   CombatFlags.Feared,      CombatFlags.FearUntil,     Effects.ControlEffectIds.Feared),
             [ControlType.Silence]   = new Props(false, false, true,  root: false, hand: false, "silence", CombatFlags.Silenced,    CombatFlags.SilenceUntil,  Effects.ControlEffectIds.Silenced),
-            // Root (Freezing Burst): can't move, but CAN still cast and attack. Own DR bracket.
+            // Root: can't move but can still cast and attack.
             [ControlType.Root]      = new Props(true,  false, false, root: true,  hand: false, "root",    CombatFlags.Rooted,      CombatFlags.RootUntil,     Effects.ControlEffectIds.Rooted),
-            // Transmute: full incapacitate + break-on-damage (set by the impact) + (players) a sheep model swap. Own bracket.
+            // Transmute: full incap plus a sheep model on players; break-on-damage is set by the impact.
             [ControlType.Transmute] = new Props(true,  true,  true,  root: true,  hand: true,  "poly",    CombatFlags.Polymorphed, CombatFlags.PolymorphUntil, Effects.ControlEffectIds.Polymorphed),
         };
 
-        // Hot path - the physics prefixes run these several times per entity per tick, so they read one
-        // aggregate attribute (CcMask, kept in sync by RefreshCcGate) against masks precomputed from the Table.
+        // Hot path (physics prefixes, several times per entity per tick): read one aggregate CcMask attribute
+        // against masks precomputed from the Table.
         public static bool IsActive(Entity? e, ControlType type)
             => e?.WatchedAttributes?.GetBool(Table[type].Flag) ?? false;
 
@@ -66,10 +61,8 @@ namespace canrpgclasses.Core.Control
         public static bool RootsMotion(Entity? e)       => (CcMask(e) & RootMask) != 0;
         public static bool InterruptsHandUse(Entity? e) => (CcMask(e) & HandMask) != 0;
 
-        /// <summary>Recomputes the aggregate CC bitmask (<see cref="CombatFlags.CcMask"/>) from the individual
-        /// per-type flags and writes it only on change (removed entirely when no CC is active, so the common case
-        /// costs one failed attribute lookup). Must be called by every code path that sets or clears a CC flag -
-        /// all of them live here or in EBCombatState's expiry loop.</summary>
+        /// <summary>Recomputes <see cref="CombatFlags.CcMask"/> from the per-type flags (removed when empty). Every
+        /// path that sets or clears a CC flag must call this.</summary>
         public static void RefreshCcGate(ITreeAttribute? wa)
         {
             if (wa == null) return;
@@ -81,16 +74,19 @@ namespace canrpgclasses.Core.Control
             else wa.RemoveAttribute(CombatFlags.CcMask);
         }
 
-        /// <summary>Applies a control to a target: shared DR by bracket, then the timed flag + the type's side
-        /// effects. Returns false if the target was immune (DR) so the caller can skip particles.</summary>
+        /// <summary>Returns false if the target was immune, so the caller can skip particles.</summary>
         public static bool Apply(Entity target, ControlType type, float seconds, Entity? source,
                                  bool breakOnDamage = false, bool blindsVision = false, float visionIntensity = 1f)
         {
             if (target == null || seconds <= 0f) return false;
             var p = Table[type];
 
+            // Add-on modifiers (boss immunity etc.) first, so an immune target doesn't build up DR.
+            seconds = canrpgclassesModSystem.For(target.Api)?.ModifyControlDuration(target, type, seconds, source) ?? seconds;
+            if (!(seconds > 0f)) return false;
+
             seconds = DiminishingReturns(target, p.Bracket, seconds);
-            if (seconds <= 0f) return false; // immune this bracket right now
+            if (seconds <= 0f) return false;
 
             long now = target.World.ElapsedMilliseconds;
             long until = now + (long)(seconds * 1000f);
@@ -98,13 +94,11 @@ namespace canrpgclasses.Core.Control
             if (until > wa.GetLong(p.Until, 0)) wa.SetLong(p.Until, until);
             wa.SetBool(p.Flag, true);
 
-            // Break-on-damage (Blind stun, Transmute): one bit per type, read by OnDamage. Any type can opt in.
+            // Break-on-damage: one bit per type, read by OnDamage.
             int mask = wa.GetInt(CombatFlags.BreakOnDamageMask, 0);
             if (breakOnDamage) mask |= 1 << (int)type; else mask &= ~(1 << (int)type);
             if (mask != 0) wa.SetInt(CombatFlags.BreakOnDamageMask, mask); else wa.RemoveAttribute(CombatFlags.BreakOnDamageMask);
 
-            // Cosmetic HUD marker so a controlled player sees an icon + countdown (mobs have no effects HUD). Matches
-            // the DR'd duration; cleared early by ClearControl / ClearAll on a break or a manual clear.
             if (target is EntityPlayer && p.HudEffect != null)
                 Execution.SpellExecutor.ApplyEffect(target, p.HudEffect, 1, seconds);
 
@@ -114,11 +108,10 @@ namespace canrpgclasses.Core.Control
                 case ControlType.Fear: ApplyFearEffects(target, source, seconds); break;
                 case ControlType.Root: ApplyRootEffects(target, seconds); break;
                 case ControlType.Transmute: ApplyTransmuteEffects(target, seconds); break;
-                case ControlType.Silence: break; // flag only
+                case ControlType.Silence: break;
             }
 
-            // Mobs have no EBCombatState to expire the flag - schedule a cleanup at the deadline. (Fear doesn't flag
-            // mobs at all - it drives their AI instead - so only stun/silence reach here for a non-player.)
+            // Mobs have no EBCombatState to expire the flag, so schedule a cleanup at the deadline.
             if (target is not EntityPlayer && wa.GetBool(p.Flag))
                 target.World.RegisterCallback(_ =>
                 {
@@ -130,7 +123,7 @@ namespace canrpgclasses.Core.Control
                     }
                 }, (int)(seconds * 1000f));
 
-            // After the side effects: the mob-fear path removes the Feared flag again, so the gate must be computed last.
+            // Last: the mob-fear path removes the Feared flag again.
             RefreshCcGate(wa);
             return true;
         }
@@ -149,8 +142,7 @@ namespace canrpgclasses.Core.Control
             target.Pos.Motion.X = 0;
             target.Pos.Motion.Z = 0;
 
-            // Mobs: stop the current task and block any new one WHILE stunned (tied to the live flag, so a break-on-
-            // damage stun frees the AI the instant the flag clears too).
+            // Mob AI block is tied to the live flag, so a break-on-damage stun frees it immediately.
             var mgr = target.GetBehavior<EntityBehaviorTaskAI>()?.TaskManager;
             if (mgr != null)
             {
@@ -161,8 +153,7 @@ namespace canrpgclasses.Core.Control
             }
         }
 
-        /// <summary>Restores the "psychedelic" value a blind stun overwrote, once it ends (timer or break-on-damage).
-        /// Called by EBCombatState (natural expiry) and StunPatches (early break). No-op if no blind is active.</summary>
+        /// <summary>Restores the "psychedelic" value a blind stun overwrote. No-op if no blind is active.</summary>
         public static void RestoreBlindVision(Entity? target)
         {
             var wa = target?.WatchedAttributes;
@@ -176,8 +167,7 @@ namespace canrpgclasses.Core.Control
         {
             if (target is EntityPlayer)
             {
-                // A player isn't AI-driven: set up the wander (anchor = current pos, heading = current facing). The
-                // Feared flag (set by Apply) takes control away via the shared gates; WanderTick does the moving.
+                // Players: gates take control away, WanderTick moves them around this anchor.
                 var wa = target.WatchedAttributes;
                 wa.SetDouble(CombatFlags.FearSrcX, target.Pos.X);
                 wa.SetDouble(CombatFlags.FearSrcZ, target.Pos.Z);
@@ -185,61 +175,52 @@ namespace canrpgclasses.Core.Control
                 return;
             }
 
-            // Mobs: real flee task if the creature has one, else briefly block its aggressive tasks (disorient).
-            // The Feared flag only means anything for players, and nothing expires WA on a mob - drop it here.
+            // Mobs: flee task if present, plus blocked aggressive tasks. The Feared flag is player-only and nothing
+            // would expire it on a mob.
             target.WatchedAttributes.RemoveAttribute(CombatFlags.Feared);
             target.WatchedAttributes.RemoveAttribute(CombatFlags.FearUntil);
             var mgr = target.GetBehavior<EntityBehaviorTaskAI>()?.TaskManager;
             if (mgr == null) return;
+            mgr.StopTasks();
             var flee = mgr.GetTask<AiTaskFleeEntity>();
-            if (flee != null && source != null)
-            {
-                mgr.StopTasks();
-                flee.InstaFleeFrom(source);
-            }
-            else
-            {
-                mgr.StopTasks();
-                ActionBoolReturn<IAiTask> block = t => t is not (AiTaskSeekEntity or AiTaskMeleeAttack);
-                mgr.OnShouldExecuteTask += block;
-                target.World.RegisterCallback(_ => mgr.OnShouldExecuteTask -= block, (int)(seconds * 1000f));
-            }
+            if (flee != null && source != null) flee.InstaFleeFrom(source);
+
+            // Add-on tasks opt in via marker interfaces; an NPC caster's cast runs in its own slot, so fleeing alone won't stop it.
+            ActionBoolReturn<IAiTask> block = t => t is not (AiTaskSeekEntity or AiTaskMeleeAttack or IOffensiveAiTask or IMovementAiTask);
+            mgr.OnShouldExecuteTask += block;
+            target.World.RegisterCallback(_ => mgr.OnShouldExecuteTask -= block, (int)(seconds * 1000f));
         }
 
-        // ---- Root side effects (Freezing Burst): stop movement, but leave casting/attacking alone ----
+        // ---- Root side effects ----
         private static void ApplyRootEffects(Entity target, float seconds)
         {
             target.Pos.Motion.X = 0;
             target.Pos.Motion.Z = 0;
-            // Mobs: block only the chase (seek) task while rooted, so a rooted mob can't path to you but can still
-            // melee if you're already in range. Tied to the live Rooted flag. Players are handled by the movement gate.
+            // Mobs: block only movement tasks, so they can still melee if already in range.
             var mgr = target.GetBehavior<EntityBehaviorTaskAI>()?.TaskManager;
             if (mgr != null)
             {
                 mgr.StopTasks();
-                ActionBoolReturn<IAiTask> block = t => !(t is AiTaskSeekEntity && target.WatchedAttributes.GetBool(CombatFlags.Rooted, false));
+                ActionBoolReturn<IAiTask> block = t => !((t is AiTaskSeekEntity || t is IMovementAiTask) && target.WatchedAttributes.GetBool(CombatFlags.Rooted, false));
                 mgr.OnShouldExecuteTask += block;
                 target.World.RegisterCallback(_ => mgr.OnShouldExecuteTask -= block, (int)(seconds * 1000f));
             }
         }
 
-        // ---- Transmute side effects: full incapacitate (like stun, no blind) + a sheep model on players ----
+        // ---- Transmute side effects ----
         private static void ApplyTransmuteEffects(Entity target, float seconds)
         {
             target.Pos.Motion.X = 0;
             target.Pos.Motion.Z = 0;
 
-            // Players: swap the rendered model to a sheep (PlayerModelLib). The functional incap is the shared gates.
             if (target is EntityPlayer pl)
             {
-                // Free the single model-swap slot first - ToModel no-ops while a swap is live, so a shaman caught
-                // in Spirit Wolf would stay a wolf. Losing the form to CC is thematic anyway.
+                // ToModel no-ops while another swap is live (e.g. Spirit Wolf), so free the slot first.
                 Effects.ModelSwapEffects.CancelActive(pl);
                 Integration.PlayerModelSwap.ToModel(pl, Integration.PlayerModelSwap.TransmuteModelCode);
                 return;
             }
 
-            // Mobs: full AI freeze, like a stun, tied to the live flag.
             var mgr = target.GetBehavior<EntityBehaviorTaskAI>()?.TaskManager;
             if (mgr != null)
             {
@@ -250,7 +231,7 @@ namespace canrpgclasses.Core.Control
             }
         }
 
-        // ---- Player-fear wander tick (registered from StartServerSide via Init) ----
+        // ---- Player-fear wander tick ----
         private static bool inited;
         private static long wanderTickId;
         private static float wanderRadius = 6f, wanderStrength = 0.13f;
@@ -264,8 +245,7 @@ namespace canrpgclasses.Core.Control
             wanderTickId = canrpgclassesModSystem.ServerApi?.Event.RegisterGameTickListener(WanderTick, 300) ?? 0;
         }
 
-        /// <summary>Tears down the server tick listener and resets the static guard, so a second world loaded in the
-        /// same process (singleplayer re-enter) re-registers on the new ServerApi. Called from the mod's Dispose.</summary>
+        /// <summary>Resets the static guard so a second world in the same process re-registers on the new ServerApi.</summary>
         public static void Stop()
         {
             var api = canrpgclassesModSystem.ServerApi;
@@ -302,8 +282,8 @@ namespace canrpgclasses.Core.Control
             }
         }
 
-        /// <summary>Horizontal knockback via the engine's onHurt channel - the only server-side way to move a player
-        /// (adding to Pos.Motion does nothing; see SpellExecutor.ApplyDash). Stays under the damage-flash threshold.</summary>
+        /// <summary>Knockback via the onHurt channel, the only server-side way to move a player (Pos.Motion is
+        /// ignored). Stays under the damage-flash threshold.</summary>
         private static void PushImpulse(Entity e, double dx, double dz)
         {
             var wa = e.WatchedAttributes;
@@ -315,8 +295,7 @@ namespace canrpgclasses.Core.Control
             wa.SetFloat("onHurt", wa.GetFloat("onHurt", 0f) > 0.0015f ? 0.001f : 0.002f);
         }
 
-        /// <summary>Fully ends a fear: flag, deadline and wander state. The wander keys aren't (flag, until) pairs,
-        /// so EBCombatState's generic expiry misses them - every path that ends a fear must come through here.</summary>
+        /// <summary>Ends a fear including wander state, which EBCombatState's generic expiry doesn't know about.</summary>
         public static void ClearFear(ITreeAttribute wa)
         {
             wa.RemoveAttribute(CombatFlags.Feared);
@@ -327,8 +306,7 @@ namespace canrpgclasses.Core.Control
             RefreshCcGate(wa);
         }
 
-        /// <summary>Drops every control from an entity (death/respawn: you don't come back still stunned or feared).
-        /// Also restores a blind's screen effect if one was mid-flight.</summary>
+        /// <summary>Drops every control (death/respawn).</summary>
         public static void ClearAll(Entity e)
         {
             var wa = e?.WatchedAttributes;
@@ -340,13 +318,12 @@ namespace canrpgclasses.Core.Control
                 if (p.HudEffect != null) Execution.SpellExecutor.RemoveEffect(e, p.HudEffect);
             }
             wa.RemoveAttribute(CombatFlags.BreakOnDamageMask);
-            ClearFear(wa); // also refreshes the CC gate (all flags are gone by now)
+            ClearFear(wa); // also refreshes the CC gate
             RestoreBlindVision(e);
-            if (e is EntityPlayer pl) Integration.PlayerModelSwap.Restore(pl); // undo the sheep model
+            if (e is EntityPlayer pl) Integration.PlayerModelSwap.Restore(pl);
         }
 
-        /// <summary>Ends every break-on-damage control on a victim that just took a non-absorbed hit. Called from
-        /// StunPatches after mitigation; no-op when nothing opted in (mask == 0).</summary>
+        /// <summary>Ends break-on-damage controls after a non-absorbed hit (called from StunPatches post-mitigation).</summary>
         public static void OnDamage(Entity victim)
         {
             var wa = victim?.WatchedAttributes;
@@ -357,8 +334,7 @@ namespace canrpgclasses.Core.Control
                 if ((mask & (1 << (int)kv.Key)) != 0 && wa.GetBool(kv.Value.Flag)) ClearControl(victim, kv.Key);
         }
 
-        /// <summary>Ends one control: its flag, deadline and break-on-damage bit, plus the type's cleanup (restore
-        /// a blind, clear wander state, restore the model). Mob AI blocks free themselves once the flag is gone.</summary>
+        /// <summary>Ends one control plus its type cleanup. Mob AI blocks free themselves once the flag is gone.</summary>
         private static void ClearControl(Entity e, ControlType t)
         {
             var wa = e.WatchedAttributes;
@@ -375,14 +351,11 @@ namespace canrpgclasses.Core.Control
             if (t == ControlType.Transmute && e is EntityPlayer pl) Integration.PlayerModelSwap.Restore(pl);
         }
 
-        /// <summary>Fully clears a single control type by hand (natural expiry paths that need the type's cleanup,
-        /// e.g. EBCombatState removing an expired Transmute must also restore the model).</summary>
         public static void Clear(Entity e, ControlType t) => ClearControl(e, t);
 
         public static void BreakStun(Entity target) => ClearControl(target, ControlType.Stun);
 
-        // Inside a ~15s window each next CC in the same bracket is shortened: full, x0.5, x0.25, then immune.
-        // An immune attempt doesn't extend the window. Count + deadline live in WA, so they survive relog.
+        // 15s window per bracket: full, x0.5, x0.25, then immune. An immune attempt doesn't extend the window.
         private static float DiminishingReturns(Entity target, string bracket, float seconds)
         {
             var wa = target.WatchedAttributes;
@@ -390,13 +363,12 @@ namespace canrpgclasses.Core.Control
             string resetKey = "canrpgDr_" + bracket + "_reset";
             long now = target.World.ElapsedMilliseconds;
             long resetUntil = wa.GetLong(resetKey, 0);
-            // A valid window is never more than 15s ahead of now; a larger gap is a stale future value from before a
-            // reload (World.ElapsedMilliseconds resets each session) and must not reuse the old count.
+            // A gap over 15s is stale from before a reload (ElapsedMilliseconds resets each session).
             bool windowValid = now <= resetUntil && resetUntil - now <= 15000L;
             int count = windowValid ? wa.GetInt(countKey, 0) : 0;
 
             float scale = count switch { 0 => 1f, 1 => 0.5f, 2 => 0.25f, _ => 0f };
-            if (scale <= 0f) return 0f; // immune: leave the existing window to expire on its own
+            if (scale <= 0f) return 0f;
 
             wa.SetInt(countKey, count + 1);
             wa.SetLong(resetKey, now + 15000L);

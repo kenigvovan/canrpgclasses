@@ -13,9 +13,8 @@ using canrpgclasses.Core.Talents;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Class picker / changer: lists the registered classes and shows what a change will cost, then sends a
-    /// <see cref="SelectClassPacket"/> - the server enforces the re-pick policy. Also opens automatically for a
-    /// player who has not picked yet.
+    /// Class picker: shows the change cost and sends <see cref="SelectClassPacket"/>; the server enforces the
+    /// re-pick policy. Opens automatically for players without a class.
     /// </summary>
     public class ClassSelectDialog : CanrpgDialog
     {
@@ -26,7 +25,6 @@ namespace canrpgclasses.Client
         private const double RowH = 44;
         private const double IconSize = 36;
 
-        // The window's palette is the mod's shared one; only the plate tints below are local to the picker.
         private static readonly double[] Gold = EditorStyle.Gold;
         private static readonly double[] Accent = EditorStyle.Accent;
         private static readonly double[] Muted = EditorStyle.Muted;
@@ -37,10 +35,8 @@ namespace canrpgclasses.Client
         /// <summary>Icon tint for a class the player's vanilla character class bars them from (ClassRestrictions).</summary>
         private static readonly double[] LockedTint = { 0.45, 0.42, 0.40, 0.55 };
 
-        /// <summary>Shrinks a font until the text fits one line of the given (unscaled) width. A list row has a
-        /// fixed height, so a wrapped caption would run over the row below - which the "(current)" and
-        /// "(unavailable)" tags made easy to hit. Vanilla's AddStaticTextAutoFontSize measures bounds the
-        /// composer has not calculated at that point, so the width is passed in instead.</summary>
+        /// <summary>Shrinks a font to fit one line of the given unscaled width. Vanilla AddStaticTextAutoFontSize
+        /// can't be used: bounds aren't calculated yet at this point.</summary>
         private static CairoFont Fitted(CairoFont font, string text, double unscaledWidth)
         {
             double max = ElementBounds.scaled(unscaledWidth);
@@ -56,7 +52,7 @@ namespace canrpgclasses.Client
 
         public ClassSelectDialog(ICoreClientAPI capi) : base(capi)
         {
-            // The cost hint counts down (re-pick cooldown), so it is refreshed rather than left stale.
+            // Refresh the cost hint: the re-pick cooldown counts down.
             listenerId = capi.Event.RegisterGameTickListener(_ => RefreshCostHint(), 1000);
         }
 
@@ -113,7 +109,7 @@ namespace canrpgclasses.Client
                     ElementStdBounds.AutosizedMainDialog.WithAlignment(EnumDialogArea.CenterMiddle))
                 .AddShadedDialogBG(bgBounds, true, 5.0, 0.75f)
                 .AddDialogTitleBar(Lang.Get("canrpgclasses:ui-classselect-title"), () => TryClose())
-                // Below the title bar: at y=30 the header line ran under it.
+                // Below the title bar.
                 .BeginChildElements(ElementBounds.Fixed(20, GuiStyle.TitleBarHeight + 12, totalW, footerY + 60))
                     .AddStaticText(chosen
                             ? Lang.Get("canrpgclasses:ui-classselect-current", mod.Classes.Get(current)?.DisplayName ?? current)
@@ -124,8 +120,7 @@ namespace canrpgclasses.Client
                     .AddInset(previewPanelBounds, 3, 0.85f)
                     .AddIconGrid(gridBounds, 1, classes.Count, IconSize, 0, RowH - IconSize, "classgrid");
 
-            // The class name and role sit next to each grid cell rather than inside it - a two-line caption is
-            // wider than the icon and would not fit the cell's own label slot.
+            // Caption beside the cell: a two-line caption doesn't fit the cell's label slot.
             for (int i = 0; i < classes.Count; i++)
             {
                 var c = classes[i];
@@ -150,7 +145,7 @@ namespace canrpgclasses.Client
             double py = y0;
             if (cls == null)
             {
-                // No class highlighted: nothing to preview, and no skill grid composed for FillSpellGrid to fill.
+                // No class highlighted: no skill grid for FillSpellGrid.
                 previewSpellIds.Clear();
                 compo.AddStaticText(Lang.Get("canrpgclasses:ui-classselect-previewhint"),
                     CairoFont.WhiteDetailText().WithColor(Muted),
@@ -192,8 +187,7 @@ namespace canrpgclasses.Client
                     ElementBounds.Fixed(previewX + 134, py, PreviewWidth - 134, 20));
                 py += 28;
 
-                // Attribute profile: with the level curves living on attributes, this is now a big part of what
-                // separates two classes, and picking blind would hide it.
+                // Attribute profile.
                 string profile = AttributeProfile(cls);
                 if (profile.Length > 0)
                 {
@@ -211,8 +205,6 @@ namespace canrpgclasses.Client
                 py += 8;
 
                 previewSpellIds = cls.BaseSpells.ToList();
-                // Wrap the starting skills instead of forcing them onto one row - a class with many of them would
-                // otherwise run past the panel.
                 const double skillCell = 34, skillPad = 6;
                 int cols = System.Math.Max(1, (int)((PreviewWidth + skillPad) / (skillCell + skillPad)));
                 int rows = System.Math.Max(1, (previewSpellIds.Count + cols - 1) / cols);
@@ -236,9 +228,7 @@ namespace canrpgclasses.Client
             FillSpellGrid();
         }
 
-        /// <summary>Whether the server's vanilla-class rules bar this player from that class. The rules are the
-        /// server's copy, pushed on join - if a client somehow has none, nothing is greyed out and the server's
-        /// own check is what refuses the pick.</summary>
+        /// <summary>Uses the rules pushed on join; without them nothing is greyed out and the server refuses.</summary>
         private bool IsLocked(Entity? entity, string classId) =>
             !string.IsNullOrEmpty(classId) && !ClassRestrictions.Allowed(entity, classId, out _);
 
@@ -319,8 +309,7 @@ namespace canrpgclasses.Client
         /// <summary>What changing will cost, per the synced policy. The first pick is always free.</summary>
         private string CostHint(Entity entity)
         {
-            // A barred class is refused whatever the pick would cost, so say that instead of the price - and name
-            // the axis that blocked it (character class or race), since the two are fixed for different reasons.
+            // A barred class shows what blocked it (character class or race) instead of a price.
             if (!string.IsNullOrEmpty(selected) && !ClassRestrictions.Allowed(entity, selected, out string why))
                 return why == ClassRestrictions.ReasonRace
                     ? Lang.Get("canrpgclasses:ui-classselect-locked-race", RaceName(entity))
@@ -350,9 +339,7 @@ namespace canrpgclasses.Client
             }
         }
 
-        /// <summary>The player's vanilla character class, translated. Vanilla names live under the game domain's
-        /// <c>characterclass-&lt;code&gt;</c>; a class added by another mod may have no such entry, in which case the
-        /// bare code is more useful than the raw key.</summary>
+        /// <summary>Translated vanilla class; falls back to the bare code for modded classes without a lang entry.</summary>
         private static string VanillaClassName(Entity entity)
         {
             string code = ClassRestrictions.VanillaClassOf(entity);
@@ -361,10 +348,7 @@ namespace canrpgclasses.Client
             return Lang.HasTranslation(key) ? Lang.Get(key) : code;
         }
 
-        /// <summary>The player's race (PlayerModelLib model code), translated when the race mod ships a lang entry
-        /// under that code - there is no agreed key for model names, so the bare model name is the fallback.</summary>
-        /// <summary>"Strength +5/lvl, Constitution +0.45/lvl, Intelligence x0.2" - what this class does with
-        /// attributes, from its JSON grant plus whatever the class itself declares. Empty when it does nothing.</summary>
+        /// <summary>E.g. "Strength +5/lvl, Intelligence x0.2", from the JSON grant plus the class's own stats.</summary>
         private static string AttributeProfile(RpgClassDef cls)
         {
             if (!RpgAttributes.Any) return "";
@@ -374,7 +358,7 @@ namespace canrpgclasses.Client
 
             foreach (var def in RpgAttributes.All)
             {
-                // The two sources stack at runtime (separate stat sources), so they stack here too.
+                // Both sources stack at runtime, so they stack here too.
                 float perLevel = grant.PerLevel.TryGetValue(def.Id, out var p) ? p : 0f;
                 foreach (var (stat, v) in cls.StatsPerLevel)
                     if (string.Equals(stat, def.Id, System.StringComparison.OrdinalIgnoreCase)) perLevel += v;

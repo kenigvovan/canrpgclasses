@@ -6,9 +6,8 @@ using Vintagestory.API.Config;
 namespace canrpgclasses.Client
 {
     /// <summary>
-    /// Adds a "Talents" / "Spellbook" button panel next to the vanilla character screen, so our windows don't
-    /// need separate hotkeys. Follows the game's own pattern for that dialog: compose an extra named panel into
-    /// the loaded <see cref="GuiDialogCharacterBase"/>'s composer set.
+    /// Adds a Talents / Spellbook button panel to the vanilla <see cref="GuiDialogCharacterBase"/> as an extra
+    /// named composer.
     /// </summary>
     public class CharacterPanelButtons : ModSystem
     {
@@ -25,8 +24,7 @@ namespace canrpgclasses.Client
             dlg = api.Gui.LoadedGuis.Find(d => d is GuiDialogCharacterBase) as GuiDialogCharacterBase;
             if (dlg == null) return;
 
-            // ComposeExtraGuis fires whenever the dialog's own "Character" tab (re)composes - same hook the
-            // vanilla Environment/Stats panels use, so our panel appears and disappears in lockstep with it.
+            // Same hook the vanilla Environment/Stats panels use, so ours follows the Character tab.
             dlg.ComposeExtraGuis += ComposeButtons;
         }
 
@@ -35,9 +33,7 @@ namespace canrpgclasses.Client
             var mod = canrpgclassesModSystem.ClientInstance;
             if (mod == null || dlg == null) return;
 
-            // Stack below whichever of the vanilla side panels is present (Stats, else Environment, else just
-            // the character panel itself) instead of anchoring "right of playercharacter" directly - that's the
-            // exact spot the vanilla Stats panel already occupies, so anchoring there too caused an overlap.
+            // Stack below the vanilla side panel; "right of playercharacter" is where Stats already sits.
             ElementBounds anchor =
                 dlg.Composers.ContainsKey("playerstats") ? dlg.Composers["playerstats"].Bounds :
                 dlg.Composers.ContainsKey("environment") ? dlg.Composers["environment"].Bounds :
