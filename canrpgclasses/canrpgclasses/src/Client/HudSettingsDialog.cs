@@ -304,19 +304,21 @@ namespace canrpgclasses.Client
             return true;
         }
 
-        private static readonly string[] ModeCodes = { "0", "1", "2" };
+        private static readonly string[] ModeCodes = { "0", "1", "2", "3" };
 
         private static string[] ModeNames() => new[]
         {
             Lang.Get("canrpgclasses:ui-mode-keys"),
             Lang.Get("canrpgclasses:ui-mode-numbers"),
-            Lang.Get("canrpgclasses:ui-mode-mouse")
+            Lang.Get("canrpgclasses:ui-mode-mouse"),
+            Lang.Get("canrpgclasses:ui-mode-layered")
         };
 
         private string ModeHint() => layout.Mode switch
         {
             InputMode.NumberRow => Lang.Get("canrpgclasses:ui-mode-numbers-hint"),
             InputMode.Mouse => Lang.Get("canrpgclasses:ui-mode-mouse-hint"),
+            InputMode.Layered => Lang.Get("canrpgclasses:ui-mode-layered-hint"),
             _ => Lang.Get("canrpgclasses:ui-mode-keys-hint")
         };
 

@@ -1,0 +1,27 @@
+{
+	"code": "druidroots",
+	"class": "EntityControlFx",
+	"hitboxSize": { "x": 0.1, "y": 0.1 },
+	"deadHitboxSize": { "x": 0.1, "y": 0.1 },
+	"canClimb": false,
+	"drops": [],
+	"client": {
+		"renderer": "Shape",
+		// Five vines that grow out of the ground (emerge) and keep writhing (sway) while the target stays rooted.
+		"shape": { "base": "canrpgclasses:entity/druidroots" },
+		"size": 1.0,
+		"textures": {
+			"bark": { "base": "game:block/wood/bark/oak" }
+		},
+		"animations": [
+			{ "code": "emerge", "animation": "emerge", "animationSpeed": 1.0, "blendMode": "Add" },
+			{ "code": "sway", "animation": "sway", "animationSpeed": 1.0, "blendMode": "Add" }
+		],
+		"behaviors": [
+			{ "code": "interpolateposition" }
+		]
+	},
+	"server": {
+		"behaviors": []
+	}
+}

@@ -2,6 +2,7 @@ using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Datastructures;
 using Vintagestory.GameContent;
+using canrpgclasses.Core.Execution;
 
 namespace canrpgclasses.Hunter
 {
@@ -29,7 +30,8 @@ namespace canrpgclasses.Hunter
                 // Prefer the explicitly ordered/assisted foe, then any revenge attacker.
                 var forced = HunterPetSystem.ForcedTargetOf(entity);
                 if (forced != null && CanSense(forced, NowSeekRange)) targetEntity = forced;
-                else if (attackedByEntity != null && attackedByEntity.Alive && CanSense(attackedByEntity, NowSeekRange))
+                else if (attackedByEntity != null && attackedByEntity.Alive && !SpellExecutor.IsAlly(entity, attackedByEntity)
+                         && CanSense(attackedByEntity, NowSeekRange))
                     targetEntity = attackedByEntity;
             }
 
@@ -39,8 +41,8 @@ namespace canrpgclasses.Hunter
                 return true;
             }
 
-            // No commanded target: only an Aggressive pet falls back to the vanilla scan.
-            return HunterPetSystem.PetModeOf(entity) == PetMode.Aggressive && base.ShouldExecute();
+            // No free hunting in any mode: the wolf only goes after what it was sent at or what attacked it.
+            return false;
         }
     }
 }

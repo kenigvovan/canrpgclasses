@@ -10,7 +10,7 @@ namespace canrpgclasses.Hunter.Spells
         public SummonPetSpell()
         {
             var b = Balance;
-            DisplayName = "Summon Wolf";
+            DisplayName = "Summon Pet";
             IconName = "lion";
             School = SpellSchool.Nature;
             Tier = 1;

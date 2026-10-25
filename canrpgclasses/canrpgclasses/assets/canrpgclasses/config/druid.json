@@ -3,6 +3,7 @@
 
 	"spells": {
 		"nature_bolt": { "resource": 20, "cooldown": 0, "cast": 2.0, "coeff": 2.0 },
+		"entangling_roots": { "resource": 25, "cooldown": 20, "cast": 1.5, "range": 24, "duration": 6 },
 
 		"feline_form": { "resource": 15, "cooldown": 1.5, "walkSpeed": 0.20 },
 		"ursine_form": { "resource": 15, "cooldown": 1.5, "bonusHealth": 8, "damageReduction": 0.15 },

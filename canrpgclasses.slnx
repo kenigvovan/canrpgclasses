@@ -1,4 +1,10 @@
 <Solution>
+  <Project Path="canrpgclasses/canrpgclasses.scenarios/canrpgclasses.scenarios.csproj" />
   <Project Path="canrpgclasses/canrpgclasses/canrpgclasses.csproj" />
   <Project Path="canrpgclasses/ZZCakeBuild/CakeBuild.csproj" />
+  <Folder Name="/Atlas/">
+    <Project Path="../libs/1.22/Atlas-main/Atlas-main/src/Atlas.XUnit/Atlas.XUnit.csproj" />
+    <Project Path="../libs/1.22/Atlas-main/Atlas-main/src/Atlas/Atlas.csproj" />
+    <Project Path="../libs/1.22/Atlas-main/Atlas-main/src/Atlas.Bridge/Atlas.Bridge.csproj" />
+  </Folder>
 </Solution>

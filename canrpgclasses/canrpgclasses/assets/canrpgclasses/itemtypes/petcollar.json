@@ -1,0 +1,25 @@
+{
+	code: "petcollar",
+	// Cosmetic only: right-click your own pet with it to put it on, sneak + right-click empty-handed to take it off.
+	shape: { base: "game:item/resource/leather-fine" },
+	textures: {
+		"leather": { base: "game:block/leather/red" }
+	},
+	attributes: {
+		// Pet cosmetic (EBPetCosmetics): worn on "place", built as "kind" around the bone whose name contains "bone".
+		// "texture" is a code from the hunterpet entity's client textures.
+		petCosmetic: { place: "neck", bone: "neck", fallbackBone: "head", kind: "band", texture: "canrpgcollar", width: 1.2, at: 0.3, margin: 0.4 }
+	},
+	creativeinventory: { "general": ["*"], "items": ["*"] },
+	maxstacksize: 1,
+	materialDensity: 500,
+	guiTransform: {
+		rotation: { x: -180, y: 77, z: -53 },
+		origin: { x: 0.5, y: 0.15, z: 0.45 },
+		scale: 1.87
+	},
+	groundTransform: {
+		origin: { x: 0.5, y: 0, z: 0.5 },
+		scale: 3
+	}
+}

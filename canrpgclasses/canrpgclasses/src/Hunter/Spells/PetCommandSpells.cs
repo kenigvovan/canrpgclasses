@@ -16,7 +16,7 @@ namespace canrpgclasses.Hunter.Spells
         }
     }
 
-    /// <summary>Won't hunt on its own - only engages what you attack or send it at.</summary>
+    /// <summary>Only defends: engages what attacks you or what you send it at.</summary>
     [SpellRegistration("canrpgclasses:pet_defensive")]
     public class PetDefensiveSpell : Spell
     {
@@ -82,6 +82,26 @@ namespace canrpgclasses.Hunter.Spells
             Target.Type = TargetType.Caster; Deliver.Type = DeliveryType.Direct;
             Impacts.Add(new SpellImpact { Action = ImpactAction.PetCommand, PetCommand = "stay", AffectCaster = true });
             ConfigureCost(defResource: 0f, defCooldown: 1f);
+        }
+    }
+
+    /// <summary>The wolf pulls the attention of hostile creatures around it onto itself.</summary>
+    [SpellRegistration("canrpgclasses:pet_growl")]
+    public class PetGrowlSpell : Spell
+    {
+        public PetGrowlSpell()
+        {
+            var b = Balance;
+            float radius = b.F("radius", 8f);
+            DisplayName = "Pet: Growl"; IconName = "flat-paw-print"; School = SpellSchool.PhysicalRanged; Tier = 0;
+            Target.Type = TargetType.Caster; Deliver.Type = DeliveryType.Direct;
+            DescArgs = new object[] { (int)radius };
+            Impacts.Add(new SpellImpact
+            {
+                Action = ImpactAction.PetCommand, PetCommand = "growl", AffectCaster = true, AggroRange = radius,
+                Particles = new ParticleSpec { ColorA = 200, ColorR = 255, ColorG = 120, ColorB = 60, VelocityY = 0.3f }
+            });
+            ConfigureCost(defResource: 0f, defCooldown: 15f);
         }
     }
 

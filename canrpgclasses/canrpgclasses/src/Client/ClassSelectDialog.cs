@@ -102,7 +102,8 @@ namespace canrpgclasses.Client
             var costBounds = ElementBounds.Fixed(0, footerY, totalW, 24);
             var confirmBounds = ElementBounds.Fixed(0, footerY + 28, 200, 26);
 
-            var bgBounds = ElementBounds.Fixed(0, 0, totalW + 40, footerY + 100);
+            // Child offset + button bottom + bottom padding.
+            var bgBounds = ElementBounds.Fixed(0, 0, totalW + 40, GuiStyle.TitleBarHeight + 12 + footerY + 54 + 20);
 
             ClearComposers();
             var compo = capi.Gui.CreateCompo(ComposerKey,

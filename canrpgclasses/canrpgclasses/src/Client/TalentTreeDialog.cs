@@ -73,6 +73,14 @@ namespace canrpgclasses.Client
         {
             base.OnGuiOpened();
             Compose();
+            // Redraw the moment the server's rank sync lands, not on the next slow tick.
+            capi.World?.Player?.Entity?.WatchedAttributes.RegisterModifiedListener(TalentState.RanksKey, Refresh);
+        }
+
+        public override void OnGuiClosed()
+        {
+            capi.World?.Player?.Entity?.WatchedAttributes.UnregisterListener(Refresh);
+            base.OnGuiClosed();
         }
 
         /// <summary>Signature of spent ranks; a change recomposes the dialog.</summary>
@@ -114,13 +122,19 @@ namespace canrpgclasses.Client
 
             LayoutTrees(mod, classId, cls);
 
+            double headerW = -TreeGap;
+            for (int t = 0; t < treeCount; t++) headerW += treeCols[t] * (CellSize + CellPad) + TreeGap;
+            headerW = Math.Max(700, headerW);
+
+            // Row 1: class/level left, points right; row 2: XP bar with its caption beside it.
             double y = 0;
-            var headerBounds = ElementBounds.Fixed(0, y, 700, 28);
-            var xpBarBounds = ElementBounds.Fixed(0, y + 30, 360, 12);
-            var xpTextBounds = ElementBounds.Fixed(0, y + 44, 360, 18);
-            var pointsBounds = ElementBounds.Fixed(370, y + 28, 330, 22);
-            y += 68;
-            double headerRuleY = y - 6;
+            // Medium font needs ~36px or the descenders get clipped.
+            var headerBounds = ElementBounds.Fixed(0, y, headerW - 260, 38);
+            var pointsBounds = ElementBounds.Fixed(headerW - 260, y + 8, 260, 24);
+            var xpBarBounds = ElementBounds.Fixed(0, y + 48, 420, 10);
+            var xpTextBounds = ElementBounds.Fixed(432, y + 44, 240, 20);
+            y += 78;
+            double headerRuleY = y - 10;
 
             // One grid per tree, side by side, each on its own inset panel.
             var treeBounds = new ElementBounds[treeCount];
@@ -143,10 +157,9 @@ namespace canrpgclasses.Client
             double treesRuleY = y - 8;
 
             double halfW = treesW / 2 - 10;
-            // Two-line titles: the headings wrap.
-            const double panelTitleH = 42;
-            // Fixed height for ~15 rows, what a fully-specced character shows.
-            const double panelBodyH = 260;
+            const double panelTitleH = 30;
+            // Fixed height for ~17 rows including group headings, what a fully-specced character shows.
+            const double panelBodyH = 300;
             var summaryTitleBounds = ElementBounds.Fixed(0, y, halfW, panelTitleH);
             var summaryBounds = ElementBounds.Fixed(4, y + panelTitleH + 2, halfW - 8, panelBodyH);
             var summaryPanelBounds = ElementBounds.Fixed(-6, y - 4, halfW + 12, panelTitleH + panelBodyH + 10);
@@ -159,14 +172,19 @@ namespace canrpgclasses.Client
             var list = loadouts.For(classId);
             if (selLoadout >= list.Count) selLoadout = Math.Max(0, list.Count - 1);
 
-            var buildLabelBounds = ElementBounds.Fixed(0, y + 4, 90, 22);
-            var buildDropBounds = ElementBounds.Fixed(92, y, 180, 26);
-            var buildApplyBounds = ElementBounds.Fixed(278, y, 90, 26);
-            var buildDelBounds = ElementBounds.Fixed(372, y, 90, 26);
-            var buildSaveBounds = ElementBounds.Fixed(466, y, 110, 26);
-            var buildNameBounds = ElementBounds.Fixed(0, y + 32, 260, 26);
-            var respecBounds = ElementBounds.Fixed(treesW - 130, y + 32, 130, 26);
-            y += 66;
+            // Row 1: picker + name; row 2: actions under the picker, Respec on the right.
+            const double buildLabelW = 60, buildFieldW = 220, buildBtnH = 26, buildGap = 8;
+            double buildX = buildLabelW + 4;
+            var buildLabelBounds = ElementBounds.Fixed(0, y + 4, buildLabelW, 22);
+            var buildDropBounds = ElementBounds.Fixed(buildX, y, buildFieldW, buildBtnH);
+            var buildNameBounds = ElementBounds.Fixed(buildX + buildFieldW + buildGap, y, buildFieldW, buildBtnH);
+            double row2 = y + buildBtnH + 10, bx = buildX;
+            var buildApplyBounds = ElementBounds.Fixed(bx, row2, 100, buildBtnH);
+            if (list.Count > 0) bx += 100 + buildGap;
+            var buildSaveBounds = ElementBounds.Fixed(bx, row2, 130, buildBtnH);
+            var buildDelBounds = ElementBounds.Fixed(bx + 130 + buildGap, row2, 100, buildBtnH);
+            var respecBounds = ElementBounds.Fixed(treesW - 130, row2, 130, buildBtnH);
+            y = row2 + buildBtnH + 8;
 
             ClearComposers();
             var compo = capi.Gui.CreateCompo(ComposerKey,
@@ -177,9 +195,10 @@ namespace canrpgclasses.Client
                 .BeginChildElements(ElementBounds.Fixed(20, GuiStyle.TitleBarHeight + 12, treesW, y))
                     .AddDynamicText(HeaderText(cls, classId, level), CairoFont.WhiteMediumText(), headerBounds, "header")
                     .AddStatbar(xpBarBounds, GuiStyle.XPBarColor, "xpbar")
-                    .AddDynamicText("", CairoFont.WhiteDetailText(), xpTextBounds, "xptext")
+                    .AddDynamicText("", CairoFont.WhiteDetailText().WithColor(EditorStyle.Muted), xpTextBounds, "xptext")
                     .AddDynamicText(PointsText(player, totalPoints),
-                        CairoFont.WhiteSmallText().WithColor(Gold), pointsBounds, "points")
+                        CairoFont.WhiteSmallText().WithColor(Gold).WithOrientation(EnumTextOrientation.Right),
+                        pointsBounds, "points")
                     .AddStaticCustomDraw(ElementBounds.Fixed(0, headerRuleY, treesW, 2), EditorStyle.Rule);
 
             for (int t = 0; t < treeCount; t++)
@@ -212,12 +231,12 @@ namespace canrpgclasses.Client
                 .AddIf(list.Count > 0)
                     .AddDropDown(Enumerable.Range(0, list.Count).Select(i => i.ToString()).ToArray(),
                         list.Select(b => b.Name).ToArray(), selLoadout, OnBuildSelected, buildDropBounds, "builds")
-                    .AddSmallButton(Lang.Get("canrpgclasses:ui-build-apply"), ApplyBuild, buildApplyBounds)
-                    .AddSmallButton(Lang.Get("canrpgclasses:ui-set-del"), DeleteBuild, buildDelBounds)
+                    .AddHoverButton(Lang.Get("canrpgclasses:ui-build-apply"), ApplyBuild, buildApplyBounds)
+                    .AddHoverButton(Lang.Get("canrpgclasses:ui-set-del"), DeleteBuild, buildDelBounds)
                     .AddTextInput(buildNameBounds, OnBuildRenamed, CairoFont.WhiteSmallText(), "buildname")
                 .EndIf()
-                .AddSmallButton(Lang.Get("canrpgclasses:ui-build-save"), SaveBuild, buildSaveBounds)
-                .AddSmallButton(Lang.Get("canrpgclasses:ui-respec"), Respec, respecBounds)
+                .AddHoverButton(Lang.Get("canrpgclasses:ui-build-save"), SaveBuild, buildSaveBounds)
+                .AddHoverButton(Lang.Get("canrpgclasses:ui-respec"), Respec, respecBounds)
                 .AddSpellTooltip(ElementBounds.Fixed(0, 0, 1, 1), "tooltip");
 
             // Before Compose: arrows are baked into the grid's static layer.
@@ -528,18 +547,41 @@ namespace canrpgclasses.Client
             foreach (var row in TalentBonusSummary.Build(capi, player, mod, classId, cls, level))
             {
                 if (sb.Length > 0) sb.Append('\n');
-                sb.Append(Vtml(RowLabel, row.Label));
+                if (row.IsHeader)
+                {
+                    if (sb.Length > 0) sb.Append(VtmlText.Gap).Append('\n');
+                    sb.Append(VtmlText.Bold(VtmlText.Gold, row.Label));
+                    continue;
+                }
+                sb.Append(Vtml(row.LabelHex ?? RowLabel, row.Label));
                 if (row.Value.Length > 0)
                     sb.Append("  ").Append(Vtml(row.Sign > 0 ? Good : row.Sign < 0 ? Bad : Neutral, row.Value));
+                if (row.Extra.Length > 0)
+                    sb.Append("  ").Append(Vtml(VtmlText.Muted, row.Extra));
             }
             SingleComposer.GetRichtext("summary")?.SetNewText(sb.ToString(), bodyFont);
 
-            // "[x]" / "[ ]": the game font has no dot glyphs.
+            // Active first under a counter, the rest dimmed under their own heading.
             sb.Clear();
-            foreach (var (line, active) in TalentBonusSummary.GearAffinities(capi, cls))
+            var affs = TalentBonusSummary.GearAffinities(capi, cls);
+            int activeCount = affs.Count(a => a.active);
+            if (affs.Count == 0) sb.Append(Vtml(Inactive, Lang.Get("canrpgclasses:ui-aff-none")));
+            else
             {
-                if (sb.Length > 0) sb.Append('\n');
-                sb.Append(Vtml(active ? Good : Inactive, (active ? "[x] " : "[ ] ") + line));
+                sb.Append(VtmlText.Bold(VtmlText.Gold, Lang.Get("canrpgclasses:ui-aff-active", activeCount, affs.Count)));
+                // Gaps between entries too: descriptions wrap and would run into each other.
+                foreach (var (line, _, tag) in affs.Where(a => a.active))
+                    sb.Append('\n').Append(VtmlText.Gap).Append('\n')
+                        .Append(VtmlText.Bold(Good, "+ ")).Append(Vtml(VtmlText.Accent, "[" + tag + "] "))
+                        .Append(Vtml(Neutral, line));
+                if (activeCount < affs.Count)
+                {
+                    sb.Append('\n').Append(VtmlText.Gap).Append('\n').Append(VtmlText.Gap).Append('\n')
+                        .Append(VtmlText.Bold(VtmlText.Muted, Lang.Get("canrpgclasses:ui-aff-inactive")));
+                    foreach (var (line, _, tag) in affs.Where(a => !a.active))
+                        sb.Append('\n').Append(VtmlText.Gap).Append('\n')
+                            .Append(Vtml(Inactive, "- [" + tag + "] " + line));
+                }
             }
             SingleComposer.GetRichtext("affinities")?.SetNewText(sb.ToString(), bodyFont);
         }
@@ -596,7 +638,10 @@ namespace canrpgclasses.Client
 
         private bool Respec()
         {
-            canrpgclassesModSystem.ClientInstance?.ClientChannel?.SendPacket(new TalentRespecPacket());
+            new GuiDialogConfirm(capi, Lang.Get("canrpgclasses:ui-respec-confirm"), ok =>
+            {
+                if (ok) canrpgclassesModSystem.ClientInstance?.ClientChannel?.SendPacket(new TalentRespecPacket());
+            }).TryOpen();
             return true;
         }
 

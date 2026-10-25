@@ -124,7 +124,9 @@ namespace canrpgclasses.Core.Spells
         /// <summary>Remember the caster's spot as the anchor a Waypoint portal leads to.</summary>
         SetPortalAnchor,
         /// <summary>Offer a party member (picked by uid in AimContext.Choice) a portal to the caster.</summary>
-        SummonAlly
+        SummonAlly,
+        /// <summary>One tick of a taming channel on a wild creature; the last tick turns it into a pet.</summary>
+        TameTick
     }
 
     public enum TriggerType

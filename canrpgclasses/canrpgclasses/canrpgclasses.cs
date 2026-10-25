@@ -127,12 +127,14 @@ namespace canrpgclasses
             api.RegisterEntityBehaviorClass(EBResources.Name, typeof(EBResources));
             api.RegisterEntityBehaviorClass(EBGearAffinity.Name, typeof(EBGearAffinity));
             api.RegisterEntityBehaviorClass(Hunter.EBHunterPet.Name, typeof(Hunter.EBHunterPet));
+            api.RegisterEntityBehaviorClass(Hunter.EBPetCosmetics.Name, typeof(Hunter.EBPetCosmetics));
             api.RegisterEntityBehaviorClass(Shaman.EBShamanTotem.Name, typeof(Shaman.EBShamanTotem));
             api.RegisterEntityBehaviorClass(Shaman.EBShamanTotemVisual.Name, typeof(Shaman.EBShamanTotemVisual));
             // Pet seek/melee tasks gated by the aggressive/defensive/passive order.
             Vintagestory.GameContent.AiTaskRegistry.Register<Hunter.AiTaskPetSeek>("petseek");
             Vintagestory.GameContent.AiTaskRegistry.Register<Hunter.AiTaskPetMelee>("petmelee");
             api.RegisterEntity("EntitySpellProjectile", typeof(EntitySpellProjectile));
+            api.RegisterEntity("EntityControlFx", typeof(EntityControlFx));
             api.RegisterCollectibleBehaviorClass(BehaviorSpellContainer.Name, typeof(BehaviorSpellContainer));
 
             PatchStun();
@@ -178,6 +180,7 @@ namespace canrpgclasses
             Reg(Core.Effects.EmpowerEffectIds.Prefix + "split_shot", typeof(Core.Effects.SplitShotEmpowerEffect), "canrpgclasses:textures/icons/sword-array.svg");
             Reg(Core.Effects.EmpowerEffectIds.Prefix + "venom_sting", typeof(Core.Effects.VenomStingEmpowerEffect), "canrpgclasses:textures/icons/burning-dot.svg");
             Reg(Core.Effects.EmpowerEffectIds.Prefix + "jarring_shot", typeof(Core.Effects.JarringShotEmpowerEffect), "canrpgclasses:textures/icons/knockout.svg");
+            Reg(Core.Effects.EmpowerEffectIds.Prefix + "kill_command", typeof(Core.Effects.KillCommandEmpowerEffect), "canrpgclasses:textures/icons/neck-bite.svg");
 
             // Cosmetic; the dodge roll itself is a WatchedAttributes flag.
             Reg(Core.Effects.EvasionEffectId.Id, typeof(Core.Effects.EvasionEffect), "canrpgclasses:textures/icons/jump-across.svg");
@@ -303,6 +306,7 @@ namespace canrpgclasses
             Name(Core.Effects.EmpowerEffectIds.Prefix + "split_shot",       "canrpgclasses:ui-eff-split_shot");
             Name(Core.Effects.EmpowerEffectIds.Prefix + "venom_sting",    "canrpgclasses:ui-eff-venom_sting");
             Name(Core.Effects.EmpowerEffectIds.Prefix + "jarring_shot",  "canrpgclasses:ui-eff-jarring_shot");
+            Name(Core.Effects.EmpowerEffectIds.Prefix + "kill_command",  "canrpgclasses:ui-eff-kill_command");
 
             Name(Core.Effects.QuickbladesEffectIds.Quickblades, "canrpgclasses:ui-eff-quickblades");
             Name(Core.Effects.EvasionEffectId.Id,          "canrpgclasses:ui-eff-evasion");
@@ -432,6 +436,9 @@ namespace canrpgclasses
             harmony.Patch(typeof(PModuleInAir).GetMethod("Applicable"), prefix: pmodule);
             harmony.Patch(typeof(PModuleInLiquid).GetMethod("Applicable"), prefix: pmodule);
 
+            harmony.Patch(typeof(EntityAgent).GetMethod(nameof(EntityAgent.GetWalkSpeedMultiplier)),
+                postfix: new HarmonyMethod(typeof(SlowPatches).GetMethod(nameof(SlowPatches.Postfix_GetWalkSpeedMultiplier))));
+
             var receiveDamage = typeof(Entity).GetMethod("ReceiveDamage");
             harmony.Patch(receiveDamage,
                 prefix: new HarmonyMethod(typeof(StunPatches).GetMethod(nameof(StunPatches.Prefix_ReceiveDamage))));
@@ -552,6 +559,7 @@ namespace canrpgclasses
             ServerChannel.SetMessageHandler<ClassEditPacket>(OnClassEdit);
             ServerChannel.SetMessageHandler<SpellEditPacket>(OnSpellEdit);
             ServerChannel.SetMessageHandler<PetNamePacket>(OnPetName);
+            ServerChannel.SetMessageHandler<PetStablePacket>(OnPetStable);
             ServerChannel.SetMessageHandler<Core.Portals.PortalShotPacket>(Core.Portals.PortalShots.OnUpload);
             ServerChannel.SetMessageHandler<Core.Portals.SummonAnswerPacket>(Core.Portals.SummonRitual.OnAnswer);
 
@@ -578,6 +586,7 @@ namespace canrpgclasses
 
             // Class modules register their impacts and damage hooks into the core here.
             Hunter.HunterPetSystem.Init();
+            Hunter.WildCoats.Init(api);
             Hunter.HunterShots.Init();
             Warrior.WarriorRage.Init();
             Shaman.ShamanTotemSystem.Init();

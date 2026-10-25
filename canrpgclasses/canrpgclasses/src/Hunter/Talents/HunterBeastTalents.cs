@@ -6,8 +6,8 @@ using canrpgclasses.Core.Talents;
 
 namespace canrpgclasses.Hunter.Talents
 {
-    // Hunter tree 2 - Beast Mastery. Pet scaling goes through 1.0-based owner stats: health is baked on
-    // summon, damage is read live on each pet hit.
+    // Hunter tree 2 - Beast Mastery. Pet scaling goes through 1.0-based owner stats: health is re-read by
+    // EBHunterPet every couple of seconds, damage live on each pet hit.
 
     [TalentRegistration("hunter:learn_tend_beast")]
     public class LearnTendBeastTalent : Talent
@@ -58,12 +58,12 @@ namespace canrpgclasses.Hunter.Talents
         public BeastKinshipTalent()
         {
             ClassId = "hunter"; TreeIndex = 2; Tier = 1; Column = 1; MaxRank = 3;
-            perRank = BalanceConfig.Talent("hunter:beast_kinship").F("perRank", 0.12f);
-            DisplayName = "Beast Kinship"; Description = "+{0}% focus regeneration per rank."; IconName = "tarot-08-strength";
-            DescArgs = new object[] { (int)System.Math.Round(perRank * 100f) };
+            perRank = BalanceConfig.Talent("hunter:beast_kinship").F("perRank", 0.01f);
+            DisplayName = "Beast Kinship"; Description = "Out of combat your wolf regenerates {0}% of its max health per second per rank.";
+            IconName = "tarot-08-strength";
+            DescArgs = new object[] { System.Math.Round(perRank * 100f, 1) };
         }
-        public override void ApplyStats(EntityAgent e, int rank)
-            => e.Stats.Set(StatKeys.ResourceRegen, "canrpgtalent_beastbond", perRank * rank);
+        // The regeneration itself runs in EBHunterPet, which reads this rank.
     }
 
     [TalentRegistration("hunter:learn_beast_fury")]
@@ -152,12 +152,18 @@ namespace canrpgclasses.Hunter.Talents
         public KindredSpiritTalent()
         {
             ClassId = "hunter"; TreeIndex = 2; Tier = 3; Column = 1; MaxRank = 3;
-            perRank = BalanceConfig.Talent("hunter:kindred_spirit").F("perRank", 3f);
-            DisplayName = "Kindred Spirit"; Description = "+{0} max health per rank."; IconName = "duality";
-            DescArgs = new object[] { (int)System.Math.Round(perRank) };
+            perRank = BalanceConfig.Talent("hunter:kindred_spirit").F("perRank", 0.08f);
+            DisplayName = "Kindred Spirit"; Description = "Your wolf takes {0}% of the damage dealt to you per rank, while it is near.";
+            IconName = "duality";
+            DescArgs = new object[] { (int)System.Math.Round(perRank * 100f) };
         }
-        public override void ApplyStats(EntityAgent e, int rank)
-            => e.Stats.Set(StatKeys.MaxHealthExtraPoints, "canrpgtalent_spiritbond", perRank * rank);
+        public override DamageModifier? DamageModifier => (Entity victim, Entity? attacker, DamageSource source, ref float damage) =>
+        {
+            if (damage <= 0f || source.Type == EnumDamageType.Heal || victim is not EntityPlayer) return;
+            int rank = TalentState.Rank(victim, Id);
+            if (rank <= 0) return;
+            HunterPetSystem.ShareDamageWithPet(victim, ref damage, perRank * rank);
+        };
     }
 
     [TalentRegistration("hunter:beast_adept")]

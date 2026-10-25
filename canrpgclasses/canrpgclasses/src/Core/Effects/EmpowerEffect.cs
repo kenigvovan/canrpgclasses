@@ -32,4 +32,7 @@ namespace canrpgclasses.Core.Effects
     [EffectRegistration(EmpowerEffectIds.Prefix + "split_shot")]     public class SplitShotEmpowerEffect : Effect { }
     [EffectRegistration(EmpowerEffectIds.Prefix + "venom_sting")]    public class VenomStingEmpowerEffect : Effect { }
     [EffectRegistration(EmpowerEffectIds.Prefix + "jarring_shot")]   public class JarringShotEmpowerEffect : Effect { }
+
+    // Kill Command: the wolf's next bite, consumed by HunterPetSystem.
+    [EffectRegistration(EmpowerEffectIds.Prefix + "kill_command")]   public class KillCommandEmpowerEffect : Effect { }
 }

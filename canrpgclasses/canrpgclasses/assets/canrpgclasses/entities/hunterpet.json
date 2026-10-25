@@ -1,31 +1,286 @@
 {
 	code: "hunterpet",
 	class: "EntityAgent",
-	hitboxSize: { x: 1.2, y: 1 },
-	deadHitboxSize: { x: 1, y: 0.75 },
-	eyeHeight: 0.9,
+	// One variant per look (species, type, sex or age). Looks share a family, and only the family sets numbers:
+	// a polar bear and a panda fight the same. A new look is a new state plus its *ByType entries.
+	variantgroups: [
+		{ code: "look", states: [
+			"wolf", "wolf-eurasian", "wolf-eurasian-pup",
+			"bear-brown", "bear-black", "bear-polar", "bear-panda", "bear-sun",
+			"hyena-spotted-male", "hyena-spotted-female", "hyena-spotted-pup",
+			"fox-red-male", "fox-red-female", "fox-arctic-male", "fox-arctic-female", "fox-red-pup", "fox-arctic-pup",
+			"raccoon-male", "raccoon-female", "raccoon-pup"
+		] }
+	],
+	hitboxSizeByType: {
+		"*-bear-polar": { x: 1.0, y: 0.8 },
+		"*-bear-sun": { x: 1.05, y: 1.0 },
+		"*-bear-*": { x: 0.95, y: 0.85 },
+		"*-wolf-eurasian-pup": { x: 0.85, y: 0.5 },
+		"*-hyena-spotted-pup": { x: 0.6, y: 0.5 },
+		"*-fox-*-pup": { x: 0.4, y: 0.4 },
+		"*-raccoon-pup": { x: 0.4, y: 0.4 },
+		"*-fox-*": { x: 0.75, y: 0.5 },
+		"*-raccoon-*": { x: 0.75, y: 0.5 },
+		"*": { x: 1.2, y: 1 }
+	},
+	deadHitboxSizeByType: {
+		"*-bear-polar": { x: 0.75, y: 0.45 },
+		"*-bear-sun": { x: 0.65, y: 0.45 },
+		"*-bear-*": { x: 0.7, y: 0.5 },
+		"*-wolf-eurasian-pup": { x: 0.75, y: 0.4 },
+		"*-hyena-spotted-pup": { x: 0.6, y: 0.3 },
+		"*-fox-*-pup": { x: 0.4, y: 0.2 },
+		"*-raccoon-pup": { x: 0.4, y: 0.25 },
+		"*-fox-*": { x: 0.75, y: 0.3 },
+		"*-raccoon-*": { x: 0.75, y: 0.4 },
+		"*-hyena-*": { x: 1.2, y: 0.5 },
+		"*": { x: 1, y: 0.75 }
+	},
+	eyeHeightByType: {
+		"*-bear-polar": 1.0,
+		"*-bear-sun": 0.6,
+		"*-bear-panda": 0.65,
+		"*-bear-*": 0.85,
+		"*-*-pup": 0.4,
+		"*-fox-*": 0.7,
+		"*-raccoon-*": 0.7,
+		"*": 0.9
+	},
 	drops: [],
+	attributes: {
+		// The only numbers a pet has. special: rend (bleed bite), guard (taunt + damage cut), cripple (heal cut + slow
+		// bite), evade (dodge window). tricks: clips the pet can play on command (looks drop the ones they lack).
+		petFamilyByType: {
+			"*-bear-*": { family: "bear", role: "tank", special: "guard", minTameLevel: 20, hpMul: 1.6, dmgMul: 0.75,
+				tricks: ["sit", "lie", "sleep", "stand"] },
+			"*-hyena-*": { family: "hyena", role: "control", special: "cripple", minTameLevel: 12, hpMul: 0.9, dmgMul: 0.9,
+				tricks: ["sit", "lie", "sleep"] },
+			"*-fox-*": { family: "fox", role: "speed", special: "evade", minTameLevel: 10, hpMul: 0.7, dmgMul: 0.85,
+				tricks: ["sit", "lie", "sleep"] },
+			"*-raccoon-*": { family: "fox", role: "speed", special: "evade", minTameLevel: 10, hpMul: 0.7, dmgMul: 0.85,
+				tricks: ["sit", "lie", "sleep"] },
+			"*": { family: "wolf", role: "damage", special: "rend", minTameLevel: 1, hpMul: 1.0, dmgMul: 1.0,
+				tricks: ["sit", "lie", "sleep", "howl"] }
+		},
+		// Looks only: which wild creatures tame into it, which colours are rare, and where to look for it.
+		// rareColors are texture indices in the same list the wild creature uses, so a rare coat is seen in the wild.
+		petLookByType: {
+			"*-wolf": { tameCodes: [], rareColors: [5] },
+			"*-wolf-eurasian": { tameCodes: ["wolf-eurasian-adult-*"], rareColors: [9], hint: "forest" },
+			"*-wolf-eurasian-pup": { tameCodes: ["wolf-eurasian-baby-*"], rareColors: [1], hint: "forest" },
+			"*-bear-brown": { tameCodes: ["bear-brown-adult-*"], rareColors: [2], hint: "temperate" },
+			"*-bear-black": { tameCodes: ["bear-black-adult-*"], rareColors: [], hint: "temperate" },
+			"*-bear-polar": { tameCodes: ["bear-polar-adult-*"], rareColors: [], hint: "cold" },
+			"*-bear-panda": { tameCodes: ["bear-panda-adult-*"], rareColors: [], hint: "bamboo" },
+			"*-bear-sun": { tameCodes: ["bear-sun-adult-*"], rareColors: [], hint: "tropical" },
+			"*-hyena-spotted-male": { tameCodes: ["hyena-spotted-adult-male"], rareColors: [], hint: "savanna" },
+			"*-hyena-spotted-female": { tameCodes: ["hyena-spotted-adult-female"], rareColors: [1], hint: "savanna" },
+			"*-hyena-spotted-pup": { tameCodes: ["hyena-spotted-baby-*"], rareColors: [], hint: "savanna" },
+			"*-fox-red-male": { tameCodes: ["fox-red-adult-male"], rareColors: [], hint: "temperate" },
+			"*-fox-red-female": { tameCodes: ["fox-red-adult-female"], rareColors: [], hint: "temperate" },
+			"*-fox-arctic-male": { tameCodes: ["fox-arctic-adult-male"], rareColors: [], hint: "cold" },
+			"*-fox-arctic-female": { tameCodes: ["fox-arctic-adult-female"], rareColors: [], hint: "cold" },
+			"*-fox-red-pup": { tameCodes: ["fox-red-baby-*"], rareColors: [], hint: "temperate" },
+			"*-fox-arctic-pup": { tameCodes: ["fox-arctic-baby-*"], rareColors: [], hint: "cold" },
+			"*-raccoon-male": { tameCodes: ["raccoon-common-adult-male"], rareColors: [], hint: "temperate" },
+			"*-raccoon-female": { tameCodes: ["raccoon-common-adult-female"], rareColors: [], hint: "temperate" },
+			"*-raccoon-pup": { tameCodes: ["raccoon-common-baby-*"], rareColors: [], hint: "temperate" }
+		}
+	},
 	client: {
 		renderer: "Shape",
-		shape: { base: "canrpgclasses:entity/hunterpet" },
-		size: 1.0,
-		texture: { base: "canrpgclasses:entity/hunterpet" },
+		// Same shape and texture entries as the wild creature, so its textureIndex means the same coat on the pet.
+		shapeByType: {
+			"*-wolf-eurasian": { base: "game:entity/animal/mammal/wolf/eurasian-adult" },
+			"*-wolf-eurasian-pup": { base: "game:entity/animal/mammal/wolf/eurasian-baby" },
+			"*-bear-brown": { base: "game:entity/animal/mammal/bear/brown-adult" },
+			"*-bear-black": { base: "game:entity/animal/mammal/bear/black-adult" },
+			"*-bear-polar": { base: "game:entity/animal/mammal/bear/polar-adult" },
+			"*-bear-panda": { base: "game:entity/animal/mammal/bear/panda-adult" },
+			"*-bear-sun": { base: "game:entity/animal/mammal/bear/sun-adult" },
+			"*-hyena-spotted-male": { base: "game:entity/animal/mammal/hyena/spotted-male" },
+			"*-hyena-spotted-female": { base: "game:entity/animal/mammal/hyena/spotted-female" },
+			"*-hyena-spotted-pup": { base: "game:entity/animal/mammal/hyena/spotted-baby" },
+			"*-fox-*-male": { base: "game:entity/animal/mammal/fox/fox-male" },
+			"*-fox-*-female": { base: "game:entity/animal/mammal/fox/fox-female" },
+			"*-fox-*-pup": { base: "game:entity/animal/mammal/fox/fox-baby" },
+			"*-raccoon-male": { base: "game:entity/animal/mammal/raccoon/common-male" },
+			"*-raccoon-female": { base: "game:entity/animal/mammal/raccoon/common-female" },
+			"*-raccoon-pup": { base: "game:entity/animal/mammal/raccoon/common-baby" },
+			"*": { base: "canrpgclasses:entity/hunterpet" }
+		},
+		sizeByType: {
+			"*-bear-polar": 0.6,
+			"*-bear-sun": 0.9,
+			// A full-size bear dwarfs its owner; the pet is a younger one.
+			"*-bear-*": 0.7,
+			"*-wolf-eurasian-pup": 0.9,
+			"*-hyena-spotted-pup": 0.9,
+			"*-raccoon-pup": 0.9,
+			"*": 1.0
+		},
+		// Alternates are the pet's colours, picked per pet through the "textureIndex" attribute (0 = base).
+		textureByType: {
+			"*-wolf-eurasian": { base: "game:entity/animal/mammal/wolf/eurasian-adult1", alternates: [
+				{ base: "game:entity/animal/mammal/wolf/eurasian-adult2" }, { base: "game:entity/animal/mammal/wolf/eurasian-adult3" },
+				{ base: "game:entity/animal/mammal/wolf/eurasian-adult4" }, { base: "game:entity/animal/mammal/wolf/eurasian-adult5" },
+				{ base: "game:entity/animal/mammal/wolf/eurasian-adult6" }, { base: "game:entity/animal/mammal/wolf/eurasian-adult7" },
+				{ base: "game:entity/animal/mammal/wolf/eurasian-adult8" }, { base: "game:entity/animal/mammal/wolf/eurasian-adult9" },
+				{ base: "game:entity/animal/mammal/wolf/eurasian-adult10" } ] },
+			"*-wolf-eurasian-pup": { base: "game:entity/animal/mammal/wolf/eurasian-baby*" },
+			"*-bear-brown": { base: "game:entity/animal/mammal/bear/brown-adult*" },
+			"*-bear-black": { base: "game:entity/animal/mammal/bear/black-adult*" },
+			"*-bear-polar": { base: "game:entity/animal/mammal/bear/polar-adult*" },
+			"*-bear-panda": { base: "game:entity/animal/mammal/bear/panda-adult*" },
+			"*-bear-sun": { base: "game:entity/animal/mammal/bear/sun-adult*" },
+			"*-hyena-spotted-male": { base: "game:entity/animal/mammal/hyena/spotted-male*" },
+			"*-hyena-spotted-female": { base: "game:entity/animal/mammal/hyena/spotted-female*" },
+			"*-hyena-spotted-pup": { base: "game:entity/animal/mammal/hyena/spotted-baby" },
+			"*-fox-red-male": { base: "game:entity/animal/mammal/fox/red-male" },
+			"*-fox-red-female": { base: "game:entity/animal/mammal/fox/red-female" },
+			"*-fox-arctic-male": { base: "game:entity/animal/mammal/fox/arctic-male" },
+			"*-fox-arctic-female": { base: "game:entity/animal/mammal/fox/arctic-female" },
+			"*-fox-red-pup": { base: "game:entity/animal/mammal/fox/red-baby" },
+			"*-fox-arctic-pup": { base: "game:entity/animal/mammal/fox/arctic-baby" },
+			"*-raccoon-male": { base: "game:entity/animal/mammal/raccoon/common-male1" },
+			"*-raccoon-female": { base: "game:entity/animal/mammal/raccoon/common-female1" },
+			"*-raccoon-pup": { base: "game:entity/animal/mammal/raccoon/common-baby*" },
+			"*": { base: "canrpgclasses:entity/hunterpet", alternates: [
+				{ base: "game:entity/animal/mammal/wolf/eurasian-adult1" }, { base: "game:entity/animal/mammal/wolf/eurasian-adult3" },
+				{ base: "game:entity/animal/mammal/wolf/eurasian-adult7" }, { base: "game:entity/animal/mammal/wolf/eurasian-adult9" },
+				{ base: "game:entity/animal/mammal/wolf/eurasian-adult10" } ] }
+		},
+		// Extra textures for cosmetic parts (EBPetCosmetics); listed here so they are in the entity atlas.
+		textures: {
+			"canrpgcollar": { base: "game:block/cloth/armor-padding/leather" },
+			"canrpgcollar-red": { base: "game:block/cloth/basic/red" },
+			"canrpgcollar-blue": { base: "game:block/cloth/basic/blue" },
+			"canrpgcollar-black": { base: "game:block/cloth/basic/black" },
+			"canrpgcollar-white": { base: "game:block/cloth/basic/white" },
+			"canrpgcollar-gray": { base: "game:block/cloth/basic/gray" },
+			"canrpgcollar-yellow": { base: "game:block/cloth/basic/yellow" },
+			"canrpgcollar-orange": { base: "game:block/cloth/basic/orange" },
+			"canrpgcollar-silver": { base: "game:block/metal/sheet/silver1" },
+			"canrpgcollar-gold": { base: "game:block/metal/sheet/gold1" },
+			"canrpgcollar-fur": { base: "game:block/cloth/fur/brown" }
+		},
 		behaviors: [
 			{ code: "repulseagents" },
 			{ code: "controlledphysics", stepHeight: 1.1251 },
 			{ code: "floatupwhenstuck", onlyWhenDead: true },
 			{ code: "interpolateposition" },
-			{ code: "nametag", renderRange: 999, showtagonlywhentargeted: false }
+			{ code: "nametag", renderRange: 999, showtagonlywhentargeted: false },
+			{ code: "canrpgpetcosmetics" }
 		],
-		animations: [
-			{ code: "hurt", animation: "hurt", animationSpeed: 2.2, weight: 10, blendMode: "AddAverage" },
-			{ code: "die", animation: "death", animationSpeed: 1.25, weight: 10, blendMode: "Average", triggeredBy: { onControls: ["dead"] } },
-			{ code: "idle", animation: "idle", blendMode: "AddAverage", easeOutSpeed: 4, triggeredBy: { defaultAnim: true } },
-			{ code: "Walk", animation: "Walk" },
-			{ code: "Run", animation: "Run" },
-			{ code: "Canter", animation: "Canter" },
-			{ code: "attack-withwindup", animation: "attack-withwindup", animationSpeed: 1, blendMode: "Average", weight: 100 }
-		]
+		// The AI tasks use the wolf's codes (run, canter, attack-withwindup); each model maps them onto its own clips.
+		// Codes must be lowercase: tasks look them up lowercased, and a miss plays a clip the shape may not have.
+		animationsByType: {
+			"*-bear-*": [
+				{ code: "hurt", animation: "hurt", animationSpeed: 2.2, weight: 10, blendMode: "AddAverage" },
+				{ code: "die", animation: "die", animationSpeed: 1.25, weight: 10, blendMode: "Average", triggeredBy: { onControls: ["dead"] } },
+				{ code: "idle", animation: "idle", animationSpeed: 0.6, blendMode: "AddAverage", easeOutSpeed: 4, triggeredBy: { defaultAnim: true } },
+				{ code: "walk", animation: "walk", blendMode: "AddAverage", supressDefaultAnimation: true },
+				// The pet always moves at a trot or faster; the slow walk clip at that speed looks like sliding.
+				{ code: "run", animation: "run", blendMode: "AddAverage", supressDefaultAnimation: true },
+				{ code: "canter", animation: "run", animationSpeed: 0.75, blendMode: "AddAverage", supressDefaultAnimation: true },
+				{ code: "attack-withwindup", animation: "attack", animationSpeed: 1, blendMode: "Average", weight: 100 },
+				// Tricks (petFamily.tricks): code = clip, so a look without the clip simply can't play it.
+				{ code: "sit", animation: "sit", animationSpeed: 0.6, weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 3, supressDefaultAnimation: true },
+				{ code: "lie", animation: "lie", animationSpeed: 0.3, weight: 10, blendMode: "Average", supressDefaultAnimation: true },
+				{ code: "sleep", animation: "sleep", animationSpeed: 0.3, weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 4, supressDefaultAnimation: true },
+				{ code: "stand", animation: "stand", weight: 10, blendMode: "Average", easeOutSpeed: 2, supressDefaultAnimation: true }
+			],
+			// Pups have no bite clip of their own.
+			"*-wolf-eurasian-pup": [
+				{ code: "hurt", animation: "hurt", animationSpeed: 2.2, weight: 10, blendMode: "AddAverage" },
+				{ code: "die", animation: "die", animationSpeed: 1.25, weight: 10, blendMode: "Average", triggeredBy: { onControls: ["dead"] } },
+				{ code: "idle", animation: "idle", blendMode: "AddAverage", easeOutSpeed: 4, triggeredBy: { defaultAnim: true } },
+				{ code: "walk", animation: "walk" },
+				{ code: "run", animation: "run" },
+				{ code: "canter", animation: "run", animationSpeed: 0.75 },
+				{ code: "attack-withwindup", animation: "sniff", animationSpeed: 2, blendMode: "Average", weight: 100 },
+				{ code: "sit", animation: "sit", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 3, supressDefaultAnimation: true },
+				{ code: "lie", animation: "lie", weight: 10, blendMode: "Average", supressDefaultAnimation: true },
+				{ code: "sleep", animation: "sleep", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 4, supressDefaultAnimation: true },
+				{ code: "howl", animation: "howl", weight: 10, blendMode: "Average", supressDefaultAnimation: true }
+			],
+			"*-hyena-spotted-pup": [
+				{ code: "hurt", animation: "hurt", animationSpeed: 2.2, weight: 10, blendMode: "AddAverage" },
+				{ code: "die", animation: "die", animationSpeed: 1.25, weight: 10, blendMode: "Average", triggeredBy: { onControls: ["dead"] } },
+				{ code: "idle", animation: "idle", blendMode: "AddAverage", easeOutSpeed: 4, triggeredBy: { defaultAnim: true } },
+				{ code: "walk", animation: "walk" },
+				{ code: "run", animation: "run" },
+				{ code: "canter", animation: "run", animationSpeed: 0.75 },
+				{ code: "attack-withwindup", animation: "run", animationSpeed: 2, blendMode: "Average", weight: 100 },
+				{ code: "sit", animation: "sit", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 3, supressDefaultAnimation: true },
+				{ code: "lie", animation: "lie", weight: 10, blendMode: "Average", supressDefaultAnimation: true },
+				{ code: "sleep", animation: "sleep", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 4, supressDefaultAnimation: true }
+			],
+			"*-fox-*-pup": [
+				{ code: "hurt", animation: "hurt", animationSpeed: 2.2, weight: 10, blendMode: "AddAverage" },
+				{ code: "die", animation: "death", animationSpeed: 1.25, weight: 10, blendMode: "Average", triggeredBy: { onControls: ["dead"] } },
+				{ code: "idle", animation: "idle", blendMode: "AddAverage", easeOutSpeed: 4, triggeredBy: { defaultAnim: true } },
+				{ code: "walk", animation: "walk" },
+				{ code: "run", animation: "run" },
+				{ code: "canter", animation: "run", animationSpeed: 0.75 },
+				{ code: "attack-withwindup", animation: "sniff", animationSpeed: 2, blendMode: "Average", weight: 100 },
+				{ code: "sit", animation: "sit", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 3, supressDefaultAnimation: true },
+				{ code: "lie", animation: "lie", weight: 10, blendMode: "Average", supressDefaultAnimation: true },
+				{ code: "sleep", animation: "sleep", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 4, supressDefaultAnimation: true },
+				{ code: "howl", animation: "howl", weight: 10, blendMode: "Average", supressDefaultAnimation: true }
+			],
+			"*-hyena-*": [
+				{ code: "hurt", animation: "hurt", animationSpeed: 2.2, weight: 10, blendMode: "AddAverage" },
+				{ code: "die", animation: "death", animationSpeed: 1.25, weight: 10, blendMode: "Average", triggeredBy: { onControls: ["dead"] } },
+				{ code: "idle", animation: "idle", blendMode: "AddAverage", easeOutSpeed: 4, triggeredBy: { defaultAnim: true } },
+				{ code: "walk", animation: "walk" },
+				{ code: "run", animation: "run" },
+				{ code: "canter", animation: "run" },
+				{ code: "attack-withwindup", animation: "attack", animationSpeed: 1, blendMode: "Average", weight: 100 },
+				{ code: "sit", animation: "sit", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 3, supressDefaultAnimation: true },
+				{ code: "lie", animation: "lie", weight: 10, blendMode: "Average", supressDefaultAnimation: true },
+				{ code: "sleep", animation: "sleep", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 4, supressDefaultAnimation: true }
+			],
+			"*-fox-*": [
+				{ code: "hurt", animation: "hurt", animationSpeed: 2.2, weight: 10, blendMode: "AddAverage" },
+				{ code: "die", animation: "death", animationSpeed: 1.25, weight: 10, blendMode: "Average", triggeredBy: { onControls: ["dead"] } },
+				{ code: "idle", animation: "idle", blendMode: "AddAverage", easeOutSpeed: 4, triggeredBy: { defaultAnim: true } },
+				{ code: "walk", animation: "walk" },
+				{ code: "run", animation: "run" },
+				{ code: "canter", animation: "run" },
+				{ code: "attack-withwindup", animation: "attack", animationSpeed: 1, blendMode: "Average", weight: 100 },
+				{ code: "sit", animation: "sit", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 3, supressDefaultAnimation: true },
+				{ code: "lie", animation: "lie", weight: 10, blendMode: "Average", supressDefaultAnimation: true },
+				{ code: "sleep", animation: "sleep", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 4, supressDefaultAnimation: true }
+			],
+			"*-raccoon-*": [
+				{ code: "hurt", animation: "hurt", animationSpeed: 2.2, weight: 10, blendMode: "AddAverage" },
+				{ code: "die", animation: "death", animationSpeed: 1.25, weight: 10, blendMode: "Average", triggeredBy: { onControls: ["dead"] } },
+				{ code: "idle", animation: "idle", blendMode: "AddAverage", easeOutSpeed: 4, triggeredBy: { defaultAnim: true } },
+				{ code: "walk", animation: "walk" },
+				{ code: "run", animation: "run" },
+				{ code: "canter", animation: "run" },
+				{ code: "attack-withwindup", animation: "attack", animationSpeed: 1, blendMode: "Average", weight: 100 },
+				{ code: "sit", animation: "sit", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 3, supressDefaultAnimation: true },
+				{ code: "lie", animation: "lie", weight: 10, blendMode: "Average", supressDefaultAnimation: true },
+				{ code: "sleep", animation: "sleep", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 4, supressDefaultAnimation: true }
+			],
+			// The starting wolf and the eurasian wolf share the vanilla wolf clips.
+			"*": [
+				{ code: "hurt", animation: "hurt", animationSpeed: 2.2, weight: 10, blendMode: "AddAverage" },
+				{ code: "die", animation: "death", animationSpeed: 1.25, weight: 10, blendMode: "Average", triggeredBy: { onControls: ["dead"] } },
+				{ code: "idle", animation: "idle", blendMode: "AddAverage", easeOutSpeed: 4, triggeredBy: { defaultAnim: true } },
+				{ code: "walk", animation: "walk" },
+				{ code: "run", animation: "run" },
+				{ code: "canter", animation: "canter" },
+				{ code: "attack-withwindup", animation: "attack-withwindup", animationSpeed: 1, blendMode: "Average", weight: 100 },
+				{ code: "sit", animation: "sit", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 3, supressDefaultAnimation: true },
+				{ code: "lie", animation: "lie", weight: 10, blendMode: "Average", supressDefaultAnimation: true },
+				{ code: "sleep", animation: "sleep", weight: 10, blendMode: "Average", easeInSpeed: 4, easeOutSpeed: 4, supressDefaultAnimation: true },
+				{ code: "howl", animation: "howl", weight: 10, blendMode: "Average", supressDefaultAnimation: true }
+			]
+		}
 	},
 	server: {
 		behaviors: [
@@ -49,32 +304,44 @@
 						damageTier: 2,
 						damageType: "SlashingAttack",
 						slot: 1,
-						mincooldown: 1000,
-						maxcooldown: 1500,
+						mincooldownByType: { "*-fox-*": 700, "*-raccoon-*": 700, "*": 1000 },
+						maxcooldownByType: { "*-fox-*": 1000, "*-raccoon-*": 1000, "*": 1500 },
 						attackDurationMs: 800,
 						damagePlayerAtMs: 500,
 						animation: "attack-withwindup",
 						animationSpeed: 1.5,
-						sound: "game:creature/wolf/attack*"
+						soundByType: {
+							"*-bear-*": "game:creature/bear/attack",
+							"*-hyena-*": "game:creature/hyena/attack",
+							"*-fox-*": "game:creature/fox/attack",
+							"*-raccoon-*": "game:creature/fox/attack",
+							"*": "game:creature/wolf/attack*"
+						}
 					},
 					{
 						code: "petseek",
 						entityCodes: ["drifter-*", "locust-*", "bell-*", "bowtorn-*", "shiver-*", "wolf-*", "bear-*", "hyena-*", "fox-*"],
 						priority: 1.5,
-						movespeed: 0.045,
+						movespeedByType: { "*-fox-*": 0.055, "*-raccoon-*": 0.055, "*-bear-*": 0.04, "*": 0.045 },
 						seekingRange: 12,
-						animation: "Run",
+						animation: "run",
 						animationSpeed: 2,
-						sound: "game:creature/wolf/growl*"
+						soundByType: {
+							"*-bear-*": "game:creature/bear/growl*",
+							"*-hyena-*": "game:creature/hyena/growl",
+							"*-fox-*": "game:creature/fox/growl",
+							"*-raccoon-*": "game:creature/fox/growl",
+							"*": "game:creature/wolf/growl*"
+						}
 					},
 					{
 						code: "stayclosetoguardedentity",
 						priority: 1.4,
-						movespeed: 0.045,
+						movespeedByType: { "*-fox-*": 0.055, "*-raccoon-*": 0.055, "*-bear-*": 0.04, "*": 0.045 },
 						maxDistance: 3,
 						allowTeleport: true,
 						teleportAfterRange: 15,
-						animation: "Canter",
+						animation: "canter",
 						animationSpeed: 2
 					},
 					{
@@ -94,9 +361,11 @@
 			}
 		]
 	},
-	sounds: {
-		hurt: "game:creature/wolf/hurt*",
-		death: "game:creature/wolf/death*",
-		idle: "game:creature/wolf/growl*"
+	soundsByType: {
+		"*-bear-*": { hurt: "game:creature/bear/hurt", death: "game:creature/bear/hurt", idle: "game:creature/bear/growl*" },
+		"*-hyena-*": { hurt: "game:creature/hyena/hurt", death: "game:creature/hyena/death", idle: "game:creature/hyena/laugh" },
+		"*-fox-*": { hurt: "game:creature/fox/hurt", death: "game:creature/fox/die", idle: "game:creature/fox/yip" },
+		"*-raccoon-*": { hurt: "game:creature/fox/hurt", death: "game:creature/fox/die", idle: "game:creature/fox/yip" },
+		"*": { hurt: "game:creature/wolf/hurt*", death: "game:creature/wolf/death*", idle: "game:creature/wolf/growl*" }
 	}
 }

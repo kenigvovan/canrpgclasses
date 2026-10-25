@@ -80,10 +80,11 @@ namespace canrpgclasses.Client
 
             layout.StoreProfile(layout.Mode, Capture(capi));
             layout.Mode = target;
+            layout.ItemLayer = false;
 
             var saved = layout.Profile(target);
             if (saved != null) Apply(capi, saved);
-            else if (target == InputMode.NumberRow) Apply(capi, NumberRowDefaults());
+            else if (target is InputMode.NumberRow or InputMode.Layered) Apply(capi, NumberRowDefaults());
             else if (target == InputMode.Keys) Apply(capi, KeyDefaults());
         }
 

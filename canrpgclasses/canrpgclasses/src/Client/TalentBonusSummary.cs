@@ -6,6 +6,7 @@ using Vintagestory.API.Config;
 using canrpgclasses.Core;
 using canrpgclasses.Core.Classes;
 using canrpgclasses.Core.Config;
+using canrpgclasses.Core.Spells;
 using canrpgclasses.Core.Talents;
 
 namespace canrpgclasses.Client
@@ -53,10 +54,8 @@ namespace canrpgclasses.Client
             ("paladin:zealots_momentum",StatKeys.WalkSpeed,          1f),
             ("hunter:bow_expertise",   StatKeys.RangedWeaponsDamage,   1f),
             ("hunter:deadeye",         HunterRanged,                  1f), // approx: shown as ranged power
-            ("hunter:beast_kinship",      "max_focus",             1f),
             ("hunter:light_footed",    StatKeys.WalkSpeed,            1f),
             ("hunter:hunters_hide",    StatKeys.MaxHealthExtraPoints,  1f),
-            ("hunter:kindred_spirit",     StatKeys.MaxHealthExtraPoints,  1f),
             ("hunter:natural_recovery",StatKeys.HealingEffectiveness,   1f),
             ("warrior:weapon_expertise", StatKeys.MeleeWeaponsDamage,   1f),
             ("warrior:fleet_of_foot",    StatKeys.WalkSpeed,            1f),
@@ -94,32 +93,65 @@ namespace canrpgclasses.Client
             ("shaman:water_meditation",    StatKeys.ResourceRegen,        1f),
         };
 
-        // Display order: stat key, lang label, percent (x100) or flat.
-        private static readonly (string stat, string langKey, bool pct)[] SummaryRows =
+        private const string DamageGroup = "ui-sum-g-damage";
+
+        // Display order by group: stat key, lang label, percent (x100) or flat.
+        private static readonly (string group, (string stat, string langKey, bool pct)[] rows)[] SummaryGroups =
         {
-            (StatKeys.MeleeWeaponsDamage,   "ui-sum-melee",     true),
-            (StatKeys.RangedWeaponsDamage,  "ui-sum-bow",       true),
-            (StatKeys.SpellpowerHoly,      "ui-sum-holy",      true),
-            (PriestShadow,           "ui-sum-shadow",    true),
-            (MageFire,               "ui-sum-fire",      true),
-            (MageFrost,              "ui-sum-frost",     true),
-            (MageArcane,             "ui-sum-arcane",    true),
-            (ShamanNature,           "ui-sum-nature",    true),
-            (HunterRanged,           "ui-sum-ranged",    true),
-            (StatKeys.HealingPower,        "ui-sum-healpower", true),
-            (StatKeys.HealingEffectiveness,  "ui-sum-healing",   true),
-            (StatKeys.WalkSpeed,            "ui-sum-speed",     true),
-            (StatKeys.MaxHealthExtraPoints, "ui-sum-maxhp",     false),
-            ("max_energy",           "ui-sum-maxenergy", false),
-            ("max_mana",             "ui-sum-maxmana",   false),
-            ("max_focus",            "ui-sum-maxfocus",  false),
-            ("max_rage",             "ui-sum-maxrage",   false),
-            (StatKeys.DamageReduction,      "ui-sum-dr",        true),
-            (StatKeys.MagicResist,          "ui-sum-magicres",  true),
-            (StatKeys.ResourceRegen,        "ui-sum-regen",     true),
-            (StatKeys.HungerRate,           "ui-sum-hunger",    true),
-            (StatKeys.AnimalSeekingRange,   "ui-sum-stealth",   true),
-            (StatKeys.CooldownReduction,    "ui-sum-cdr",       true),
+            ("ui-sum-g-survival", new[]
+            {
+                (StatKeys.MaxHealthExtraPoints, "ui-sum-maxhp",     false),
+                (StatKeys.DamageReduction,      "ui-sum-dr",        true),
+                (StatKeys.MagicResist,          "ui-sum-magicres",  true),
+                (StatKeys.HealingEffectiveness, "ui-sum-healing",   true),
+            }),
+            ("ui-sum-g-resources", new[]
+            {
+                ("max_energy",                  "ui-sum-maxenergy", false),
+                ("max_mana",                    "ui-sum-maxmana",   false),
+                ("max_focus",                   "ui-sum-maxfocus",  false),
+                ("max_rage",                    "ui-sum-maxrage",   false),
+                (StatKeys.ResourceRegen,        "ui-sum-regen",     true),
+                (StatKeys.CooldownReduction,    "ui-sum-cdr",       true),
+            }),
+            (DamageGroup, new[]
+            {
+                (StatKeys.MeleeWeaponsDamage,   "ui-sum-melee",     true),
+                (StatKeys.RangedWeaponsDamage,  "ui-sum-bow",       true),
+                (HunterRanged,                  "ui-sum-ranged",    true),
+                (StatKeys.SpellpowerHoly,       "ui-sum-holy",      true),
+                (PriestShadow,                  "ui-sum-shadow",    true),
+                (MageFire,                      "ui-sum-fire",      true),
+                (MageFrost,                     "ui-sum-frost",     true),
+                (MageArcane,                    "ui-sum-arcane",    true),
+                (ShamanNature,                  "ui-sum-nature",    true),
+            }),
+            ("ui-sum-g-healing", new[]
+            {
+                (StatKeys.HealingPower,         "ui-sum-healpower", true),
+            }),
+            ("ui-sum-g-utility", new[]
+            {
+                (StatKeys.WalkSpeed,            "ui-sum-speed",     true),
+                (StatKeys.HungerRate,           "ui-sum-hunger",    true),
+                (StatKeys.AnimalSeekingRange,   "ui-sum-stealth",   true),
+            }),
+        };
+
+        // A drop is the good direction for these.
+        private static readonly HashSet<string> LowerIsBetter = new() { StatKeys.HungerRate, StatKeys.AnimalSeekingRange };
+
+        private static readonly Dictionary<string, SpellSchool> StatSchool = new()
+        {
+            [StatKeys.MeleeWeaponsDamage] = SpellSchool.PhysicalMelee,
+            [StatKeys.RangedWeaponsDamage] = SpellSchool.PhysicalRanged,
+            [HunterRanged] = SpellSchool.PhysicalRanged,
+            [StatKeys.SpellpowerHoly] = SpellSchool.Holy,
+            [PriestShadow] = SpellSchool.Shadow,
+            [MageFire] = SpellSchool.Fire,
+            [MageFrost] = SpellSchool.Frost,
+            [MageArcane] = SpellSchool.Arcane,
+            [ShamanNature] = SpellSchool.Nature,
         };
 
         /// <summary>One summary line; the direction lets the window colour it without re-parsing.</summary>
@@ -128,8 +160,16 @@ namespace canrpgclasses.Client
             public readonly string Label;
             public readonly string Value;
             public readonly int Sign;
+            /// <summary>School tint for the label; null = default label colour.</summary>
+            public readonly string? LabelHex;
+            /// <summary>Resulting spell power multiplier, shown dimmed after the value.</summary>
+            public readonly string Extra;
+            public readonly bool IsHeader;
 
-            public Row(string label, string value, int sign) { Label = label; Value = value; Sign = sign; }
+            public Row(string label, string value, int sign, string? labelHex = null, string extra = "", bool isHeader = false)
+            {
+                Label = label; Value = value; Sign = sign; LabelHex = labelHex; Extra = extra; IsHeader = isHeader;
+            }
         }
 
         /// <summary>The summary block as label/value rows, already localised.</summary>
@@ -177,35 +217,53 @@ namespace canrpgclasses.Client
             }
 
             var lines = new List<Row>();
-
-            foreach (var (stat, langKey, pct) in SummaryRows)
-            {
-                if (!totals.TryGetValue(stat, out var v) || Math.Abs(v) < 1e-4f) continue;
-                string val = pct ? Signed((int)Math.Round(v * 100f)) + "%" : Signed((int)Math.Round(v));
-                lines.Add(new Row(Lang.Get("canrpgclasses:" + langKey), val, Math.Sign(v)));
-            }
-            if (lines.Count == 0) lines.Add(new Row(Lang.Get("canrpgclasses:ui-sum-none"), "", 0));
-
-            // levelMul * (1 + stat fraction), as in EBRpgStats.GetSpellPower.
+            bool any = false;
             float levelMul = 1f + Math.Max(0, level - 1) * BalanceConfig.Global("spellPowerPerLevel", 0.05f);
-            totals.TryGetValue(StatKeys.MeleeWeaponsDamage, out var meleeFrac);
-            totals.TryGetValue(StatKeys.SpellpowerHoly, out var holyFrac);
-            float meleeSp = levelMul * (1f + Math.Max(-0.9f, meleeFrac));
-            lines.Add(new Row(Lang.Get("canrpgclasses:ui-sum-sp-melee"), "×" + meleeSp.ToString("0.00"), 0));
-            if (holyFrac > 1e-4f || classId == "paladin")
+
+            foreach (var (group, rows) in SummaryGroups)
             {
-                float holySp = levelMul * (1f + Math.Max(-0.9f, holyFrac));
-                lines.Add(new Row(Lang.Get("canrpgclasses:ui-sum-sp-holy"), "×" + holySp.ToString("0.00"), 0));
+                var block = new List<Row>();
+                if (group == DamageGroup)
+                    block.Add(new Row(Lang.Get("canrpgclasses:ui-sum-levelmul"), "×" + levelMul.ToString("0.00"), 0));
+
+                foreach (var (stat, langKey, pct) in rows)
+                {
+                    if (!totals.TryGetValue(stat, out var v) || Math.Abs(v) < 1e-4f) continue;
+                    any = true;
+                    string val = pct ? Signed((int)Math.Round(v * 100f)) + "%" : Signed((int)Math.Round(v));
+                    int sign = Math.Sign(v) * (LowerIsBetter.Contains(stat) ? -1 : 1);
+                    string? hex = StatSchool.TryGetValue(stat, out var school) ? SchoolPalette.Hex(school) : null;
+                    float? mul = SpellPowerMul(stat, totals, levelMul);
+                    block.Add(new Row(Lang.Get("canrpgclasses:" + langKey), val, sign, hex,
+                        mul.HasValue ? "×" + mul.Value.ToString("0.00") : ""));
+                }
+
+                if (block.Count == 0) continue;
+                lines.Add(new Row(Lang.Get("canrpgclasses:" + group), "", 0, isHeader: true));
+                lines.AddRange(block);
             }
+            if (!any) lines.Insert(0, new Row(Lang.Get("canrpgclasses:ui-sum-none"), "", 0));
 
             return lines;
         }
 
+        /// <summary>Resulting spell power for a school stat, as in EBRpgStats.GetSpellPower; null for non-school stats.</summary>
+        private static float? SpellPowerMul(string stat, Dictionary<string, float> totals, float levelMul)
+        {
+            float F(string s) => totals.TryGetValue(s, out var v) ? v : 0f;
+            if (stat == StatKeys.MeleeWeaponsDamage) return levelMul * (1f + Math.Max(-0.9f, F(stat)));
+            // Bow damage and ranged spell power stack for physical ranged spells; shown once, on the bow row.
+            if (stat == StatKeys.RangedWeaponsDamage)
+                return levelMul * (1f + Math.Max(-0.9f, F(stat))) * Math.Max(0.1f, 1f + F(HunterRanged));
+            if (stat == HunterRanged) return null;
+            return StatSchool.ContainsKey(stat) ? levelMul * Math.Max(0.1f, 1f + F(stat)) : null;
+        }
+
         /// <summary>Class gear affinities with a live active marker, via the same <see cref="GearAffinity.Matches"/>
         /// the server uses.</summary>
-        public static List<(string line, bool active)> GearAffinities(ICoreClientAPI capi, RpgClassDef? cls)
+        public static List<(string line, bool active, string tag)> GearAffinities(ICoreClientAPI capi, RpgClassDef? cls)
         {
-            var result = new List<(string, bool)>();
+            var result = new List<(string, bool, string)>();
             if (cls == null || cls.GearAffinities.Count == 0) return result;
 
             var plr = capi.World?.Player;
@@ -213,9 +271,20 @@ namespace canrpgclasses.Client
             var armorInv = plr?.InventoryManager?.GetOwnInventory("character");
 
             foreach (var aff in cls.GearAffinities)
-                result.Add((aff.ResolvedDescription, aff.Matches(weapon, armorInv)));
+                result.Add((aff.ResolvedDescription, aff.Matches(weapon, armorInv), ConditionTag(aff)));
 
             return result;
+        }
+
+        /// <summary>Short label of what the affinity checks: weapon, armor, or both.</summary>
+        private static string ConditionTag(GearAffinity aff)
+        {
+            var parts = new List<string>();
+            if ((aff.WeaponTools?.Length ?? 0) > 0 || !string.IsNullOrEmpty(aff.WeaponCodeContains))
+                parts.Add(Lang.Get("canrpgclasses:ui-aff-tag-weapon"));
+            if ((aff.ArmorCodeContains?.Length ?? 0) > 0)
+                parts.Add(Lang.Get(aff.ArmorAbsent ? "canrpgclasses:ui-aff-tag-noarmor" : "canrpgclasses:ui-aff-tag-armor"));
+            return parts.Count > 0 ? string.Join(" + ", parts) : Lang.Get("canrpgclasses:ui-aff-tag-always");
         }
 
         private static string Signed(int n) => SheetFormat.Signed(n);

@@ -3,7 +3,7 @@
 
 	"spells": {
 		"vicious_strike": { "resource": 25, "cooldown": 2, "empowerCoeff": 3, "empowerWindow": 6, "knockback": 0.2 },
-		"gut_strike": { "resource": 35, "cooldown": 10, "coeff": 2, "perCombo": 1.5, "knockback": 0.4, "empowerWindow": 6 },
+		"gut_strike": { "resource": 35, "cooldown": 10, "coeff": 2, "perCombo": 1.0, "knockback": 0.4, "empowerWindow": 6 },
 		"quickblades": { "resource": 25, "cooldown": 2, "exhaust": 0.2, "duration": 10, "amp": 1, "cap": 9, "perStack": 0.06 },
 		"shadow_stride": { "resource": 25, "cooldown": 12, "invisDuration": 2 },
 		"slip_away": { "resource": 30, "cooldown": 40, "invisDuration": 4, "speedDuration": 4 },
@@ -58,6 +58,7 @@
 		"rogueUtilityHpPerPoint": 0.4,
 		"rogueBaseHealth": 3,
 		"rogueHpPerLevel": 0,
+		"roguePositionalCap": 0.50,
 
 		"rogueEnergyRegenPerSec": 12
 	}

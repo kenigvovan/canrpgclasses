@@ -21,7 +21,7 @@ namespace canrpgclasses.Core.Execution
             public SpellSchool School;
             public ParticleSpec? Carpet;
 
-            // Ticking-zone budgets (unused for traps).
+            // Ticking-zone budgets; traps reuse NextFxAtMs for the owner's marker.
             public int DamageTicksLeft;
             public int FxTicksLeft;
             public long DamageEveryMs, FxEveryMs;
@@ -35,6 +35,8 @@ namespace canrpgclasses.Core.Execution
             // Lives only while the caster keeps channeling.
             public bool ChannelBound;
         }
+
+        private const long TrapMarkerEveryMs = 1500;
 
         private static readonly List<Zone> zones = new List<Zone>();
         private static ICoreServerAPI? sapi;
@@ -92,8 +94,9 @@ namespace canrpgclasses.Core.Execution
                 zone.IsTrap = true;
                 zone.TriggerRadius = imp.ZoneTriggerRadius > 0 ? imp.ZoneTriggerRadius : 1.5f;
                 zone.ArmExpiryMs = now + (long)(duration * 1000f);
-                // One puff at placement, then hidden until it fires.
+                // One puff at placement, then hidden until it fires; only the owner's side keeps seeing a faint marker.
                 zone.Carpet?.EmitDisc(caster.World, zone.Center, zone.TriggerRadius);
+                zone.NextFxAtMs = now + TrapMarkerEveryMs;
                 zones.Add(zone);
                 return;
             }
@@ -174,6 +177,11 @@ namespace canrpgclasses.Core.Execution
                     {
                         Trigger(z);
                         zones.RemoveAt(i);
+                    }
+                    else if (now >= z.NextFxAtMs)
+                    {
+                        Visuals.SkillFx.RuneForAllies(world, z.Caster, z.Center, z.TriggerRadius, z.School);
+                        z.NextFxAtMs = now + TrapMarkerEveryMs;
                     }
                     continue;
                 }

@@ -36,7 +36,8 @@ namespace canrpgclasses.Rogues.Talents
         }
     }
 
-    // Positional DamageModifier: bonus when striking from behind.
+    // Positional DamageModifier: bonus when striking from behind. Also applies Exposed Flesh, summed with this one and
+    // capped, so the two perks don't multiply.
     [TalentRegistration("rogue:blindside")]
     public class BlindsideTalent : Talent
     {
@@ -48,13 +49,15 @@ namespace canrpgclasses.Rogues.Talents
         }
         /// <summary>Bonus per rank, from config (default 0.10).</summary>
         public static float PerRank => BalanceConfig.Talent("rogue:blindside").F("perRank", 0.10f);
-        public static float Multiplier(int rank) => 1f + PerRank * rank;
+        /// <summary>Cap on the summed from-behind bonus, from config (default 0.50).</summary>
+        public static float PositionalCap => BalanceConfig.Global("roguePositionalCap", 0.50f);
 
         public override DamageModifier? DamageModifier => (Entity victim, Entity? attacker, DamageSource source, ref float damage) =>
         {
             if (damage <= 0f || attacker == null || !DamageModifiers.IsBehind(victim, attacker)) return;
-            int rank = TalentState.Rank(attacker, Id);
-            if (rank > 0) damage *= Multiplier(rank);
+            float bonus = PerRank * TalentState.Rank(attacker, Id)
+                        + ExposedFleshTalent.PerRank * TalentState.Rank(attacker, "rogue:exposed_flesh");
+            if (bonus > 0f) damage *= 1f + System.Math.Min(bonus, PositionalCap);
         };
     }
 

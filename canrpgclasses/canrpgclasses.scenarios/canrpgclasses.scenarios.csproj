@@ -1,0 +1,78 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Atlas scenarios: each test class boots a real headless Vintage Story server with the mod loaded. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- Local Atlas checkout. Override with -p:AtlasRoot=... when it lives elsewhere. -->
+    <AtlasRoot Condition="'$(AtlasRoot)' == ''">..\..\..\libs\1.22\Atlas-main\Atlas-main</AtlasRoot>
+    <!-- VS build acceleration skips the atlas-mods staging target, so the staged mod goes stale. -->
+    <AccelerateBuildsInVisualStudio>false</AccelerateBuildsInVisualStudio>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(AtlasRoot)\src\Atlas.XUnit\Atlas.XUnit.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="VintagestoryAPI">
+      <HintPath>$(VINTAGE_STORY)\VintagestoryAPI.dll</HintPath>
+    </Reference>
+    <Reference Include="VSSurvivalMod">
+      <HintPath>$(VINTAGE_STORY)\Mods\VSSurvivalMod.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VSEssentials">
+      <HintPath>$(VINTAGE_STORY)\Mods\VSEssentials.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Types of these show up in the mod's public signatures; the staged dependency mods provide them at run time. -->
+    <Reference Include="canparty">
+      <HintPath>..\..\..\libs\1.22\canparty.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="effectshud">
+      <HintPath>..\..\..\libs\1.22\effectshud.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Staged into every test server as a folder mod; the scenarios bind the same assembly, so its statics are reachable. -->
+    <ProjectReference Include="..\canrpgclasses\canrpgclasses.csproj">
+      <AtlasMod>true</AtlasMod>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Import Project="$(AtlasRoot)\build\Atlas.E2E.targets" />
+
+  <!-- Required mods (canparty, effectshud, playermodellib) as release zips or dlls dropped into atlas-deps/:
+       appended to the manifest Atlas stages from. -->
+  <Target Name="AppendAtlasDeps" AfterTargets="WriteAtlasModManifest" BeforeTargets="Build"
+          Condition="'$(TargetFramework)' != ''">
+    <ItemGroup>
+      <_AtlasDep Include="$(MSBuildProjectDirectory)\atlas-deps\*.zip;$(MSBuildProjectDirectory)\atlas-deps\*.dll" />
+    </ItemGroup>
+    <Warning Condition="'@(_AtlasDep)' == ''"
+             Text="atlas-deps/ is empty: put the canparty, effectshud and playermodellib mods there, or the test server will refuse canrpgclasses." />
+    <WriteLinesToFile File="$(TargetDir)atlas-mods.generated.txt"
+                      Lines="@(_AtlasDep->'%(FullPath)')"
+                      Overwrite="false"
+                      Condition="'@(_AtlasDep)' != ''" />
+  </Target>
+
+</Project>

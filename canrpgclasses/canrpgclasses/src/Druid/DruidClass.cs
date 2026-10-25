@@ -22,7 +22,7 @@ namespace canrpgclasses.Druid
             {
                 "canrpgclasses:nature_bolt", "canrpgclasses:lunar_flare", "canrpgclasses:verdant_renewal",
                 "canrpgclasses:feline_form", "canrpgclasses:flesh_tear", "canrpgclasses:savage_bite",
-                "canrpgclasses:bark_hide"
+                "canrpgclasses:bark_hide", "canrpgclasses:entangling_roots"
             };
 
             string[] plateArmor = { "plate", "brigandine", "lamellar" };

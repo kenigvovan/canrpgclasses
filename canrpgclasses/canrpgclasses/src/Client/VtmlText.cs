@@ -18,6 +18,9 @@ namespace canrpgclasses.Client
         public static readonly string Muted = Hex(EditorStyle.Muted);
         public static readonly string Warn = Hex(EditorStyle.Warn);
 
+        /// <summary>A short blank line to separate groups; a plain empty line is too tall.</summary>
+        public const string Gap = "<font size=\"6\"> </font>";
+
         public static string Esc(string? text)
             => (text ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 

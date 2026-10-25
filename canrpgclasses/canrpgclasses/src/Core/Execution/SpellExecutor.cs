@@ -614,6 +614,8 @@ namespace canrpgclasses.Core.Execution
             if (ebea == null || !ebea.TryGetEffect(effectId, out var eff)) return;
             eff.OnExpire();
             ebea.activeEffects.Remove(effectId);
+            // Else the save still holds it and it comes back, HUD-less, after a relog.
+            ebea.serialize();
             ebea.SendEffectToClient(null, new System.Collections.Generic.HashSet<string> { effectId });
         }
 
@@ -1007,7 +1009,11 @@ namespace canrpgclasses.Core.Execution
             if (target == null || (target == ctx.Caster && !imp.AffectCaster)) return;
             float dur = imp.StatusEffectDuration > 0 ? imp.StatusEffectDuration : 4f;
             if (canrpgclasses.Core.Control.ControlState.Apply(target, canrpgclasses.Core.Control.ControlType.Root, dur, ctx.Caster))
+            {
                 imp.Particles?.Emit(ctx.Caster.World, target);
+                if (imp.ControlFxEntity != null)
+                    Entities.EntityControlFx.Spawn(target, imp.ControlFxEntity, CombatFlags.Rooted, dur);
+            }
         }
 
         /// <summary>Full incapacitate that ends on the first hit, plus a sheep model on player targets.</summary>

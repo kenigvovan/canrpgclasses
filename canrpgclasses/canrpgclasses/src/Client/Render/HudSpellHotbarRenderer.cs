@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
+using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using canrpgclasses.Core.EB;
 using canrpgclasses.Core.Resources;
@@ -86,11 +87,18 @@ namespace canrpgclasses.Client.Render
                 var bar = hotbar.BarAt(b);
                 if (bar is not { Visible: true, Radial: false }) continue;
                 DrawBar(player, b, bar, cooldowns, activeAura, hovered, screenW, screenH);
+                // Item layer: the bars stay visible but read as switched off.
+                if (layout.Mode == InputMode.Layered && layout.ItemLayer)
+                {
+                    var block = BarBlock(bar, screenW, screenH);
+                    draw.Rect(block.Left, block.Top, block.W, block.H, new Vec4f(0f, 0f, 0f, 0.6f));
+                }
             }
 
             if (cfg.ShowResources) DrawResources(player, cfg, screenW, screenH);
             if (cfg.ShowCombo) DrawComboPoints(player, cfg, screenW, screenH);
             DrawCastBar(cfg, screenW, screenH);
+            DrawPetBar(player, cfg, screenW, screenH);
 
             if (layout.EditMode) HandleEditDrag(cfg, screenW, screenH);
             else dragging = -1;
@@ -178,6 +186,29 @@ namespace canrpgclasses.Client.Render
             draw.Frame(b.X, b.Y, b.W, b.H, 1.5f, new Vec4f(0.85f, 0.85f, 0.9f, 0.7f));
 
             draw.TextCentered(castSpellName, barFont, b.X + b.W / 2, b.Y + b.H / 2, new Vec4f(0.95f, 0.95f, 1f, 1f));
+        }
+
+        private bool IsHunter(EntityPlayer player)
+            => Core.Talents.TalentState.CurrentClass(player) == "hunter";
+
+        private bool InParty => capi.ModLoader.GetModSystem<canparty.canpartyModSystem>()?.Client?.InParty ?? false;
+
+        /// <summary>Wolf health for a solo hunter; in a party the wolf has its row in canparty's frames instead.
+        /// Shown empty in edit mode, so it can be placed without a wolf out.</summary>
+        private void DrawPetBar(EntityPlayer player, HudLayoutConfig cfg, float screenW, float screenH)
+        {
+            if (!IsHunter(player) || InParty) return;
+            var (frac, name) = Hunter.HunterPetSystem.PetStatus(player);
+            if (frac < 0f && !layout.EditMode) return;
+
+            var b = Block(screenW, screenH, cfg.PetAnchorX, cfg.PetAnchorY, cfg.PetWidth, cfg.PetThickness, false);
+            float fill = Math.Clamp(frac, 0f, 1f);
+            draw.Rect(b.X, b.Y, b.W, b.H, new Vec4f(0f, 0f, 0f, 0.55f));
+            draw.Rect(b.X, b.Y, b.W * fill, b.H, new Vec4f(0.85f - 0.5f * fill, 0.3f + 0.5f * fill, 0.25f, 0.9f));
+            draw.Frame(b.X, b.Y, b.W, b.H, 1f, new Vec4f(0.8f, 0.8f, 0.85f, 0.6f));
+
+            string label = string.IsNullOrEmpty(name) ? Lang.Get("canrpgclasses:ui-pet-title") : name;
+            draw.Text(label, barFont, b.X, b.Y - 14f, new Vec4f(0.95f, 0.95f, 1f, 1f));
         }
 
         /// <summary>Class resource bar; combo points are drawn separately by <see cref="DrawComboPoints"/>.</summary>
@@ -372,6 +403,11 @@ namespace canrpgclasses.Client.Render
 
             editBlocks.Add((Block(screenW, screenH, cfg.CastAnchorX, cfg.CastAnchorY, cfg.CastWidth, cfg.CastThickness, cfg.CastVertical),
                 (fx, fy) => { cfg.CastAnchorX = fx; cfg.CastAnchorY = fy; }));
+
+            var self = capi.World?.Player?.Entity;
+            if (self != null && IsHunter(self) && !InParty)
+                editBlocks.Add((Block(screenW, screenH, cfg.PetAnchorX, cfg.PetAnchorY, cfg.PetWidth, cfg.PetThickness, false),
+                    (fx, fy) => { cfg.PetAnchorX = fx; cfg.PetAnchorY = fy; }));
 
             if (cfg.ShowCombo)
             {

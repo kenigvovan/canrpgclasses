@@ -1,0 +1,22 @@
+{
+  "classes": [
+    {
+      "id": "brokenclass",
+      "name": "Broken",
+      "trees": [ "Only" ],
+      "resource": { "id": "mana", "max": 100, "regenPerSec": 3 },
+      "baseSpells": [ "mymod:no_such_spell" ]
+    }
+  ],
+  "spells": [
+    { "name": "No id", "school": "Fire", "castMode": "Instant", "target": { "type": "Caster" } }
+  ],
+  "talents": [
+    { "id": "brokenclass:grants_nothing", "class": "brokenclass", "tree": 0, "tier": 0, "column": 0,
+      "grantsSpell": "mymod:missing_spell" },
+    { "id": "brokenclass:wrong_tree", "class": "brokenclass", "tree": 2, "tier": 0, "column": 0 },
+    { "id": "brokenclass:orphan", "class": "no_such_class", "tree": 0, "tier": 0, "column": 0 },
+    { "id": "brokenclass:needs_ghost", "class": "brokenclass", "tree": 0, "tier": 0, "column": 1,
+      "requires": "brokenclass:ghost" }
+  ]
+}

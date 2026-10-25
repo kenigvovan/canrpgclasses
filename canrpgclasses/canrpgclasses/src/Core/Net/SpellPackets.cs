@@ -120,13 +120,16 @@ namespace canrpgclasses.Core.Net
     }
 
     /// <summary>server → party members: each member's resource fraction for the canparty frames (canparty only syncs HP).
-    /// Parallel arrays; <see cref="Colors"/> is packed RGBA.</summary>
+    /// Parallel arrays; <see cref="Colors"/> is packed RGBA. <see cref="PetFractions"/> is the member's hunter wolf
+    /// health, -1 without one: a far member's wolf isn't loaded on the client, so the server sends it.</summary>
     [ProtoContract]
     public class PartyResourceMsg
     {
         [ProtoMember(1)] public string[] Uids = System.Array.Empty<string>();
         [ProtoMember(2)] public float[] Fractions = System.Array.Empty<float>();
         [ProtoMember(3)] public int[] Colors = System.Array.Empty<int>();
+        [ProtoMember(4)] public float[] PetFractions = System.Array.Empty<float>();
+        [ProtoMember(5)] public string[] PetNames = System.Array.Empty<string>();
     }
 
     public enum AdminAction { AddXp = 0, SetLevel = 1, AddLevel = 2 }

@@ -19,10 +19,10 @@ namespace canrpgclasses.Hunter
             // Available from level 1; the wolf and its orders are class-defining, so they need no talent.
             BaseSpells = new[]
             {
-                "canrpgclasses:summon_pet", "canrpgclasses:measured_shot", "canrpgclasses:finishing_shot",
+                "canrpgclasses:summon_pet", "canrpgclasses:revive_pet", "canrpgclasses:kill_command", "canrpgclasses:pet_special", "canrpgclasses:tame_beast", "canrpgclasses:measured_shot", "canrpgclasses:finishing_shot",
                 "canrpgclasses:pet_aggressive", "canrpgclasses:pet_defensive", "canrpgclasses:pet_passive",
                 "canrpgclasses:pet_attack", "canrpgclasses:pet_come", "canrpgclasses:pet_stay",
-                "canrpgclasses:pet_dismiss"
+                "canrpgclasses:pet_dismiss", "canrpgclasses:pet_growl"
             };
 
             string[] heavyArmor = { "plate", "chain", "scale", "brigandine", "lamellar" };

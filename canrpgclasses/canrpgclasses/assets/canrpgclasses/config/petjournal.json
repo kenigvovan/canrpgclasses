@@ -1,0 +1,24 @@
+{
+	// Bestiary rewards: cosmetics, stable slots and tricks only, never power.
+	// A milestone pays once when all its conditions hold: entries (looks and colours tamed), rare (rare coats tamed),
+	// family (every look of that family tamed at least once).
+	// Rewards: slots (extra stable slots), tricks (unlocked trick codes), item (given to the hunter).
+	defaultTricks: ["sit"],
+	milestones: [
+		{ entries: 2, slots: 1 },
+		{ entries: 4, tricks: ["lie"] },
+		{ entries: 5, item: "canrpgclasses:petcollarfine-red" },
+		{ entries: 8, slots: 1, item: "canrpgclasses:petcollarfine-blue" },
+		{ entries: 10, tricks: ["sleep"] },
+		{ entries: 12, item: "canrpgclasses:petcollarfine-black" },
+		{ entries: 15, slots: 1 },
+		{ entries: 18, tricks: ["howl", "stand"] },
+		{ entries: 22, slots: 1, item: "canrpgclasses:petcollarfine-silver" },
+		{ entries: 30, slots: 1, item: "canrpgclasses:petcollarfine-gold" },
+		{ rare: 1, item: "canrpgclasses:petcollarfine-white" },
+		{ family: "wolf", item: "canrpgclasses:petcollarfine-gray" },
+		{ family: "bear", item: "canrpgclasses:petcollarfine-fur" },
+		{ family: "hyena", item: "canrpgclasses:petcollarfine-yellow" },
+		{ family: "fox", item: "canrpgclasses:petcollarfine-orange" }
+	]
+}

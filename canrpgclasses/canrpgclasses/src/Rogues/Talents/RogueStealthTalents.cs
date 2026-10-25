@@ -72,7 +72,7 @@ namespace canrpgclasses.Rogues.Talents
         }
     }
 
-    // Hook talent: positional damage that stacks with Blindside.
+    // Positional damage, applied by Blindside's modifier: the two are summed and capped there.
     [TalentRegistration("rogue:exposed_flesh")]
     public class ExposedFleshTalent : Talent
     {
@@ -84,14 +84,6 @@ namespace canrpgclasses.Rogues.Talents
         }
         /// <summary>Bonus per rank, from config (default 0.04).</summary>
         public static float PerRank => BalanceConfig.Talent("rogue:exposed_flesh").F("perRank", 0.04f);
-        public static float Multiplier(int rank) => 1f + PerRank * rank;
-
-        public override DamageModifier? DamageModifier => (Entity victim, Entity? attacker, DamageSource source, ref float damage) =>
-        {
-            if (damage <= 0f || attacker == null || !DamageModifiers.IsBehind(victim, attacker)) return;
-            int rank = TalentState.Rank(attacker, Id);
-            if (rank > 0) damage *= Multiplier(rank);
-        };
     }
 
     [TalentRegistration("rogue:learn_crippling_oil")]

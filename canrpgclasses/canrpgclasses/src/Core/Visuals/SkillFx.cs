@@ -54,6 +54,11 @@ namespace canrpgclasses.Core.Visuals
         public static void Rune(IWorldAccessor world, Vec3d at, float radius, SpellSchool school)
             => Send(world, SkillFxKind.Rune, at, at, school, radius);
 
+        /// <summary>A ground sigil only <paramref name="viewer"/>'s allies see: the owner's marker on a hidden trap.</summary>
+        public static void RuneForAllies(IWorldAccessor world, Entity viewer, Vec3d at, float radius, SpellSchool school)
+            => Send(world, SkillFxKind.Rune, at, at, school, radius,
+                sp => sp.Entity != null && Execution.SpellExecutor.IsAlly(viewer, sp.Entity));
+
         /// <summary>Chest height, where a bolt visually connects to a body.</summary>
         private static Vec3d Anchor(Entity e)
         {
@@ -64,7 +69,8 @@ namespace canrpgclasses.Core.Visuals
 
         private static Vec3d Foot(Entity e) => e.Pos.XYZ;
 
-        private static void Send(IWorldAccessor world, SkillFxKind kind, Vec3d a, Vec3d b, SpellSchool school, float param)
+        private static void Send(IWorldAccessor world, SkillFxKind kind, Vec3d a, Vec3d b, SpellSchool school, float param,
+            System.Func<IServerPlayer, bool>? only = null)
         {
             if (world == null || world.Side != EnumAppSide.Server) return;
             var mod = canrpgclassesModSystem.For(world.Api);
@@ -80,7 +86,7 @@ namespace canrpgclasses.Core.Visuals
             };
             foreach (var p in world.GetPlayersAround(a, BroadcastRadius, BroadcastRadius))
             {
-                if (p is IServerPlayer sp) mod.ServerChannel.SendPacket(packet, sp);
+                if (p is IServerPlayer sp && (only == null || only(sp))) mod.ServerChannel.SendPacket(packet, sp);
             }
         }
     }

@@ -1,0 +1,81 @@
+{
+  "classes": [
+    {
+      "id": "battlemage",
+      "name": "Battlemage",
+      "role": "Melee caster",
+      "description": "Fights in close range with fire.",
+      "icon": "fireball",
+      "trees": [ "Flame", "Steel", "Ward" ],
+      "resource": { "id": "mana", "max": 100, "regenPerSec": 3 },
+      "baseSpells": [ "mymod:fire_slash", "mymod:flame_ward" ],
+      "hpPerLevel": 0,
+      "statsPerLevel": [ { "stat": "strength", "value": 3 }, { "stat": "intelligence", "value": 3 } ]
+    }
+  ],
+  "spells": [
+    {
+      "id": "mymod:fire_slash",
+      "name": "Fire Slash",
+      "description": "Burns the aimed enemy for {0}x spell power.",
+      "icon": "fireball",
+      "school": "Fire",
+      "range": 4,
+      "castMode": "Instant",
+      "resourceCost": 15,
+      "cooldown": 4,
+      "target": { "type": "Aim", "affinity": "Enemy" },
+      "descArgs": [ 1.2 ],
+      "impacts": [ { "action": "Damage", "coefficient": 1.2, "particles": "school" } ]
+    },
+    {
+      "id": "mymod:flame_ward",
+      "name": "Flame Ward",
+      "description": "Absorbs {0}x spell power of damage for 10s.",
+      "icon": "fireball",
+      "school": "Fire",
+      "castMode": "Instant",
+      "resourceCost": 25,
+      "cooldown": 20,
+      "target": { "type": "Caster" },
+      "descArgs": [ 2 ],
+      "impacts": [ { "action": "Shield", "shieldCoefficient": 2, "shieldSeconds": 10 } ]
+    },
+    {
+      "id": "mymod:flame_wave",
+      "name": "Flame Wave",
+      "description": "Burns every enemy within 6 blocks for {0}x spell power.",
+      "icon": "fireball",
+      "school": "Fire",
+      "range": 6,
+      "castMode": "Charge",
+      "castSeconds": 1.5,
+      "resourceCost": 35,
+      "cooldown": 12,
+      "target": { "type": "Area", "affinity": "Enemy" },
+      "descArgs": [ 0.9 ],
+      "impacts": [ { "action": "Damage", "coefficient": 0.9, "particles": "school" } ]
+    }
+  ],
+  "talents": [
+    {
+      "id": "battlemage:hot_blood", "class": "battlemage",
+      "tree": 0, "tier": 0, "column": 0, "maxRank": 3,
+      "name": "Hot Blood", "description": "+{0} max health per rank.", "descArgs": [ 2 ],
+      "stats": [ { "stat": "maxhealthExtraPoints", "perRank": 2 } ]
+    },
+    {
+      "id": "battlemage:fire_sense", "class": "battlemage",
+      "tree": 0, "tier": 0, "column": 2, "maxRank": 2,
+      "name": "Fire Sense", "description": "+{0} intelligence per rank.", "descArgs": [ 5 ],
+      "stats": [ { "stat": "intelligence", "perRank": 5 } ]
+    },
+    {
+      "id": "battlemage:learn_flame_wave", "class": "battlemage",
+      "tree": 0, "tier": 1, "column": 1,
+      "requires": "battlemage:hot_blood",
+      "name": "Flame Wave", "description": "Unlocks Flame Wave.",
+      "grantsSpell": "mymod:flame_wave"
+    }
+  ]
+}

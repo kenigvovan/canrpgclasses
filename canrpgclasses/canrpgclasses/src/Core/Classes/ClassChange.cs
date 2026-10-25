@@ -107,6 +107,8 @@ namespace canrpgclasses.Core.Classes
         /// <summary>Switches class (with respec) and stamps the flags, bypassing the policy.</summary>
         public static void Commit(Entity entity, string classId)
         {
+            // Before SetClass: the cleanup reads the old class's spells.
+            if (canrpgclassesModSystem.For(entity.Api) is { } mod) ClassCleanup.Strip(entity, mod);
             entity.GetBehavior<EBTalents>()?.SetClass(classId);
             entity.WatchedAttributes.SetBool(ChosenKey, true);
             entity.WatchedAttributes.SetLong(LastChangeKey, entity.World.ElapsedMilliseconds);

@@ -166,6 +166,9 @@ namespace canrpgclasses.Core.Spells
         // 0 = smooth energy sphere, 1 = thin ice crystal (Ice Ward), 2 = solid opaque ice encasement (Frozen Shell).
         public int ShieldDomeStyle = -1;
 
+        // Root: entity code of a model held on the target while it stays rooted (EntityControlFx). Null = none.
+        public string? ControlFxEntity;
+
         // Cleanse: max negative effects removed (0 = all).
         public int CleanseMax;
 

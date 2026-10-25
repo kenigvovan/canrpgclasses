@@ -7,6 +7,16 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "canrpgclasses", "canrpgclas
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CakeBuild", "ZZCakeBuild\CakeBuild.csproj", "{BC68EDF6-C294-4819-B7F4-9EA99B73E69D}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "canrpgclasses.scenarios", "canrpgclasses.scenarios\canrpgclasses.scenarios.csproj", "{6E2B1F44-8C7A-4D39-9B51-2F0A7C3E5D18}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Atlas", "Atlas", "{C432E2C6-7D36-3958-FAD0-1D362CBCD470}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Atlas.XUnit", "..\..\libs\1.22\Atlas-main\Atlas-main\src\Atlas.XUnit\Atlas.XUnit.csproj", "{33F2137D-EAF5-4F41-A01D-2C45A06050B9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Atlas", "..\..\libs\1.22\Atlas-main\Atlas-main\src\Atlas\Atlas.csproj", "{10037720-60EC-4DE9-A407-768D621E0A1B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Atlas.Bridge", "..\..\libs\1.22\Atlas-main\Atlas-main\src\Atlas.Bridge\Atlas.Bridge.csproj", "{8600043B-FC57-42C1-A390-96CD94D30548}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +34,26 @@ Global
 		{CB2100BC-F653-402A-9FBA-EA463C2BD4FC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CB2100BC-F653-402A-9FBA-EA463C2BD4FC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CB2100BC-F653-402A-9FBA-EA463C2BD4FC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6E2B1F44-8C7A-4D39-9B51-2F0A7C3E5D18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E2B1F44-8C7A-4D39-9B51-2F0A7C3E5D18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E2B1F44-8C7A-4D39-9B51-2F0A7C3E5D18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E2B1F44-8C7A-4D39-9B51-2F0A7C3E5D18}.Release|Any CPU.Build.0 = Release|Any CPU
+		{33F2137D-EAF5-4F41-A01D-2C45A06050B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33F2137D-EAF5-4F41-A01D-2C45A06050B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33F2137D-EAF5-4F41-A01D-2C45A06050B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33F2137D-EAF5-4F41-A01D-2C45A06050B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10037720-60EC-4DE9-A407-768D621E0A1B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10037720-60EC-4DE9-A407-768D621E0A1B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10037720-60EC-4DE9-A407-768D621E0A1B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10037720-60EC-4DE9-A407-768D621E0A1B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8600043B-FC57-42C1-A390-96CD94D30548}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8600043B-FC57-42C1-A390-96CD94D30548}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8600043B-FC57-42C1-A390-96CD94D30548}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8600043B-FC57-42C1-A390-96CD94D30548}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{33F2137D-EAF5-4F41-A01D-2C45A06050B9} = {C432E2C6-7D36-3958-FAD0-1D362CBCD470}
+		{10037720-60EC-4DE9-A407-768D621E0A1B} = {C432E2C6-7D36-3958-FAD0-1D362CBCD470}
+		{8600043B-FC57-42C1-A390-96CD94D30548} = {C432E2C6-7D36-3958-FAD0-1D362CBCD470}
 	EndGlobalSection
 EndGlobal

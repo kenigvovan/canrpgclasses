@@ -114,8 +114,9 @@ namespace canrpgclasses.Client
             var bookBounds = ElementBounds.Fixed(0, 0, bookW, BookH);
 
             // ---- left page ----
-            var kickerBounds = ElementBounds.Fixed(leftX + 56, PageTop + 4, PageW - 60, 18);
-            var classNameBounds = ElementBounds.Fixed(leftX + 56, PageTop + 20, PageW - 60, 26);
+            var kickerBounds = ElementBounds.Fixed(leftX + 56, PageTop + 4, PageW - 170, 18);
+            var classNameBounds = ElementBounds.Fixed(leftX + 56, PageTop + 20, PageW - 170, 26);
+            var petsBounds = ElementBounds.Fixed(leftX + PageW - 104, PageTop + 12, 104, 26);
             var headRuleBounds = ElementBounds.Fixed(leftX, PageTop + 52, PageW, 2);
             var hintBounds = ElementBounds.Fixed(leftX, PageTop + 58, PageW, 34);
 
@@ -184,6 +185,10 @@ namespace canrpgclasses.Client
                         CairoFont.WhiteDetailText().WithColor(InkSoft), kickerBounds)
                     .AddStaticText(cls?.DisplayName ?? classId,
                         CairoFont.WhiteSmallishText().WithColor(Bronze), classNameBounds)
+                    .AddIf(classId == "hunter")
+                        .AddSmallButton(Lang.Get("canrpgclasses:ui-spellbook-pets"),
+                            () => mod?.TogglePetPanel(capi) ?? false, petsBounds)
+                    .EndIf()
                     .AddStaticCustomDraw(headRuleBounds, PageRule)
                     .AddStaticText(Lang.Get("canrpgclasses:ui-spellbook-hint"),
                         CairoFont.WhiteDetailText().WithColor(InkSoft), hintBounds)
@@ -200,7 +205,9 @@ namespace canrpgclasses.Client
 
                     // right page
                     .AddStaticText(Lang.Get("canrpgclasses:ui-set"), CairoFont.WhiteSmallText().WithColor(Heading),
-                        ElementBounds.Fixed(rightX, PageTop, PageW, 22))
+                        ElementBounds.Fixed(rightX, PageTop, PageW - 130, 22))
+                    .AddSmallButton(Lang.Get("canrpgclasses:ui-spellbook-controls"),
+                        () => mod?.ToggleHudSettings(capi) ?? false, ElementBounds.Fixed(rightX + PageW - 124, PageTop - 4, 124, 24))
                     .AddStaticCustomDraw(setRuleBounds, PageRule)
                     .AddDropDown(SetCodes(), SetNames(), hotbar.ActiveSetIndex, OnSetSelected, setDropBounds, "sets")
                     .AddSmallButton(Lang.Get("canrpgclasses:ui-set-new"), NewSet, setNewBounds)

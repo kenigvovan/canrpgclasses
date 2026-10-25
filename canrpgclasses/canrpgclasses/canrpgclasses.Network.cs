@@ -28,6 +28,7 @@ namespace canrpgclasses
         {
             if (player?.PlayerUID == null) return;
             lastSpellRequestMs.Remove(player.PlayerUID);
+            Hunter.HunterPetSystem.OnOwnerLeave(player.Entity);
             Core.Portals.PortalManager.Forget(player.PlayerUID);
             Core.Portals.PortalShots.Forget(player.PlayerUID);
         }
@@ -69,6 +70,7 @@ namespace canrpgclasses
             channel.RegisterMessageType(typeof(Core.Portals.SummonOfferPacket));
             channel.RegisterMessageType(typeof(Core.Portals.SummonAnswerPacket));
             channel.RegisterMessageType(typeof(SpellSoundPacket));
+            channel.RegisterMessageType(typeof(PetStablePacket));
         }
 
         // ---- Server handlers ----
@@ -78,6 +80,12 @@ namespace canrpgclasses
             string name = (packet?.Name ?? "").Trim();
             if (name.Length > 32) name = name.Substring(0, 32);
             Hunter.HunterPetSystem.SetPetName(owner, name);
+        }
+
+        private void OnPetStable(IServerPlayer fromPlayer, PetStablePacket packet)
+        {
+            if (fromPlayer?.Entity is not EntityAgent owner || packet == null) return;
+            Hunter.HunterPetSystem.StableAction(owner, packet.Action ?? "", packet.Slot);
         }
 
         private void OnSpellRequest(IServerPlayer fromPlayer, SpellRequestPacket packet)
@@ -414,6 +422,7 @@ namespace canrpgclasses
             // Persisted cooldowns, or the HUD shows them as ready after a relog.
             player.Entity?.GetBehavior<Core.EB.EBSpellCooldowns>()?.SyncAll();
             if (ServerApi != null) Core.Integration.PlayerModelSwap.ScheduleReapplyOnJoin(ServerApi, player);
+            if (ServerApi != null) Hunter.HunterPetSystem.ScheduleRestoreOnJoin(ServerApi, player);
         }
 
         private void PushPartyResources()
@@ -428,6 +437,8 @@ namespace canrpgclasses
                 var uids = new System.Collections.Generic.List<string>();
                 var fracs = new System.Collections.Generic.List<float>();
                 var colors = new System.Collections.Generic.List<int>();
+                var petFracs = new System.Collections.Generic.List<float>();
+                var petNames = new System.Collections.Generic.List<string>();
                 var online = new System.Collections.Generic.List<IServerPlayer>();
                 foreach (var uid in party.playersGuids)
                 {
@@ -440,9 +451,16 @@ namespace canrpgclasses
                     float frac = max > 0f ? Core.Resources.ResourceState.Get(plr.Entity, pool) / max : 0f;
                     int color = (((int)(pool.ColorR * 255f)) << 16) | (((int)(pool.ColorG * 255f)) << 8) | (int)(pool.ColorB * 255f);
                     uids.Add(uid); fracs.Add(frac); colors.Add(color);
+
+                    var (petFrac, petName) = Hunter.HunterPetSystem.PetStatus(plr.Entity);
+                    petFracs.Add(petFrac); petNames.Add(petName);
                 }
                 if (uids.Count == 0) continue;
-                var msg = new PartyResourceMsg { Uids = uids.ToArray(), Fractions = fracs.ToArray(), Colors = colors.ToArray() };
+                var msg = new PartyResourceMsg
+                {
+                    Uids = uids.ToArray(), Fractions = fracs.ToArray(), Colors = colors.ToArray(),
+                    PetFractions = petFracs.ToArray(), PetNames = petNames.ToArray()
+                };
                 ServerChannel.SendPacket(msg, online.ToArray());
             }
         }

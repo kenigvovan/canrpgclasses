@@ -134,6 +134,10 @@ namespace canrpgclasses
                 api.Input.SetHotKeyHandler(code, comb => { radialMenu?.Open(index, comb.KeyCode); return true; });
             }
 
+            // Layered mode only; elsewhere the key stays free for whatever else is bound to it.
+            api.Input.RegisterHotKey("canrpglayer", Lang.Get("canrpgclasses:hotkey-layer"), GlKeys.CapsLock, HotkeyType.GUIOrOtherControls);
+            api.Input.SetHotKeyHandler("canrpglayer", _ => ToggleItemLayer(api));
+
             api.Input.RegisterHotKey("canrpgnextset", Lang.Get("canrpgclasses:hotkey-nextset"), GlKeys.B, HotkeyType.GUIOrOtherControls);
             api.Input.SetHotKeyHandler("canrpgnextset", _ => { Hotbar?.NextSet(); return true; });
 
@@ -307,7 +311,7 @@ namespace canrpgclasses
 
         public bool TogglePetPanel(ICoreClientAPI api) => ToggleGui(ref petPanel, () => new PetPanelDialog(api));
 
-        private bool ToggleHudSettings(ICoreClientAPI api)
+        public bool ToggleHudSettings(ICoreClientAPI api)
         {
             if (hudLayout is not { } layout) return false;
             return ToggleGui(ref hudSettings, () => new HudSettingsDialog(api, layout));
@@ -347,6 +351,19 @@ namespace canrpgclasses
                 : TextCommandResult.Error("No such profile, or it is from a newer version.");
         }
 
+        private long lastLayerToggleMs;
+
+        private bool ToggleItemLayer(ICoreClientAPI api)
+        {
+            if (hudLayout is not { Mode: InputMode.Layered } layout) return false;
+            // Same double-fire guard as ToggleGui.
+            long now = api.ElapsedMilliseconds;
+            if (now - lastLayerToggleMs < 200) return true;
+            lastLayerToggleMs = now;
+            layout.ItemLayer = !layout.ItemLayer;
+            return true;
+        }
+
         /// <summary>Set-switch hotkeys. Unbound by default - the cycle key covers most players.</summary>
         private static readonly string[] SetHotkeyCodes = { "canrpgset1", "canrpgset2", "canrpgset3" };
 
@@ -360,7 +377,7 @@ namespace canrpgclasses
                 api.Input.RegisterHotKeyFirst(code, label, key, HotkeyType.CharacterControls, shiftPressed: shift);
             api.Input.SetHotKeyHandler(code, _ =>
             {
-                if (hudLayout?.Mode == InputMode.Mouse) return false;
+                if (hudLayout?.CastKeysSilenced == true) return false;
                 Hotbar?.CastSlot(bar, slot);
                 return true;
             });

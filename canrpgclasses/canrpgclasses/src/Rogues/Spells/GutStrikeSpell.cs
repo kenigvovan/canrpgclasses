@@ -18,12 +18,12 @@ namespace canrpgclasses.Rogues.Spells
             Target.Type = TargetType.Caster; // self-buff: empowers the next melee hit
             Deliver.Type = DeliveryType.Direct;
 
-            // 2 + 1.5 per point, so up to 9.5x spell power at five.
+            // 2 + 1 per point, so up to 7x spell power at five.
             Impacts.Add(new SpellImpact
             {
                 Action = ImpactAction.EmpowerNextMelee,
                 DamageSpellPowerCoefficient = b.F("coeff", 2f),
-                DamagePerComboPoint = b.F("perCombo", 1.5f),
+                DamagePerComboPoint = b.F("perCombo", 1.0f),
                 Knockback = b.F("knockback", 0.4f),
                 EmpowerWindowSeconds = b.F("empowerWindow", 6f),
                 Particles = new ParticleSpec { ColorA = 230, ColorR = 200, ColorG = 30, ColorB = 30, MinQuantity = 18f, AddQuantity = 14f, VelocityHoriz = 1.6f } // heavy crimson spray

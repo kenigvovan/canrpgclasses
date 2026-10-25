@@ -14,7 +14,10 @@ namespace canrpgclasses.Client
         NumberRow = 1,
 
         /// <summary>Slots are clicked; needs a free cursor (cursor hotkey, Alt, or an open window).</summary>
-        Mouse = 2
+        Mouse = 2,
+
+        /// <summary>Cast keys on 1-9, and a layer key hands the number row back to the item hotbar.</summary>
+        Layered = 3
     }
 
     /// <summary>
@@ -51,6 +54,12 @@ namespace canrpgclasses.Client
         public float ComboPipRadius = 7f;
         public float ComboPipSpacing = 22f;
         public bool ComboVertical = false;  // false = row, true = column
+
+        // ---- hunter wolf health (solo only; in a party it shows in canparty's frames) ----
+        public float PetAnchorX = 0.5f;
+        public float PetAnchorY = 0.745f;
+        public float PetWidth = 160f;
+        public float PetThickness = 10f;
 
         public HudLayoutConfig Clone() => (HudLayoutConfig)MemberwiseClone();
     }
@@ -92,6 +101,12 @@ namespace canrpgclasses.Client
             get => file.Mode;
             set { file.Mode = value; Save(); }
         }
+
+        /// <summary>Layered mode: the number row currently picks items. Per session, every login starts on skills.</summary>
+        public bool ItemLayer;
+
+        /// <summary>Cast keys pass through to vanilla: Mouse mode, or the item layer of Layered mode.</summary>
+        public bool CastKeysSilenced => Mode == InputMode.Mouse || (Mode == InputMode.Layered && ItemLayer);
 
         /// <summary>Dim slots the player can't afford or that are on cooldown.</summary>
         public bool DimUnavailable

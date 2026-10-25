@@ -5,6 +5,10 @@
 		"measured_shot": { "resource": 12, "cooldown": 1.5, "coeff": 1.5, "knockback": 0.2, "window": 6 },
 		"finishing_shot": { "resource": 30, "cooldown": 8, "coeff": 1.5, "perCombo": 1.2, "knockback": 0.5, "window": 6 },
 		"summon_pet": { "resource": 0, "cooldown": 5, "cast": 2.5 },
+		"kill_command": { "resource": 30, "cooldown": 8, "coeff": 2.5, "window": 6 },
+		"revive_pet": { "resource": 30, "cooldown": 60, "cast": 5, "healthFraction": 0.5 },
+		"pet_special": { "resource": 20, "cooldown": 20, "biteWindow": 8, "rendAmp": 2, "rendDuration": 8, "crippleDuration": 6, "crippleSlowAmp": 2, "guardRadius": 8, "guardDuration": 6, "guardDamageCut": 0.4, "evadeDuration": 5, "evadeChance": 0.5 },
+		"tame_beast": { "resource": 40, "cooldown": 20, "range": 6, "duration": 8, "ticks": 8 },
 
 		"careful_shot": { "resource": 30, "cooldown": 8, "coeff": 4, "knockback": 0.5, "window": 6, "drawFraction": 1.2 },
 		"split_shot": { "resource": 35, "cooldown": 10, "coeff": 0.6, "extraArrows": 4, "window": 6 },
@@ -30,7 +34,8 @@
 		"pet_attack": { "resource": 0, "cooldown": 1 },
 		"pet_come": { "resource": 0, "cooldown": 1 },
 		"pet_stay": { "resource": 0, "cooldown": 1 },
-		"pet_dismiss": { "resource": 0, "cooldown": 1 }
+		"pet_dismiss": { "resource": 0, "cooldown": 1 },
+		"pet_growl": { "resource": 0, "cooldown": 15, "radius": 8 }
 	},
 
 	"talents": {
@@ -48,13 +53,13 @@
 
 		"alpha": { "perRank": 0.10 },
 		"sharp_fangs": { "perRank": 0.05 },
-		"beast_kinship": { "perRank": 0.12 },
+		"beast_kinship": { "perRank": 0.01 },
 		"venom": { "duration": 6 },
 		"bloodletting": { "perRank": 0.06 },
 		"pack_tactics": { "perRank": 0.04 },
 		"cowing_roar": { "duration": 3 },
 		"beast_call": { "perRank": 0.15 },
-		"kindred_spirit": { "perRank": 3 },
+		"kindred_spirit": { "perRank": 0.08, "range": 12 },
 		"beast_adept": { "perRank": 0.5 },
 		"wild_chase": { "durationBonus": 0.5, "damageBonus": 0.2 }
 	},
@@ -75,6 +80,12 @@
 
 		"hunterPetBaseHp": 20,
 		"hunterPetHpPerLevel": 2.5,
-		"petDeathLockoutSeconds": 30
+		"hunterPetDamagePerLevel": 0.05,
+		"petDeathLockoutSeconds": 90,
+		"petStableSlots": 3,
+		"petStableSlotsMax": 8,
+		"tameUnlockLevel": 10,
+		"tameMaxHealthFraction": 0.35,
+		"wildRareCoatChance": 0.03
 	}
 }

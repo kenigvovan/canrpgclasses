@@ -1,0 +1,3 @@
+# Dependency mods for the test server (canparty, effectshud, playermodellib): local only.
+*
+!.gitignore
