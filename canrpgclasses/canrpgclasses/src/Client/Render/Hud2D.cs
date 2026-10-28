@@ -151,7 +151,7 @@ namespace canrpgclasses.Client.Render
 
         private LoadedTexture? TextTexture(string text, CairoFont font)
         {
-            var key = (text, (int)font.UnscaledFontsize, font.Fontname ?? "");
+            var key = (text, (int)font.UnscaledFontsize, (font.Fontname ?? "") + (int)font.FontWeight);
             if (textCache.TryGetValue(key, out var hit))
             {
                 hit.LastUsedMs = capi.ElapsedMilliseconds;

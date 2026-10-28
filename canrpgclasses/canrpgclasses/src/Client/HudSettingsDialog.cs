@@ -62,9 +62,9 @@ namespace canrpgclasses.Client
 
             var compo = capi.Gui.CreateCompo(ComposerKey,
                     ElementStdBounds.AutosizedMainDialog.WithAlignment(EnumDialogArea.CenterMiddle))
-                .AddShadedDialogBG(ElementBounds.Fixed(0, 0, colW * 2 + 30 + 40, 790), true, 5.0, 0.75f)
+                .AddShadedDialogBG(ElementBounds.Fixed(0, 0, colW * 2 + 30 + 40, 890), true, 5.0, 0.75f)
                 .AddDialogTitleBar("HUD Layout", () => TryClose())
-                .BeginChildElements(ElementBounds.Fixed(20, 30, colW * 2 + 30, 750));
+                .BeginChildElements(ElementBounds.Fixed(20, 30, colW * 2 + 30, 850));
 
             var font = CairoFont.WhiteSmallText();
 
@@ -148,6 +148,14 @@ namespace canrpgclasses.Client
             Slider(rightX, "comboR", "Pip radius", v => cfg.ComboPipRadius = v);
             Slider(rightX, "comboGap", "Pip spacing", v => cfg.ComboPipSpacing = v);
 
+            y += rowH / 2;
+            Header(rightX, "Target frame");
+            Switch(rightX, "targetShow", "Show", on => cfg.ShowTarget = on);
+            Switch(rightX, "targetFx", "Effects", on => cfg.ShowTargetEffects = on);
+            Anchor(rightX, "targetX", "X", v => cfg.TargetAnchorX = v);
+            Anchor(rightX, "targetY", "Y", v => cfg.TargetAnchorY = v);
+            Slider(rightX, "targetW", "Width", v => cfg.TargetWidth = v);
+
             double bottom = Math.Max(leftBottom, y) + 10;
 
             // Input mode is global, so it spans both columns.
@@ -218,6 +226,9 @@ namespace canrpgclasses.Client
             SetSlider("comboY", (int)Math.Round(cfg.ComboAnchorY * AnchorSteps), 0, AnchorSteps);
             SetSlider("comboR", (int)cfg.ComboPipRadius, 3, 16);
             SetSlider("comboGap", (int)cfg.ComboPipSpacing, 10, 48);
+            SetSlider("targetX", (int)Math.Round(cfg.TargetAnchorX * AnchorSteps), 0, AnchorSteps);
+            SetSlider("targetY", (int)Math.Round(cfg.TargetAnchorY * AnchorSteps), 0, AnchorSteps);
+            SetSlider("targetW", (int)cfg.TargetWidth, 180, 480);
             SetSlider("skillsound", (int)Math.Round(layout.SkillSoundVolume * 100f), 0, 100);
 
             SingleComposer.GetSwitch("slotVert").SetValue(shown.Vertical);
@@ -228,6 +239,8 @@ namespace canrpgclasses.Client
             SingleComposer.GetSwitch("castVert").SetValue(cfg.CastVertical);
             SingleComposer.GetSwitch("comboShow").SetValue(cfg.ShowCombo);
             SingleComposer.GetSwitch("comboVert").SetValue(cfg.ComboVertical);
+            SingleComposer.GetSwitch("targetShow").SetValue(cfg.ShowTarget);
+            SingleComposer.GetSwitch("targetFx").SetValue(cfg.ShowTargetEffects);
             SingleComposer.GetSwitch("dimswitch").SetValue(layout.DimUnavailable);
             SingleComposer.GetSwitch("profilekeys").SetValue(profileKeys);
             SingleComposer.GetTextInput("profilename").SetValue(profileName);

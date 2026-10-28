@@ -45,6 +45,7 @@ namespace canrpgclasses.Client.Render
 
         private readonly ICoreClientAPI capi;
         private readonly Hud2D draw;
+        private readonly TargetFrame targetFrame;
         private readonly CairoFont smallFont = CairoFont.WhiteSmallText();
         private readonly CairoFont bigFont = CairoFont.WhiteSmallText().WithFontSize(30);
 
@@ -64,10 +65,11 @@ namespace canrpgclasses.Client.Render
         public double RenderOrder => 0.9;
         public int RenderRange => 0;
 
-        public CombatOverlayRenderer(ICoreClientAPI capi)
+        public CombatOverlayRenderer(ICoreClientAPI capi, Func<HudLayout?> layout)
         {
             this.capi = capi;
             draw = new Hud2D(capi);
+            targetFrame = new TargetFrame(capi, draw, layout);
             capi.Event.RegisterRenderer(this, EnumRenderStage.Ortho, "canrpgclasses-combatoverlay");
         }
 
@@ -119,8 +121,10 @@ namespace canrpgclasses.Client.Render
             Mat4d.Mul(pvMat, r.PerspectiveProjectionMat, r.PerspectiveViewMat);
 
             RefreshNearby(player);
+            var aimed = PickAimedEntity(TargetMarkerRange);
             DrawHealthBars(player);
-            DrawTargetMarker(player);
+            DrawTargetMarker(player, aimed);
+            targetFrame.Draw(player, aimed, deltaTime);
             DrawCastBars(player);
             DrawDamageNumbers();
             DrawSelfShield(player);
@@ -128,9 +132,8 @@ namespace canrpgclasses.Client.Render
         }
 
         /// <summary>Corner brackets around the entity an Aim spell would pick (mirrors server LookedAtAgent).</summary>
-        private void DrawTargetMarker(EntityPlayer player)
+        private void DrawTargetMarker(EntityPlayer player, Entity? target)
         {
-            var target = PickAimedEntity(TargetMarkerRange);
             if (target == null) return;
 
             var box = target.SelectionBox;
@@ -418,7 +421,7 @@ namespace canrpgclasses.Client.Render
         }
 
         // red (low) - yellow - green (high)
-        private static Vec4f HealthColor(float frac)
+        internal static Vec4f HealthColor(float frac)
             => new(Math.Min(1f, 2f * (1f - frac)), Math.Min(1f, 2f * frac), 0.15f, 0.9f);
 
         public void Dispose()

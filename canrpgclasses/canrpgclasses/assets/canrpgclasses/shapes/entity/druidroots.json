@@ -218,22 +218,25 @@
         {
           "frame": 0,
           "elements": {
-            "vine1": { "offsetY": -14 }, "vine2": { "offsetY": -14 }, "vine3": { "offsetY": -14 },
-            "vine4": { "offsetY": -14 }, "vine5": { "offsetY": -14 }
+            "vine1": { "offsetX": 0, "offsetY": -14, "offsetZ": 0 }, "vine2": { "offsetX": 0, "offsetY": -14, "offsetZ": 0 },
+            "vine3": { "offsetX": 0, "offsetY": -14, "offsetZ": 0 }, "vine4": { "offsetX": 0, "offsetY": -14, "offsetZ": 0 },
+            "vine5": { "offsetX": 0, "offsetY": -14, "offsetZ": 0 }
           }
         },
         {
           "frame": 6,
           "elements": {
-            "vine1": { "offsetY": -4 }, "vine2": { "offsetY": -6 }, "vine3": { "offsetY": -3 },
-            "vine4": { "offsetY": -5 }, "vine5": { "offsetY": -7 }
+            "vine1": { "offsetX": 0, "offsetY": -4, "offsetZ": 0 }, "vine2": { "offsetX": 0, "offsetY": -6, "offsetZ": 0 },
+            "vine3": { "offsetX": 0, "offsetY": -3, "offsetZ": 0 }, "vine4": { "offsetX": 0, "offsetY": -5, "offsetZ": 0 },
+            "vine5": { "offsetX": 0, "offsetY": -7, "offsetZ": 0 }
           }
         },
         {
           "frame": 11,
           "elements": {
-            "vine1": { "offsetY": 0 }, "vine2": { "offsetY": 0 }, "vine3": { "offsetY": 0 },
-            "vine4": { "offsetY": 0 }, "vine5": { "offsetY": 0 }
+            "vine1": { "offsetX": 0, "offsetY": 0, "offsetZ": 0 }, "vine2": { "offsetX": 0, "offsetY": 0, "offsetZ": 0 },
+            "vine3": { "offsetX": 0, "offsetY": 0, "offsetZ": 0 }, "vine4": { "offsetX": 0, "offsetY": 0, "offsetZ": 0 },
+            "vine5": { "offsetX": 0, "offsetY": 0, "offsetZ": 0 }
           }
         }
       ]
@@ -244,41 +247,41 @@
         {
           "frame": 0,
           "elements": {
-            "vine1b": { "rotationX": 5, "rotationZ": 0 }, "vine1c": { "rotationX": -6, "rotationZ": 4 },
-            "vine2b": { "rotationX": -3, "rotationZ": 5 }, "vine2c": { "rotationX": 6, "rotationZ": -3 },
-            "vine3b": { "rotationX": 0, "rotationZ": -5 }, "vine3c": { "rotationX": 8, "rotationZ": 0 },
-            "vine4b": { "rotationX": -5, "rotationZ": -2 }, "vine4c": { "rotationX": 0, "rotationZ": 6 },
-            "vine5b": { "rotationX": 3, "rotationZ": 4 }, "vine5c": { "rotationX": -8, "rotationZ": -4 }
+            "vine1b": { "rotationX": 5, "rotationY": 0, "rotationZ": 0 }, "vine1c": { "rotationX": -6, "rotationY": 0, "rotationZ": 4 },
+            "vine2b": { "rotationX": -3, "rotationY": 0, "rotationZ": 5 }, "vine2c": { "rotationX": 6, "rotationY": 0, "rotationZ": -3 },
+            "vine3b": { "rotationX": 0, "rotationY": 0, "rotationZ": -5 }, "vine3c": { "rotationX": 8, "rotationY": 0, "rotationZ": 0 },
+            "vine4b": { "rotationX": -5, "rotationY": 0, "rotationZ": -2 }, "vine4c": { "rotationX": 0, "rotationY": 0, "rotationZ": 6 },
+            "vine5b": { "rotationX": 3, "rotationY": 0, "rotationZ": 4 }, "vine5c": { "rotationX": -8, "rotationY": 0, "rotationZ": -4 }
           }
         },
         {
           "frame": 20,
           "elements": {
-            "vine1b": { "rotationX": 0, "rotationZ": -4 }, "vine1c": { "rotationX": 4, "rotationZ": -5 },
-            "vine2b": { "rotationX": 4, "rotationZ": 0 }, "vine2c": { "rotationX": -5, "rotationZ": 4 },
-            "vine3b": { "rotationX": -5, "rotationZ": 0 }, "vine3c": { "rotationX": 0, "rotationZ": -6 },
-            "vine4b": { "rotationX": 0, "rotationZ": 4 }, "vine4c": { "rotationX": 7, "rotationZ": 0 },
-            "vine5b": { "rotationX": -4, "rotationZ": 0 }, "vine5c": { "rotationX": 0, "rotationZ": 6 }
+            "vine1b": { "rotationX": 0, "rotationY": 0, "rotationZ": -4 }, "vine1c": { "rotationX": 4, "rotationY": 0, "rotationZ": -5 },
+            "vine2b": { "rotationX": 4, "rotationY": 0, "rotationZ": 0 }, "vine2c": { "rotationX": -5, "rotationY": 0, "rotationZ": 4 },
+            "vine3b": { "rotationX": -5, "rotationY": 0, "rotationZ": 0 }, "vine3c": { "rotationX": 0, "rotationY": 0, "rotationZ": -6 },
+            "vine4b": { "rotationX": 0, "rotationY": 0, "rotationZ": 4 }, "vine4c": { "rotationX": 7, "rotationY": 0, "rotationZ": 0 },
+            "vine5b": { "rotationX": -4, "rotationY": 0, "rotationZ": 0 }, "vine5c": { "rotationX": 0, "rotationY": 0, "rotationZ": 6 }
           }
         },
         {
           "frame": 40,
           "elements": {
-            "vine1b": { "rotationX": -5, "rotationZ": 0 }, "vine1c": { "rotationX": 8, "rotationZ": 0 },
-            "vine2b": { "rotationX": 3, "rotationZ": -5 }, "vine2c": { "rotationX": 0, "rotationZ": -6 },
-            "vine3b": { "rotationX": 0, "rotationZ": 5 }, "vine3c": { "rotationX": -6, "rotationZ": 4 },
-            "vine4b": { "rotationX": 5, "rotationZ": 0 }, "vine4c": { "rotationX": -5, "rotationZ": -4 },
-            "vine5b": { "rotationX": 0, "rotationZ": -5 }, "vine5c": { "rotationX": 6, "rotationZ": 0 }
+            "vine1b": { "rotationX": -5, "rotationY": 0, "rotationZ": 0 }, "vine1c": { "rotationX": 8, "rotationY": 0, "rotationZ": 0 },
+            "vine2b": { "rotationX": 3, "rotationY": 0, "rotationZ": -5 }, "vine2c": { "rotationX": 0, "rotationY": 0, "rotationZ": -6 },
+            "vine3b": { "rotationX": 0, "rotationY": 0, "rotationZ": 5 }, "vine3c": { "rotationX": -6, "rotationY": 0, "rotationZ": 4 },
+            "vine4b": { "rotationX": 5, "rotationY": 0, "rotationZ": 0 }, "vine4c": { "rotationX": -5, "rotationY": 0, "rotationZ": -4 },
+            "vine5b": { "rotationX": 0, "rotationY": 0, "rotationZ": -5 }, "vine5c": { "rotationX": 6, "rotationY": 0, "rotationZ": 0 }
           }
         },
         {
           "frame": 60,
           "elements": {
-            "vine1b": { "rotationX": 0, "rotationZ": 4 }, "vine1c": { "rotationX": 0, "rotationZ": 6 },
-            "vine2b": { "rotationX": -4, "rotationZ": 0 }, "vine2c": { "rotationX": 5, "rotationZ": 0 },
-            "vine3b": { "rotationX": 5, "rotationZ": 0 }, "vine3c": { "rotationX": 4, "rotationZ": 5 },
-            "vine4b": { "rotationX": 0, "rotationZ": -4 }, "vine4c": { "rotationX": 0, "rotationZ": 5 },
-            "vine5b": { "rotationX": 4, "rotationZ": 0 }, "vine5c": { "rotationX": -4, "rotationZ": 5 }
+            "vine1b": { "rotationX": 0, "rotationY": 0, "rotationZ": 4 }, "vine1c": { "rotationX": 0, "rotationY": 0, "rotationZ": 6 },
+            "vine2b": { "rotationX": -4, "rotationY": 0, "rotationZ": 0 }, "vine2c": { "rotationX": 5, "rotationY": 0, "rotationZ": 0 },
+            "vine3b": { "rotationX": 5, "rotationY": 0, "rotationZ": 0 }, "vine3c": { "rotationX": 4, "rotationY": 0, "rotationZ": 5 },
+            "vine4b": { "rotationX": 0, "rotationY": 0, "rotationZ": -4 }, "vine4c": { "rotationX": 0, "rotationY": 0, "rotationZ": 5 },
+            "vine5b": { "rotationX": 4, "rotationY": 0, "rotationZ": 0 }, "vine5c": { "rotationX": -4, "rotationY": 0, "rotationZ": 5 }
           }
         }
       ]

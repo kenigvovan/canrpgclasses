@@ -417,6 +417,10 @@ namespace canrpgclasses.Client.Render
                     (fx, fy) => { cfg.ComboAnchorX = fx; cfg.ComboAnchorY = fy; }));
             }
 
+            if (cfg.ShowTarget)
+                editBlocks.Add((Block(screenW, screenH, cfg.TargetAnchorX, cfg.TargetAnchorY, cfg.TargetWidth, TargetFrame.NominalHeight, false),
+                    (fx, fy) => { cfg.TargetAnchorX = fx; cfg.TargetAnchorY = fy; }));
+
             if (dragging >= editBlocks.Count) dragging = -1;
 
             var hi = new Vec4f(1f, 0.85f, 0.25f, 0.95f);

@@ -533,7 +533,7 @@ namespace canrpgclasses
             PatchItemSpellUse();
             PatchModelSwapArmor();
 
-            combatOverlay = new Client.Render.CombatOverlayRenderer(api);
+            combatOverlay = new Client.Render.CombatOverlayRenderer(api, () => hudLayout);
 
             partyResourceOverlay = new PartyResourceOverlay();
 

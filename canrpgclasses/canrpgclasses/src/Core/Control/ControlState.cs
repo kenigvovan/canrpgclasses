@@ -18,7 +18,7 @@ namespace canrpgclasses.Core.Control
         {
             public readonly bool PreventsMovement, PreventsActions, PreventsCasting, RootsMotion, InterruptsHandUse;
             public readonly string Bracket, Flag, Until;
-            public readonly string? HudEffect; // HUD marker for a controlled player, null = none
+            public readonly string? HudEffect; // HUD/target-frame marker effect, null = none
             public Props(bool move, bool act, bool cast, bool root, bool hand, string bracket, string flag, string until, string? hudEffect = null)
             { PreventsMovement = move; PreventsActions = act; PreventsCasting = cast; RootsMotion = root; InterruptsHandUse = hand; Bracket = bracket; Flag = flag; Until = until; HudEffect = hudEffect; }
         }
@@ -99,7 +99,7 @@ namespace canrpgclasses.Core.Control
             if (breakOnDamage) mask |= 1 << (int)type; else mask &= ~(1 << (int)type);
             if (mask != 0) wa.SetInt(CombatFlags.BreakOnDamageMask, mask); else wa.RemoveAttribute(CombatFlags.BreakOnDamageMask);
 
-            if (target is EntityPlayer && p.HudEffect != null)
+            if (p.HudEffect != null) // mobs too: the marker is what target frames show
                 Execution.SpellExecutor.ApplyEffect(target, p.HudEffect, 1, seconds);
 
             switch (type)

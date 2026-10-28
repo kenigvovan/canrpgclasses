@@ -61,6 +61,13 @@ namespace canrpgclasses.Client
         public float PetWidth = 160f;
         public float PetThickness = 10f;
 
+        // ---- target frame (anchor = centre of the name/health panel; effect rows hang below it) ----
+        public bool ShowTarget = true;
+        public bool ShowTargetEffects = true;
+        public float TargetAnchorX = 0.5f;
+        public float TargetAnchorY = 0.112f;
+        public float TargetWidth = 280f;
+
         public HudLayoutConfig Clone() => (HudLayoutConfig)MemberwiseClone();
     }
 
